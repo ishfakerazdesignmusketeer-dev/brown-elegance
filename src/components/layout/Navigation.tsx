@@ -15,7 +15,7 @@ const Navigation = () => {
   const cartCount = 2; // Static placeholder
 
   return (
-    <header className="bg-cream h-20 sticky top-0 z-40">
+    <header className="bg-cream h-14 sticky top-0 z-40">
       <div className="h-full px-6 lg:px-12 flex items-center justify-between">
         {/* Left - Logo */}
         <a href="/" className="font-heading text-[28px] text-foreground font-normal tracking-wide">
