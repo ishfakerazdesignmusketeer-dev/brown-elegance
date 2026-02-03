@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Search, ShoppingBag, User, Menu, X } from "lucide-react";
+import { Search, ShoppingBag, User, Menu } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
+import logo from "@/assets/logo.png";
 
 const navLinks = [
   { label: "SHOP", href: "#shop" },
@@ -18,8 +19,8 @@ const Navigation = () => {
     <header className="bg-cream h-14 sticky top-0 z-40">
       <div className="h-full px-6 lg:px-12 flex items-center justify-between">
         {/* Left - Logo */}
-        <a href="/" className="font-heading text-[28px] text-foreground font-normal tracking-wide">
-          Brown
+        <a href="/" className="h-10">
+          <img src={logo} alt="Brown" className="h-full w-auto" />
         </a>
 
         {/* Center - Desktop Navigation */}
