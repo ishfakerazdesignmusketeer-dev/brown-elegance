@@ -79,72 +79,73 @@ const HeroCarousel = () => {
                 alt={slide.alt}
                 className="absolute inset-0 w-full h-full object-cover"
               />
-              {/* Dark Gradient Overlay */}
-              <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent" />
+              {/* Subtle Warm Gradient Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-r from-black/40 via-black/20 to-transparent" />
             </div>
           ))}
         </div>
       </div>
 
-      {/* Content Overlay */}
-      <div className="relative z-10 h-full flex items-center">
-        <div className="px-6 lg:px-12 xl:pl-[10%] max-w-3xl">
+      {/* Content Overlay - Bottom Left Positioned */}
+      <div className="relative z-10 h-full flex items-end pb-24 lg:pb-32">
+        <div className="px-6 lg:px-12 xl:pl-14 max-w-2xl">
           {/* Eyebrow */}
-          <p className="font-body text-[11px] uppercase tracking-[2px] text-white/90 mb-6 drop-shadow-sm">
+          <p className="font-body text-[11px] uppercase tracking-[2px] text-white/80 mb-5">
             CRAFTED FOR TIMELESS ELEGANCE
           </p>
 
           {/* Headline */}
-          <h1 className="font-heading text-4xl sm:text-5xl lg:text-6xl xl:text-[64px] text-white leading-[1.15] mb-6 drop-shadow-md">
-            Brown — Effortless Elegance,{" "}
-            <em className="italic">Rooted in Heritage</em>
+          <h1 className="font-heading text-4xl sm:text-5xl lg:text-[56px] text-white leading-[1.1] mb-6">
+            Brown — Handwoven Khadi,
+            <br />
+            <em className="italic">Tailored Quietly</em>
           </h1>
 
           {/* Body Text */}
-          <p className="font-body text-base lg:text-lg text-white/90 leading-relaxed max-w-[480px] mb-8 drop-shadow-sm">
-            Small-batch panjabis in premium fabrics, designed for those who know quality when they see it.
+          <p className="font-body text-[15px] text-white/80 leading-relaxed max-w-[420px] mb-8">
+            Small-batch pieces in organic cotton, linen, silk, and wool khadi.
           </p>
 
           {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 mb-8">
+          <div className="flex flex-col sm:flex-row gap-4 mb-6">
             <a
               href="#collection"
-              className="inline-flex items-center justify-center bg-cream text-foreground font-body text-[13px] uppercase tracking-[1px] px-8 py-4 hover:bg-white transition-colors"
+              className="inline-flex items-center justify-center border border-white/80 text-white font-body text-[12px] uppercase tracking-[1.5px] px-7 py-4 hover:bg-white/10 transition-colors"
             >
               EXPLORE THE COLLECTION
             </a>
             <a
               href="#preorder"
-              className="inline-flex items-center justify-center border-2 border-white text-white font-body text-[13px] uppercase tracking-[1px] px-8 py-4 hover:bg-white/10 transition-colors"
+              className="inline-flex items-center justify-center bg-espresso text-cream font-body text-[12px] uppercase tracking-[1.5px] px-7 py-4 hover:bg-espresso/90 transition-colors"
             >
-              PRE-ORDER — JOIN WAITLIST
+              PRE-ORDER — JOIN THE WAITLIST
             </a>
           </div>
 
           {/* Story Link */}
           <a
             href="#story"
-            className="inline-block font-body text-[13px] text-white/90 hover:text-white transition-colors group"
+            className="inline-flex items-center font-body text-[13px] text-white/80 hover:text-white transition-colors group"
           >
-            <span className="border-b border-white/50 group-hover:border-white transition-colors">
-              Our Story
+            <span className="border-b border-white/60 group-hover:border-white transition-colors">
+              Craft Story
             </span>
             <span className="ml-2 inline-block group-hover:translate-x-1 transition-transform">→</span>
           </a>
         </div>
       </div>
 
-      {/* Dot Navigation */}
-      <div className="absolute bottom-10 right-6 lg:right-12 z-10 flex gap-3">
+      {/* Dot Navigation - Bottom Right with Pill Active State */}
+      <div className="absolute bottom-10 right-6 lg:right-12 z-10 flex items-center gap-2">
         {heroSlides.map((_, index) => (
           <button
             key={index}
             onClick={() => scrollTo(index)}
             className={cn(
-              "w-2.5 h-2.5 rounded-full transition-all duration-300",
+              "h-2 rounded-full transition-all duration-300",
               selectedIndex === index
-                ? "bg-white"
-                : "bg-white/40 hover:bg-white/60"
+                ? "bg-white w-8"
+                : "bg-white/40 hover:bg-white/60 w-2"
             )}
             aria-label={`Go to slide ${index + 1}`}
           />
