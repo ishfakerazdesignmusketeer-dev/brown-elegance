@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -38,7 +38,7 @@ interface AppliedCoupon {
 }
 
 const Checkout = () => {
-  const { items, subtotal, clearCart } = useCart();
+  const { items, subtotal, clearCart, sessionId } = useCart();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +46,24 @@ const Checkout = () => {
   const [couponLoading, setCouponLoading] = useState(false);
   const [couponError, setCouponError] = useState<string | null>(null);
   const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
+  const [paymentNumbers, setPaymentNumbers] = useState({ bkash: "01XXXXXXXXX", nagad: "01XXXXXXXXX" });
+
+  useEffect(() => {
+    supabase
+      .from("admin_settings")
+      .select("key, value")
+      .in("key", ["bkash_number", "nagad_number"])
+      .then(({ data }) => {
+        if (data) {
+          const map: Record<string, string> = {};
+          data.forEach((row) => { if (row.key && row.value) map[row.key] = row.value; });
+          setPaymentNumbers({
+            bkash: map["bkash_number"] ?? "01XXXXXXXXX",
+            nagad: map["nagad_number"] ?? "01XXXXXXXXX",
+          });
+        }
+      });
+  }, []);
 
   const {
     register,
@@ -190,7 +208,14 @@ const Checkout = () => {
       const waUrl = `https://wa.me/${waNumber}?text=${encodeURIComponent(message)}`;
       window.open(waUrl, "_blank");
 
-      // 5. Clear cart & navigate
+      // 5. Mark abandoned cart as converted
+      supabase
+        .from("abandoned_carts")
+        .update({ converted: true, converted_order_id: order.id })
+        .eq("session_id", sessionId)
+        .then(() => {});
+
+      // 6. Clear cart & navigate
       clearCart();
       navigate(`/order-confirmation/${order.id}`, {
         state: {
@@ -256,7 +281,20 @@ const Checkout = () => {
                 Phone Number *
               </label>
               <Input
-                {...register("customer_phone")}
+                {...register("customer_phone", {
+                  onBlur: (e) => {
+                    const phone = e.target.value;
+                    if (/^01[3-9]\d{8}$/.test(phone)) {
+                      // Fire-and-forget: update abandoned cart with phone
+                      const nameEl = document.querySelector<HTMLInputElement>('input[name="customer_name"]');
+                      supabase
+                        .from("abandoned_carts")
+                        .update({ customer_phone: phone, customer_name: nameEl?.value ?? null })
+                        .eq("session_id", sessionId)
+                        .then(() => {});
+                    }
+                  },
+                })}
                 placeholder="017XXXXXXXX"
                 className="bg-transparent border-border rounded-none font-body text-sm focus-visible:ring-foreground"
               />
@@ -307,13 +345,42 @@ const Checkout = () => {
             </div>
 
             {/* Payment method */}
-            <div className="border border-border p-4">
-              <p className="font-body text-xs uppercase tracking-[1.5px] text-foreground mb-2">Payment Method</p>
-              <div className="flex items-center gap-3">
-                <div className="w-4 h-4 rounded-full border-2 border-foreground flex items-center justify-center">
+            <div className="border border-border p-4 space-y-3">
+              <p className="font-body text-xs uppercase tracking-[1.5px] text-foreground">Payment Method</p>
+
+              {/* COD — only selectable */}
+              <div className="flex items-start gap-3 cursor-pointer">
+                <div className="w-4 h-4 rounded-full border-2 border-foreground flex items-center justify-center mt-0.5 flex-shrink-0">
                   <div className="w-2 h-2 rounded-full bg-foreground" />
                 </div>
-                <span className="font-body text-sm text-foreground">Cash on Delivery (COD)</span>
+                <div>
+                  <span className="font-body text-sm text-foreground font-medium">Cash on Delivery (COD)</span>
+                  <p className="font-body text-xs text-muted-foreground mt-0.5">Pay when you receive your order</p>
+                </div>
+              </div>
+
+              {/* bKash — coming soon */}
+              <div className="flex items-start gap-3 opacity-50 cursor-not-allowed">
+                <div className="w-4 h-4 rounded-full border-2 border-muted flex items-center justify-center mt-0.5 flex-shrink-0" />
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-body text-sm text-muted-foreground font-medium">bKash</span>
+                    <span className="text-[10px] italic text-muted-foreground border border-muted rounded px-1.5 py-0.5">Coming Soon</span>
+                  </div>
+                  <p className="font-body text-xs text-muted-foreground mt-0.5">Send to: {paymentNumbers.bkash}</p>
+                </div>
+              </div>
+
+              {/* Nagad — coming soon */}
+              <div className="flex items-start gap-3 opacity-50 cursor-not-allowed">
+                <div className="w-4 h-4 rounded-full border-2 border-muted flex items-center justify-center mt-0.5 flex-shrink-0" />
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-body text-sm text-muted-foreground font-medium">Nagad</span>
+                    <span className="text-[10px] italic text-muted-foreground border border-muted rounded px-1.5 py-0.5">Coming Soon</span>
+                  </div>
+                  <p className="font-body text-xs text-muted-foreground mt-0.5">Send to: {paymentNumbers.nagad}</p>
+                </div>
               </div>
             </div>
 

@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate, Link, useLocation, Outlet } from "react-router-dom";
-import { LayoutDashboard, ShoppingBag, Grid3X3, Settings, LogOut, Menu, Users, Tag } from "lucide-react";
+import { LayoutDashboard, ShoppingBag, Grid3X3, Settings, LogOut, Menu, Users, Tag, ShoppingCart, Truck, CreditCard } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -9,14 +9,27 @@ import { supabase } from "@/integrations/supabase/client";
 
 const navItems = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/admin/dashboard" },
-  { label: "Orders", icon: ShoppingBag, href: "/admin/orders", badge: true },
+  { label: "Orders", icon: ShoppingBag, href: "/admin/orders", badge: "pending" },
+  { label: "Abandoned Carts", icon: ShoppingCart, href: "/admin/abandoned-carts", badge: "abandoned" },
   { label: "Products", icon: Grid3X3, href: "/admin/products" },
   { label: "Customers", icon: Users, href: "/admin/customers" },
   { label: "Coupons", icon: Tag, href: "/admin/coupons" },
+  { label: "Courier", icon: Truck, href: "/admin/courier", badge: "courier" },
+  { label: "Payments", icon: CreditCard, href: "/admin/payments" },
   { label: "Settings", icon: Settings, href: "/admin/settings" },
 ];
 
-const SidebarContent = ({ pendingCount, onClose }: { pendingCount: number; onClose?: () => void }) => {
+const SidebarContent = ({
+  pendingCount,
+  abandonedCount,
+  courierTodayCount,
+  onClose,
+}: {
+  pendingCount: number;
+  abandonedCount: number;
+  courierTodayCount: number;
+  onClose?: () => void;
+}) => {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -25,14 +38,22 @@ const SidebarContent = ({ pendingCount, onClose }: { pendingCount: number; onClo
     navigate("/admin");
   };
 
+  const getBadgeCount = (badge?: string) => {
+    if (badge === "pending") return pendingCount;
+    if (badge === "abandoned") return abandonedCount;
+    if (badge === "courier") return courierTodayCount;
+    return 0;
+  };
+
   return (
     <div className="flex flex-col h-full">
       <div className="px-6 py-5 border-b border-gray-200">
         <p className="text-sm font-semibold text-gray-900 uppercase tracking-widest">Brown Admin</p>
       </div>
-      <nav className="flex-1 px-3 py-4 space-y-1">
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
           const isActive = location.pathname === item.href;
+          const count = getBadgeCount(item.badge);
           return (
             <Link
               key={item.href}
@@ -45,10 +66,10 @@ const SidebarContent = ({ pendingCount, onClose }: { pendingCount: number; onClo
               }`}
             >
               <item.icon className="w-4 h-4 flex-shrink-0" />
-              {item.label}
-              {item.badge && pendingCount > 0 && (
-                <span className="ml-auto bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
-                  {pendingCount > 99 ? "99+" : pendingCount}
+              <span className="flex-1 truncate">{item.label}</span>
+              {item.badge && count > 0 && (
+                <span className="ml-auto bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center flex-shrink-0">
+                  {count > 99 ? "99+" : count}
                 </span>
               )}
             </Link>
@@ -89,18 +110,46 @@ const AdminLayout = () => {
     refetchInterval: 30000,
   });
 
+  const { data: abandonedCount = 0 } = useQuery({
+    queryKey: ["admin-abandoned-count"],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("abandoned_carts")
+        .select("*", { count: "exact", head: true })
+        .eq("converted", false)
+        .eq("recovery_sent", false)
+        .not("customer_phone", "is", null);
+      return count ?? 0;
+    },
+    refetchInterval: 60000,
+  });
+
+  const { data: courierTodayCount = 0 } = useQuery({
+    queryKey: ["admin-courier-today"],
+    queryFn: async () => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const { count } = await supabase
+        .from("courier_bookings")
+        .select("*", { count: "exact", head: true })
+        .gte("created_at", today.toISOString());
+      return count ?? 0;
+    },
+    refetchInterval: 60000,
+  });
+
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex flex-col w-56 bg-white border-r border-gray-200 flex-shrink-0">
-        <SidebarContent pendingCount={pendingCount} />
+        <SidebarContent pendingCount={pendingCount} abandonedCount={abandonedCount} courierTodayCount={courierTodayCount} />
       </aside>
 
       {/* Mobile Sidebar */}
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent side="left" className="w-56 p-0 bg-white">
           <SheetTitle className="sr-only">Admin Navigation</SheetTitle>
-          <SidebarContent pendingCount={pendingCount} onClose={() => setMobileOpen(false)} />
+          <SidebarContent pendingCount={pendingCount} abandonedCount={abandonedCount} courierTodayCount={courierTodayCount} onClose={() => setMobileOpen(false)} />
         </SheetContent>
       </Sheet>
 
