@@ -32,6 +32,81 @@ export type Database = {
         }
         Relationships: []
       }
+      coupons: {
+        Row: {
+          code: string
+          created_at: string | null
+          discount_type: string
+          discount_value: number
+          expires_at: string | null
+          id: string
+          is_active: boolean | null
+          max_uses: number | null
+          min_order_amount: number | null
+          used_count: number | null
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          discount_type: string
+          discount_value: number
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_uses?: number | null
+          min_order_amount?: number | null
+          used_count?: number | null
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          discount_type?: string
+          discount_value?: number
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_uses?: number | null
+          min_order_amount?: number | null
+          used_count?: number | null
+        }
+        Relationships: []
+      }
+      customers: {
+        Row: {
+          address: string | null
+          city: string | null
+          created_at: string | null
+          id: string
+          last_order_at: string | null
+          name: string
+          phone: string
+          total_orders: number | null
+          total_spent: number | null
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          created_at?: string | null
+          id?: string
+          last_order_at?: string | null
+          name: string
+          phone: string
+          total_orders?: number | null
+          total_spent?: number | null
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          created_at?: string | null
+          id?: string
+          last_order_at?: string | null
+          name?: string
+          phone?: string
+          total_orders?: number | null
+          total_spent?: number | null
+        }
+        Relationships: []
+      }
       order_items: {
         Row: {
           id: string
@@ -82,12 +157,16 @@ export type Database = {
       }
       orders: {
         Row: {
+          coupon_code: string | null
           created_at: string | null
           customer_address: string
           customer_city: string
+          customer_id: string | null
           customer_name: string
           customer_phone: string
           delivery_charge: number | null
+          delivery_note: string | null
+          discount_amount: number | null
           id: string
           notes: string | null
           order_number: string | null
@@ -99,12 +178,16 @@ export type Database = {
           whatsapp_sent: boolean | null
         }
         Insert: {
+          coupon_code?: string | null
           created_at?: string | null
           customer_address: string
           customer_city: string
+          customer_id?: string | null
           customer_name: string
           customer_phone: string
           delivery_charge?: number | null
+          delivery_note?: string | null
+          discount_amount?: number | null
           id?: string
           notes?: string | null
           order_number?: string | null
@@ -116,12 +199,16 @@ export type Database = {
           whatsapp_sent?: boolean | null
         }
         Update: {
+          coupon_code?: string | null
           created_at?: string | null
           customer_address?: string
           customer_city?: string
+          customer_id?: string | null
           customer_name?: string
           customer_phone?: string
           delivery_charge?: number | null
+          delivery_note?: string | null
+          discount_amount?: number | null
           id?: string
           notes?: string | null
           order_number?: string | null
@@ -132,7 +219,15 @@ export type Database = {
           updated_at?: string | null
           whatsapp_sent?: boolean | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       product_variants: {
         Row: {

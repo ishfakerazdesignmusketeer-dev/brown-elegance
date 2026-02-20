@@ -1,18 +1,22 @@
 import { useEffect } from "react";
 import { useNavigate, Link, useLocation, Outlet } from "react-router-dom";
-import { LayoutDashboard, ShoppingBag, Grid3X3, Settings, LogOut, Menu } from "lucide-react";
+import { LayoutDashboard, ShoppingBag, Grid3X3, Settings, LogOut, Menu, Users, Tag } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 const navItems = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/admin/dashboard" },
-  { label: "Orders", icon: ShoppingBag, href: "/admin/orders" },
+  { label: "Orders", icon: ShoppingBag, href: "/admin/orders", badge: true },
   { label: "Products", icon: Grid3X3, href: "/admin/products" },
+  { label: "Customers", icon: Users, href: "/admin/customers" },
+  { label: "Coupons", icon: Tag, href: "/admin/coupons" },
   { label: "Settings", icon: Settings, href: "/admin/settings" },
 ];
 
-const SidebarContent = ({ onClose }: { onClose?: () => void }) => {
+const SidebarContent = ({ pendingCount, onClose }: { pendingCount: number; onClose?: () => void }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -29,24 +33,23 @@ const SidebarContent = ({ onClose }: { onClose?: () => void }) => {
       <nav className="flex-1 px-3 py-4 space-y-1">
         {navItems.map((item) => {
           const isActive = location.pathname === item.href;
-          const isPlaceholder = item.href === "/admin/products" || item.href === "/admin/settings";
           return (
             <Link
               key={item.href}
-              to={isPlaceholder ? "#" : item.href}
+              to={item.href}
               onClick={onClose}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors ${
                 isActive
                   ? "bg-gray-900 text-white"
-                  : isPlaceholder
-                  ? "text-gray-300 cursor-not-allowed pointer-events-none"
                   : "text-gray-600 hover:bg-gray-100"
               }`}
             >
               <item.icon className="w-4 h-4 flex-shrink-0" />
               {item.label}
-              {isPlaceholder && (
-                <span className="ml-auto text-[10px] text-gray-400 uppercase tracking-wide">Soon</span>
+              {item.badge && pendingCount > 0 && (
+                <span className="ml-auto bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                  {pendingCount > 99 ? "99+" : pendingCount}
+                </span>
               )}
             </Link>
           );
@@ -74,18 +77,30 @@ const AdminLayout = () => {
     if (!auth) navigate("/admin");
   }, [navigate]);
 
+  const { data: pendingCount = 0 } = useQuery({
+    queryKey: ["admin-pending-count"],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("orders")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "pending");
+      return count ?? 0;
+    },
+    refetchInterval: 30000,
+  });
+
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex flex-col w-56 bg-white border-r border-gray-200 flex-shrink-0">
-        <SidebarContent />
+        <SidebarContent pendingCount={pendingCount} />
       </aside>
 
       {/* Mobile Sidebar */}
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent side="left" className="w-56 p-0 bg-white">
           <SheetTitle className="sr-only">Admin Navigation</SheetTitle>
-          <SidebarContent onClose={() => setMobileOpen(false)} />
+          <SidebarContent pendingCount={pendingCount} onClose={() => setMobileOpen(false)} />
         </SheetContent>
       </Sheet>
 
