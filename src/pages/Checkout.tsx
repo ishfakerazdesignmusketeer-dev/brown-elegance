@@ -11,8 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import Navigation from "@/components/layout/Navigation";
 import AnnouncementBar from "@/components/layout/AnnouncementBar";
-
-import { Loader2 } from "lucide-react";
+import { Loader2, Tag, X } from "lucide-react";
 
 const DELIVERY_CHARGE = 80;
 
@@ -30,11 +29,23 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
+interface AppliedCoupon {
+  id: string;
+  code: string;
+  discount_type: string;
+  discount_value: number;
+  discount_amount: number;
+}
+
 const Checkout = () => {
   const { items, subtotal, clearCart } = useCart();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [couponInput, setCouponInput] = useState("");
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
 
   const {
     register,
@@ -42,7 +53,70 @@ const Checkout = () => {
     formState: { errors },
   } = useForm<FormData>({ resolver: zodResolver(schema) });
 
-  const total = subtotal + DELIVERY_CHARGE;
+  const discountAmount = appliedCoupon?.discount_amount ?? 0;
+  const total = subtotal + DELIVERY_CHARGE - discountAmount;
+
+  const applyCoupon = async () => {
+    if (!couponInput.trim()) return;
+    setCouponLoading(true);
+    setCouponError(null);
+    try {
+      const { data, error } = await supabase
+        .from("coupons")
+        .select("*")
+        .eq("code", couponInput.trim().toUpperCase())
+        .eq("is_active", true)
+        .single();
+
+      if (error || !data) {
+        setCouponError("Invalid or inactive coupon code.");
+        return;
+      }
+
+      // Validate expiry
+      if (data.expires_at && new Date(data.expires_at) < new Date()) {
+        setCouponError("This coupon has expired.");
+        return;
+      }
+
+      // Validate usage limit
+      if (data.max_uses !== null && data.used_count >= data.max_uses) {
+        setCouponError("This coupon has reached its usage limit.");
+        return;
+      }
+
+      // Validate min order
+      if (subtotal < (data.min_order_amount ?? 0)) {
+        setCouponError(`Minimum order of ${formatPrice(data.min_order_amount)} required.`);
+        return;
+      }
+
+      // Compute discount
+      let discAmt = 0;
+      if (data.discount_type === "percentage") {
+        discAmt = Math.round((subtotal * data.discount_value) / 100);
+      } else {
+        discAmt = data.discount_value;
+      }
+      discAmt = Math.min(discAmt, subtotal);
+
+      setAppliedCoupon({
+        id: data.id,
+        code: data.code,
+        discount_type: data.discount_type,
+        discount_value: data.discount_value,
+        discount_amount: discAmt,
+      });
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponInput("");
+    setCouponError(null);
+  };
 
   const onSubmit = async (data: FormData) => {
     if (items.length === 0) {
@@ -64,6 +138,8 @@ const Checkout = () => {
           notes: data.notes || null,
           subtotal,
           delivery_charge: DELIVERY_CHARGE,
+          discount_amount: discountAmount,
+          coupon_code: appliedCoupon?.code ?? null,
           total,
           payment_method: "COD",
           status: "pending",
@@ -87,20 +163,34 @@ const Checkout = () => {
       const { error: itemsError } = await supabase.from("order_items").insert(orderItems);
       if (itemsError) throw new Error(itemsError.message);
 
-      // 3. Build WhatsApp message (WhatsApp number stored as env constant)
+      // 3. Increment coupon used_count if applied
+      if (appliedCoupon) {
+        const { data: currentCoupon } = await supabase
+          .from("coupons")
+          .select("used_count")
+          .eq("id", appliedCoupon.id)
+          .single();
+        if (currentCoupon) {
+          await supabase
+            .from("coupons")
+            .update({ used_count: (currentCoupon.used_count ?? 0) + 1 })
+            .eq("id", appliedCoupon.id);
+        }
+      }
+
+      // 4. Build WhatsApp message
       const waNumber = "8801883132020";
-
-
       const itemsText = items
         .map((i) => `${i.name} | Size: ${i.size} | Qty: ${i.quantity} | ${formatPrice(i.unit_price * i.quantity)}`)
         .join("\n");
 
-      const message = `🟤 New Order — BROWN\n\nOrder: ${order.order_number}\nCustomer: ${data.customer_name}\nPhone: ${data.customer_phone}\nAddress: ${data.customer_address}, ${data.customer_city}\n\nItems:\n${itemsText}\n\nSubtotal: ${formatPrice(subtotal)}\nDelivery: ${formatPrice(DELIVERY_CHARGE)}\nTotal: ${formatPrice(total)}\n\nPayment: Cash on Delivery`;
+      const discountLine = discountAmount > 0 ? `\nDiscount (${appliedCoupon?.code}): -${formatPrice(discountAmount)}` : "";
+      const message = `🟤 New Order — BROWN\n\nOrder: ${order.order_number}\nCustomer: ${data.customer_name}\nPhone: ${data.customer_phone}\nAddress: ${data.customer_address}, ${data.customer_city}\n\nItems:\n${itemsText}\n\nSubtotal: ${formatPrice(subtotal)}\nDelivery: ${formatPrice(DELIVERY_CHARGE)}${discountLine}\nTotal: ${formatPrice(total)}\n\nPayment: Cash on Delivery`;
 
       const waUrl = `https://wa.me/${waNumber}?text=${encodeURIComponent(message)}`;
       window.open(waUrl, "_blank");
 
-      // 4. Clear cart & navigate
+      // 5. Clear cart & navigate
       clearCart();
       navigate(`/order-confirmation/${order.id}`, {
         state: {
@@ -109,6 +199,8 @@ const Checkout = () => {
           items,
           subtotal,
           delivery_charge: DELIVERY_CHARGE,
+          discount_amount: discountAmount,
+          coupon_code: appliedCoupon?.code,
           total,
         },
       });
@@ -124,8 +216,6 @@ const Checkout = () => {
       <div className="min-h-screen bg-cream">
         <AnnouncementBar />
         <Navigation />
-
-
         <div className="flex flex-col items-center justify-center py-32 gap-6 px-6">
           <p className="font-heading text-3xl text-foreground text-center">Your cart is empty</p>
           <Button asChild className="bg-foreground text-background hover:bg-foreground/90 font-body text-[12px] uppercase tracking-[1.5px] px-8 py-5 rounded-none">
@@ -140,7 +230,6 @@ const Checkout = () => {
     <div className="min-h-screen bg-cream">
       <AnnouncementBar />
       <Navigation />
-      
 
       <main className="px-6 lg:px-12 py-10 max-w-6xl mx-auto">
         <h1 className="font-heading text-4xl lg:text-5xl text-foreground mb-10">Checkout</h1>
@@ -270,6 +359,47 @@ const Checkout = () => {
                 ))}
               </div>
 
+              {/* Coupon Field */}
+              <div className="border-t border-border pt-4 mb-4">
+                <p className="font-body text-xs uppercase tracking-[1.5px] text-foreground mb-2">Coupon Code</p>
+                {appliedCoupon ? (
+                  <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <Tag className="w-3.5 h-3.5 text-green-600" />
+                      <span className="font-mono text-sm font-semibold text-green-700">{appliedCoupon.code}</span>
+                      <span className="text-xs text-green-600">
+                        -{appliedCoupon.discount_type === "percentage" ? `${appliedCoupon.discount_value}%` : formatPrice(appliedCoupon.discount_value)}
+                      </span>
+                    </div>
+                    <button onClick={removeCoupon} className="text-green-500 hover:text-green-700">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <Input
+                      value={couponInput}
+                      onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); setCouponError(null); }}
+                      placeholder="Enter coupon code"
+                      className="bg-transparent border-border rounded-none font-mono text-sm h-9 flex-1 focus-visible:ring-foreground uppercase"
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); applyCoupon(); } }}
+                    />
+                    <button
+                      type="button"
+                      onClick={applyCoupon}
+                      disabled={couponLoading || !couponInput.trim()}
+                      className="font-body text-xs uppercase tracking-[1px] border border-foreground px-3 py-2 hover:bg-foreground hover:text-background transition-colors disabled:opacity-40 whitespace-nowrap"
+                    >
+                      {couponLoading ? "..." : "Apply"}
+                    </button>
+                  </div>
+                )}
+                {couponError && (
+                  <p className="font-body text-xs text-destructive mt-1.5">{couponError}</p>
+                )}
+              </div>
+
+              {/* Totals */}
               <div className="border-t border-border pt-4 space-y-2">
                 <div className="flex justify-between font-body text-sm text-foreground">
                   <span>Subtotal</span>
@@ -279,6 +409,12 @@ const Checkout = () => {
                   <span>Delivery</span>
                   <span>{formatPrice(DELIVERY_CHARGE)}</span>
                 </div>
+                {discountAmount > 0 && (
+                  <div className="flex justify-between font-body text-sm text-green-600">
+                    <span>Discount</span>
+                    <span>-{formatPrice(discountAmount)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between font-heading text-xl text-foreground border-t border-border pt-3">
                   <span>Total</span>
                   <span>{formatPrice(total)}</span>

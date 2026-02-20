@@ -1,10 +1,12 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatPrice } from "@/lib/format";
-import { formatDistanceToNow } from "date-fns";
-import { ChevronDown, ChevronUp, Search } from "lucide-react";
+import { formatDistanceToNow, format } from "date-fns";
+import { ChevronDown, ChevronUp, Search, Printer, MessageCircle, CheckSquare, Square } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
+import InvoicePrint from "@/components/admin/InvoicePrint";
 
 const STATUS_OPTIONS = ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled"] as const;
 type Status = (typeof STATUS_OPTIONS)[number];
@@ -21,6 +23,7 @@ const STATUS_COLORS: Record<Status, string> = {
 interface OrderItem {
   id: string;
   product_name: string;
+  product_id: string | null;
   size: string;
   quantity: number;
   unit_price: number;
@@ -35,19 +38,29 @@ interface Order {
   customer_address: string;
   customer_city: string;
   notes: string | null;
+  delivery_note: string | null;
+  coupon_code: string | null;
+  discount_amount: number | null;
   status: Status;
   subtotal: number;
   delivery_charge: number;
   total: number;
+  payment_method: string | null;
   created_at: string;
   order_items: OrderItem[];
 }
+
+const BULK_STATUS_OPTIONS = ["confirmed", "processing", "shipped", "cancelled"] as const;
 
 const AdminOrders = () => {
   const [activeTab, setActiveTab] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkStatus, setBulkStatus] = useState<string>("confirmed");
+  const [printOrder, setPrintOrder] = useState<Order | null>(null);
+  const [deliveryNotes, setDeliveryNotes] = useState<Record<string, string>>({});
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -62,17 +75,12 @@ const AdminOrders = () => {
         .from("orders")
         .select("*, order_items(*)")
         .order("created_at", { ascending: false });
-
-      if (activeTab !== "all") {
-        query = query.eq("status", activeTab);
-      }
-
+      if (activeTab !== "all") query = query.eq("status", activeTab);
       if (debouncedSearch) {
         query = query.or(
-          `order_number.ilike.%${debouncedSearch}%,customer_phone.ilike.%${debouncedSearch}%`
+          `order_number.ilike.%${debouncedSearch}%,customer_phone.ilike.%${debouncedSearch}%,customer_name.ilike.%${debouncedSearch}%`
         );
       }
-
       const { data, error } = await query;
       if (error) throw error;
       return data as Order[];
@@ -82,21 +90,76 @@ const AdminOrders = () => {
 
   const mutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const { error } = await supabase
-        .from("orders")
-        .update({ status })
-        .eq("id", id);
+      const { error } = await supabase.from("orders").update({ status }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-orders-list"] });
       queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-pending-count"] });
+      toast.success("Status updated");
     },
+    onError: () => toast.error("Failed to update status"),
+  });
+
+  const deliveryNoteMutation = useMutation({
+    mutationFn: async ({ id, note }: { id: string; note: string }) => {
+      const { error } = await supabase.from("orders").update({ delivery_note: note }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-orders-list"] });
+      toast.success("Delivery note saved");
+    },
+    onError: () => toast.error("Failed to save note"),
+  });
+
+  const bulkMutation = useMutation({
+    mutationFn: async ({ ids, status }: { ids: string[]; status: string }) => {
+      const { error } = await supabase.from("orders").update({ status }).in("id", ids);
+      if (error) throw error;
+    },
+    onSuccess: (_, { ids }) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-orders-list"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-pending-count"] });
+      setSelectedIds(new Set());
+      toast.success(`${ids.length} orders updated to ${bulkStatus}`);
+    },
+    onError: () => toast.error("Bulk update failed"),
   });
 
   const toggleExpand = useCallback((id: string) => {
     setExpandedId((prev) => (prev === id ? null : id));
   }, []);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const allSelected = orders.length > 0 && orders.every((o) => selectedIds.has(o.id));
+  const toggleAll = () => {
+    if (allSelected) setSelectedIds(new Set());
+    else setSelectedIds(new Set(orders.map((o) => o.id)));
+  };
+
+  const handlePrint = (order: Order) => {
+    setPrintOrder(order);
+    setTimeout(() => window.print(), 100);
+  };
+
+  const handleWhatsApp = (order: Order) => {
+    const items = order.order_items
+      .map((i) => `${i.product_name} | ${i.size} × ${i.quantity} | ${formatPrice(i.total_price)}`)
+      .join("\n");
+    const msg = `🟤 Order Update — BROWN\n\nOrder: ${order.order_number}\nCustomer: ${order.customer_name}\nPhone: ${order.customer_phone}\nAddress: ${order.customer_address}, ${order.customer_city}\n\nItems:\n${items}\n\nTotal: ${formatPrice(order.total)}\nStatus: ${order.status.toUpperCase()}`;
+    window.open(`https://wa.me/${order.customer_phone.replace(/^0/, "88")}?text=${encodeURIComponent(msg)}`, "_blank");
+  };
 
   const tabs = ["all", ...STATUS_OPTIONS];
 
@@ -112,26 +175,52 @@ const AdminOrders = () => {
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`px-3 py-1.5 rounded text-xs font-medium capitalize transition-colors ${
-                activeTab === tab
-                  ? "bg-gray-900 text-white"
-                  : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
+                activeTab === tab ? "bg-gray-900 text-white" : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
               }`}
             >
               {tab}
             </button>
           ))}
         </div>
-
         <div className="relative sm:ml-auto sm:w-64">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Order # or phone..."
+            placeholder="Order #, name, or phone..."
             className="pl-8 h-8 text-xs border-gray-200 rounded"
           />
         </div>
       </div>
+
+      {/* Bulk Actions */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 mb-4 bg-gray-900 text-white px-4 py-3 rounded-lg">
+          <span className="text-sm font-medium">{selectedIds.size} selected</span>
+          <select
+            value={bulkStatus}
+            onChange={(e) => setBulkStatus(e.target.value)}
+            className="text-xs bg-gray-700 text-white border-0 rounded px-2 py-1.5 cursor-pointer"
+          >
+            {BULK_STATUS_OPTIONS.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+          <button
+            onClick={() => bulkMutation.mutate({ ids: Array.from(selectedIds), status: bulkStatus })}
+            disabled={bulkMutation.isPending}
+            className="text-xs bg-white text-gray-900 font-semibold px-3 py-1.5 rounded hover:bg-gray-100 transition-colors"
+          >
+            Apply
+          </button>
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            className="ml-auto text-xs text-gray-400 hover:text-white"
+          >
+            Clear
+          </button>
+        </div>
+      )}
 
       {/* Table */}
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
@@ -139,11 +228,14 @@ const AdminOrders = () => {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
-                {["", "Order #", "Customer", "Phone", "Items", "Total", "Status", "Time"].map((h) => (
-                  <th
-                    key={h}
-                    className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide"
-                  >
+                <th className="px-4 py-3 w-8">
+                  <button onClick={toggleAll} className="flex items-center text-gray-400">
+                    {allSelected ? <CheckSquare className="w-4 h-4 text-gray-700" /> : <Square className="w-4 h-4" />}
+                  </button>
+                </th>
+                <th className="w-6 px-1 py-3"></th>
+                {["Order #", "Customer", "Phone", "Items", "Total", "Status", "Time"].map((h) => (
+                  <th key={h} className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">
                     {h}
                   </th>
                 ))}
@@ -152,34 +244,33 @@ const AdminOrders = () => {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-10 text-center text-sm text-gray-400">
-                    Loading orders...
-                  </td>
+                  <td colSpan={9} className="px-4 py-10 text-center text-sm text-gray-400">Loading orders...</td>
                 </tr>
               ) : orders.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-10 text-center text-sm text-gray-400">
-                    No orders found
-                  </td>
+                  <td colSpan={9} className="px-4 py-10 text-center text-sm text-gray-400">No orders found</td>
                 </tr>
               ) : (
                 orders.map((order) => (
                   <>
                     <tr
                       key={order.id}
-                      className="border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer"
+                      className={`border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer ${selectedIds.has(order.id) ? "bg-blue-50" : ""}`}
                       onClick={() => toggleExpand(order.id)}
                     >
-                      <td className="px-4 py-3">
-                        {expandedId === order.id ? (
-                          <ChevronUp className="w-4 h-4 text-gray-400" />
-                        ) : (
-                          <ChevronDown className="w-4 h-4 text-gray-400" />
-                        )}
+                      <td className="px-4 py-3" onClick={(e) => { e.stopPropagation(); toggleSelect(order.id); }}>
+                        {selectedIds.has(order.id)
+                          ? <CheckSquare className="w-4 h-4 text-gray-700" />
+                          : <Square className="w-4 h-4 text-gray-300" />
+                        }
                       </td>
-                      <td className="px-4 py-3 font-mono text-xs text-gray-900 whitespace-nowrap">
-                        {order.order_number}
+                      <td className="px-1 py-3">
+                        {expandedId === order.id
+                          ? <ChevronUp className="w-4 h-4 text-gray-400" />
+                          : <ChevronDown className="w-4 h-4 text-gray-400" />
+                        }
                       </td>
+                      <td className="px-4 py-3 font-mono text-xs text-gray-900 whitespace-nowrap">{order.order_number}</td>
                       <td className="px-4 py-3 text-gray-700 whitespace-nowrap">{order.customer_name}</td>
                       <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{order.customer_phone}</td>
                       <td className="px-4 py-3 text-gray-500">{order.order_items?.length ?? 0}</td>
@@ -191,9 +282,7 @@ const AdminOrders = () => {
                           className={`text-xs font-medium px-2 py-1 rounded border-0 cursor-pointer ${STATUS_COLORS[order.status]}`}
                         >
                           {STATUS_OPTIONS.map((s) => (
-                            <option key={s} value={s} className="bg-white text-gray-900">
-                              {s}
-                            </option>
+                            <option key={s} value={s} className="bg-white text-gray-900">{s}</option>
                           ))}
                         </select>
                       </td>
@@ -203,37 +292,89 @@ const AdminOrders = () => {
                     </tr>
 
                     {expandedId === order.id && (
-                      <tr key={`${order.id}-expanded`} className="bg-gray-50">
-                        <td colSpan={8} className="px-8 py-4">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      <tr key={`${order.id}-expanded`} className="bg-gray-50/80">
+                        <td colSpan={9} className="px-8 py-5">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Customer Info */}
                             <div>
-                              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
-                                Delivery Address
-                              </p>
-                              <p className="text-sm text-gray-700">{order.customer_address}</p>
-                              <p className="text-sm text-gray-700">{order.customer_city}</p>
+                              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Customer</p>
+                              <p className="text-sm font-medium text-gray-900">{order.customer_name}</p>
+                              <p className="text-sm text-gray-600">{order.customer_phone}</p>
+                              <p className="text-sm text-gray-600 mt-1">{order.customer_address}</p>
+                              <p className="text-sm text-gray-600">{order.customer_city}</p>
                               {order.notes && (
-                                <p className="text-xs text-gray-500 mt-2 italic">Note: {order.notes}</p>
+                                <p className="text-xs text-gray-500 mt-2 italic bg-amber-50 border border-amber-100 rounded px-2 py-1">
+                                  Note: {order.notes}
+                                </p>
                               )}
+                              {/* Delivery Note */}
+                              <div className="mt-3">
+                                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Delivery Note</p>
+                                <textarea
+                                  rows={2}
+                                  defaultValue={order.delivery_note ?? ""}
+                                  placeholder="Add delivery note..."
+                                  className="w-full text-xs border border-gray-200 rounded px-2 py-1.5 text-gray-700 resize-none focus:outline-none focus:border-gray-400"
+                                  onBlur={(e) => {
+                                    const val = e.target.value;
+                                    if (val !== (order.delivery_note ?? "")) {
+                                      deliveryNoteMutation.mutate({ id: order.id, note: val });
+                                    }
+                                  }}
+                                />
+                              </div>
                             </div>
 
+                            {/* Items */}
                             <div>
-                              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
-                                Items
-                              </p>
-                              <div className="space-y-1">
+                              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Items</p>
+                              <div className="space-y-2">
                                 {(order.order_items ?? []).map((item) => (
-                                  <div key={item.id} className="flex justify-between text-sm text-gray-700">
-                                    <span>
-                                      {item.product_name} · {item.size} × {item.quantity}
-                                    </span>
-                                    <span className="text-gray-900 ml-4">{formatPrice(item.total_price)}</span>
+                                  <div key={item.id} className="flex items-center justify-between text-sm">
+                                    <div>
+                                      <span className="text-gray-900 font-medium">{item.product_name}</span>
+                                      <span className="text-gray-500 ml-2 text-xs">{item.size} × {item.quantity}</span>
+                                    </div>
+                                    <span className="text-gray-900 font-medium">{formatPrice(item.total_price)}</span>
                                   </div>
                                 ))}
                               </div>
-                              <div className="border-t border-gray-200 mt-2 pt-2 flex justify-between text-sm font-semibold text-gray-900">
-                                <span>Total</span>
-                                <span>{formatPrice(order.total)}</span>
+
+                              {/* Totals breakdown */}
+                              <div className="border-t border-gray-200 mt-3 pt-3 space-y-1.5">
+                                <div className="flex justify-between text-xs text-gray-500">
+                                  <span>Subtotal</span><span>{formatPrice(order.subtotal)}</span>
+                                </div>
+                                <div className="flex justify-between text-xs text-gray-500">
+                                  <span>Delivery</span><span>{formatPrice(order.delivery_charge ?? 0)}</span>
+                                </div>
+                                {(order.discount_amount ?? 0) > 0 && (
+                                  <div className="flex justify-between text-xs text-green-600">
+                                    <span>Discount {order.coupon_code ? `(${order.coupon_code})` : ""}</span>
+                                    <span>-{formatPrice(order.discount_amount ?? 0)}</span>
+                                  </div>
+                                )}
+                                <div className="flex justify-between text-sm font-semibold text-gray-900 border-t border-gray-200 pt-2">
+                                  <span>Total</span><span>{formatPrice(order.total)}</span>
+                                </div>
+                              </div>
+
+                              {/* Action buttons */}
+                              <div className="flex gap-2 mt-4">
+                                <button
+                                  onClick={() => handlePrint(order)}
+                                  className="flex items-center gap-1.5 text-xs bg-gray-900 text-white px-3 py-2 rounded hover:bg-gray-700 transition-colors"
+                                >
+                                  <Printer className="w-3.5 h-3.5" />
+                                  Print Invoice
+                                </button>
+                                <button
+                                  onClick={() => handleWhatsApp(order)}
+                                  className="flex items-center gap-1.5 text-xs bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700 transition-colors"
+                                >
+                                  <MessageCircle className="w-3.5 h-3.5" />
+                                  WhatsApp
+                                </button>
                               </div>
                             </div>
                           </div>
@@ -247,6 +388,9 @@ const AdminOrders = () => {
           </table>
         </div>
       </div>
+
+      {/* Hidden Invoice Print Area */}
+      {printOrder && <InvoicePrint order={printOrder} />}
     </div>
   );
 };
