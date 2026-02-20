@@ -30,6 +30,7 @@ const fetchOrders = async (limit?: number): Promise<Order[]> => {
     headers: {
       "x-admin-token": "brown_admin_authenticated",
       "Content-Type": "application/json",
+      "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
     },
   });
   const data = await res.json();

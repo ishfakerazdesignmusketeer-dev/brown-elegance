@@ -55,6 +55,7 @@ const fetchOrders = async (status: string, search: string): Promise<Order[]> => 
     headers: {
       "x-admin-token": "brown_admin_authenticated",
       "Content-Type": "application/json",
+      "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
     },
   });
   const data = await res.json();
@@ -70,6 +71,7 @@ const updateOrderStatus = async (orderId: string, newStatus: string): Promise<vo
     headers: {
       "x-admin-token": "brown_admin_authenticated",
       "Content-Type": "application/json",
+      "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
     },
   });
   if (!res.ok) throw new Error("Failed to update status");
