@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface CartItem {
   id: string;
@@ -20,11 +21,22 @@ interface CartContextType {
   subtotal: number;
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
+  sessionId: string;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 const CART_KEY = "brown_cart";
+const SESSION_KEY = "brown_session_id";
+
+function getOrCreateSessionId(): string {
+  let sid = localStorage.getItem(SESSION_KEY);
+  if (!sid) {
+    sid = crypto.randomUUID();
+    localStorage.setItem(SESSION_KEY, sid);
+  }
+  return sid;
+}
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [items, setItems] = useState<CartItem[]>(() => {
@@ -36,10 +48,29 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   });
   const [isOpen, setIsOpen] = useState(false);
+  const sessionId = useRef<string>(getOrCreateSessionId()).current;
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     localStorage.setItem(CART_KEY, JSON.stringify(items));
-  }, [items]);
+
+    // Debounced upsert to abandoned_carts — only when cart has items
+    if (items.length > 0) {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(async () => {
+        const subtotal = items.reduce((sum, i) => sum + i.unit_price * i.quantity, 0);
+        await supabase.from("abandoned_carts").upsert(
+          {
+            session_id: sessionId,
+            items: items as unknown as import("@/integrations/supabase/types").Json,
+            subtotal,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "session_id" }
+        );
+      }, 2000);
+    }
+  }, [items, sessionId]);
 
   const addItem = useCallback((
     product: { id: string; name: string; slug: string; image: string; price: number },
@@ -91,7 +122,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const subtotal = items.reduce((sum, i) => sum + i.unit_price * i.quantity, 0);
 
   return (
-    <CartContext.Provider value={{ items, addItem, removeItem, updateQuantity, clearCart, itemCount, subtotal, isOpen, setIsOpen }}>
+    <CartContext.Provider value={{ items, addItem, removeItem, updateQuantity, clearCart, itemCount, subtotal, isOpen, setIsOpen, sessionId }}>
       {children}
     </CartContext.Provider>
   );

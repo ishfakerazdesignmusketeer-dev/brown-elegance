@@ -17,6 +17,9 @@ const SETTING_META: Record<string, { label: string; type?: string; placeholder?:
   admin_password: { label: "Admin Password", type: "password", placeholder: "••••••••" },
   store_name: { label: "Store Name", placeholder: "BROWN" },
   store_email: { label: "Store Email", placeholder: "hello@brownbd.com" },
+  store_url: { label: "Store URL", placeholder: "https://brownbd.com" },
+  bkash_number: { label: "bKash Number", placeholder: "01XXXXXXXXX" },
+  nagad_number: { label: "Nagad Number", placeholder: "01XXXXXXXXX" },
 };
 
 const AdminSettings = () => {
@@ -56,7 +59,7 @@ const AdminSettings = () => {
     }
   };
 
-  const orderedKeys = ["store_name", "store_email", "whatsapp_number", "delivery_charge", "admin_password"];
+  const orderedKeys = ["store_name", "store_email", "store_url", "whatsapp_number", "bkash_number", "nagad_number", "delivery_charge", "admin_password"];
 
   return (
     <div>

@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatPrice } from "@/lib/format";
 import { formatDistanceToNow, format } from "date-fns";
-import { ChevronDown, ChevronUp, Search, Printer, MessageCircle, CheckSquare, Square } from "lucide-react";
+import { ChevronDown, ChevronUp, Search, Printer, MessageCircle, CheckSquare, Square, Copy, Package } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import InvoicePrint from "@/components/admin/InvoicePrint";
@@ -51,6 +51,187 @@ interface Order {
 }
 
 const BULK_STATUS_OPTIONS = ["confirmed", "processing", "shipped", "cancelled"] as const;
+
+const BOOKING_STATUS_OPTIONS = ["pending", "booked", "picked", "delivered", "failed"] as const;
+
+interface CourierBooking {
+  id: string;
+  courier_service: string;
+  tracking_number: string | null;
+  booking_status: string;
+  booked_at: string | null;
+  cod_amount: number | null;
+  weight: number | null;
+  notes: string | null;
+}
+
+const CourierSection = ({ order }: { order: Order }) => {
+  const [trackingInput, setTrackingInput] = useState("");
+  const [weightInput, setWeightInput] = useState("0.5");
+  const [notesInput, setNotesInput] = useState("");
+  const [saving, setSaving] = useState(false);
+  const queryClient = useQueryClient();
+
+  const { data: booking, isLoading } = useQuery({
+    queryKey: ["courier-booking", order.id],
+    queryFn: async (): Promise<CourierBooking | null> => {
+      const { data, error } = await supabase
+        .from("courier_bookings")
+        .select("*")
+        .eq("order_id", order.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data as CourierBooking | null;
+    },
+  });
+
+  const saveTracking = async () => {
+    if (!trackingInput.trim()) { toast.error("Enter a tracking number"); return; }
+    setSaving(true);
+    try {
+      const { data: newBooking, error: bookingError } = await supabase
+        .from("courier_bookings")
+        .insert({
+          order_id: order.id,
+          courier_service: "manual",
+          tracking_number: trackingInput.trim(),
+          cod_amount: order.total,
+          weight: parseFloat(weightInput) || 0.5,
+          notes: notesInput || null,
+          consignee_name: order.customer_name,
+          consignee_phone: order.customer_phone,
+          consignee_address: `${order.customer_address}, ${order.customer_city}`,
+          booked_at: new Date().toISOString(),
+          booking_status: "booked",
+        })
+        .select("id")
+        .single();
+      if (bookingError || !newBooking) throw bookingError;
+      await supabase.from("orders").update({ courier_booking_id: newBooking.id }).eq("id", order.id);
+      toast.success("Tracking number saved");
+      queryClient.invalidateQueries({ queryKey: ["courier-booking", order.id] });
+      queryClient.invalidateQueries({ queryKey: ["admin-courier-today"] });
+    } catch {
+      toast.error("Failed to save tracking");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateBookingStatus = async (status: string) => {
+    if (!booking) return;
+    const { error } = await supabase.from("courier_bookings").update({ booking_status: status }).eq("id", booking.id);
+    if (error) toast.error("Failed to update status");
+    else {
+      toast.success("Courier status updated");
+      queryClient.invalidateQueries({ queryKey: ["courier-booking", order.id] });
+    }
+  };
+
+  const BOOKING_STATUS_COLORS: Record<string, string> = {
+    pending: "bg-amber-100 text-amber-700",
+    booked: "bg-blue-100 text-blue-700",
+    picked: "bg-purple-100 text-purple-700",
+    delivered: "bg-green-100 text-green-700",
+    failed: "bg-red-100 text-red-700",
+  };
+
+  if (isLoading) return <div className="h-4 bg-gray-100 rounded animate-pulse w-32" />;
+
+  return (
+    <div className="border-t border-gray-200 mt-4 pt-4">
+      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+        <Package className="w-3.5 h-3.5" /> Courier
+      </p>
+      {booking ? (
+        <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 space-y-2">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-semibold text-gray-900 capitalize">{booking.courier_service}</span>
+            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize ${BOOKING_STATUS_COLORS[booking.booking_status] ?? "bg-gray-100 text-gray-600"}`}>
+              {booking.booking_status}
+            </span>
+          </div>
+          {booking.tracking_number && (
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-sm text-gray-700">{booking.tracking_number}</span>
+              <button
+                onClick={() => { navigator.clipboard.writeText(booking.tracking_number!); toast.success("Copied"); }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <Copy className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+          {booking.booked_at && (
+            <p className="text-xs text-gray-400">Booked: {format(new Date(booking.booked_at), "MMM d, HH:mm")}</p>
+          )}
+          <div className="flex items-center gap-2 mt-2">
+            <label className="text-xs text-gray-500">Update Status:</label>
+            <select
+              value={booking.booking_status}
+              onChange={(e) => updateBookingStatus(e.target.value)}
+              className="text-xs border border-gray-200 rounded px-2 py-1 text-gray-700"
+            >
+              {BOOKING_STATUS_OPTIONS.map((s) => <option key={s} value={s} className="capitalize">{s}</option>)}
+            </select>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3">
+          <p className="text-xs font-medium text-gray-600 mb-2">Manual Tracking Entry</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Tracking Number *</label>
+              <Input
+                value={trackingInput}
+                onChange={(e) => setTrackingInput(e.target.value)}
+                placeholder="e.g. STF123456"
+                className="h-8 text-xs border-gray-200"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Weight (kg)</label>
+              <Input
+                type="number"
+                step="0.1"
+                min="0.1"
+                value={weightInput}
+                onChange={(e) => setWeightInput(e.target.value)}
+                className="h-8 text-xs border-gray-200"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">COD Amount (auto)</label>
+            <div className="h-8 text-xs border border-gray-100 rounded px-3 flex items-center text-gray-500 bg-white">
+              {formatPrice(order.total)}
+            </div>
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">Notes</label>
+            <textarea
+              value={notesInput}
+              onChange={(e) => setNotesInput(e.target.value)}
+              rows={2}
+              placeholder="Optional courier notes..."
+              className="w-full text-xs border border-gray-200 rounded px-2 py-1.5 text-gray-700 resize-none focus:outline-none focus:border-gray-400"
+            />
+          </div>
+          <button
+            onClick={saveTracking}
+            disabled={saving}
+            className="text-xs bg-gray-900 text-white px-4 py-2 rounded hover:bg-gray-700 transition-colors disabled:opacity-50 font-medium"
+          >
+            {saving ? "Saving..." : "Save Tracking Number"}
+          </button>
+          <div className="border-t border-gray-200 pt-2 mt-1">
+            <p className="text-xs text-gray-400 italic">Pathao & Steadfast API booking coming soon.</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const AdminOrders = () => {
   const [activeTab, setActiveTab] = useState<string>("all");
@@ -376,6 +557,11 @@ const AdminOrders = () => {
                                   WhatsApp
                                 </button>
                               </div>
+                            </div>
+
+                            {/* Courier Section — spans full width */}
+                            <div className="md:col-span-2">
+                              <CourierSection order={order} />
                             </div>
                           </div>
                         </td>

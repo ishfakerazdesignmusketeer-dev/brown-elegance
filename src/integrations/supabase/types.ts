@@ -14,6 +14,59 @@ export type Database = {
   }
   public: {
     Tables: {
+      abandoned_carts: {
+        Row: {
+          converted: boolean | null
+          converted_order_id: string | null
+          created_at: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          id: string
+          items: Json
+          recovery_sent: boolean | null
+          recovery_sent_at: string | null
+          session_id: string
+          subtotal: number
+          updated_at: string | null
+        }
+        Insert: {
+          converted?: boolean | null
+          converted_order_id?: string | null
+          created_at?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          id?: string
+          items?: Json
+          recovery_sent?: boolean | null
+          recovery_sent_at?: string | null
+          session_id: string
+          subtotal?: number
+          updated_at?: string | null
+        }
+        Update: {
+          converted?: boolean | null
+          converted_order_id?: string | null
+          created_at?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          id?: string
+          items?: Json
+          recovery_sent?: boolean | null
+          recovery_sent_at?: string | null
+          session_id?: string
+          subtotal?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "abandoned_carts_converted_order_id_fkey"
+            columns: ["converted_order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_settings: {
         Row: {
           id: string
@@ -70,6 +123,65 @@ export type Database = {
           used_count?: number | null
         }
         Relationships: []
+      }
+      courier_bookings: {
+        Row: {
+          api_response: Json | null
+          booked_at: string | null
+          booking_status: string | null
+          cod_amount: number | null
+          consignee_address: string | null
+          consignee_name: string | null
+          consignee_phone: string | null
+          courier_service: string
+          created_at: string | null
+          id: string
+          notes: string | null
+          order_id: string | null
+          tracking_number: string | null
+          weight: number | null
+        }
+        Insert: {
+          api_response?: Json | null
+          booked_at?: string | null
+          booking_status?: string | null
+          cod_amount?: number | null
+          consignee_address?: string | null
+          consignee_name?: string | null
+          consignee_phone?: string | null
+          courier_service?: string
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          order_id?: string | null
+          tracking_number?: string | null
+          weight?: number | null
+        }
+        Update: {
+          api_response?: Json | null
+          booked_at?: string | null
+          booking_status?: string | null
+          cod_amount?: number | null
+          consignee_address?: string | null
+          consignee_name?: string | null
+          consignee_phone?: string | null
+          courier_service?: string
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          order_id?: string | null
+          tracking_number?: string | null
+          weight?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "courier_bookings_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       customers: {
         Row: {
@@ -158,6 +270,7 @@ export type Database = {
       orders: {
         Row: {
           coupon_code: string | null
+          courier_booking_id: string | null
           created_at: string | null
           customer_address: string
           customer_city: string
@@ -171,6 +284,7 @@ export type Database = {
           notes: string | null
           order_number: string | null
           payment_method: string | null
+          payment_status: string | null
           status: string | null
           subtotal: number
           total: number
@@ -179,6 +293,7 @@ export type Database = {
         }
         Insert: {
           coupon_code?: string | null
+          courier_booking_id?: string | null
           created_at?: string | null
           customer_address: string
           customer_city: string
@@ -192,6 +307,7 @@ export type Database = {
           notes?: string | null
           order_number?: string | null
           payment_method?: string | null
+          payment_status?: string | null
           status?: string | null
           subtotal: number
           total: number
@@ -200,6 +316,7 @@ export type Database = {
         }
         Update: {
           coupon_code?: string | null
+          courier_booking_id?: string | null
           created_at?: string | null
           customer_address?: string
           customer_city?: string
@@ -213,6 +330,7 @@ export type Database = {
           notes?: string | null
           order_number?: string | null
           payment_method?: string | null
+          payment_status?: string | null
           status?: string | null
           subtotal?: number
           total?: number
@@ -221,10 +339,67 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "orders_courier_booking_id_fkey"
+            columns: ["courier_booking_id"]
+            isOneToOne: false
+            referencedRelation: "courier_bookings"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "orders_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_transactions: {
+        Row: {
+          amount: number
+          created_at: string | null
+          id: string
+          notes: string | null
+          order_id: string | null
+          payment_method: string
+          screenshot_url: string | null
+          status: string | null
+          transaction_id: string | null
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          order_id?: string | null
+          payment_method: string
+          screenshot_url?: string | null
+          status?: string | null
+          transaction_id?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          order_id?: string | null
+          payment_method?: string
+          screenshot_url?: string | null
+          status?: string | null
+          transaction_id?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_transactions_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
             referencedColumns: ["id"]
           },
         ]
