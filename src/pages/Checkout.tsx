@@ -88,7 +88,7 @@ const Checkout = () => {
       if (itemsError) throw new Error(itemsError.message);
 
       // 3. Build WhatsApp message (WhatsApp number stored as env constant)
-      const waNumber = "8801XXXXXXXXX"; // Update this in admin_settings
+      const waNumber = "8801883132020";
 
 
       const itemsText = items
