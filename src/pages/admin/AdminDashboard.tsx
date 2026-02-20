@@ -23,24 +23,17 @@ interface Order {
   order_items: { id: string }[];
 }
 
-const fetchOrders = async (limit?: number): Promise<Order[]> => {
-  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-  const url = `https://${projectId}.supabase.co/functions/v1/get-orders${limit ? `?limit=${limit}` : ""}`;
-  const res = await fetch(url, {
-    headers: {
-      "x-admin-token": "brown_admin_authenticated",
-      "Content-Type": "application/json",
-      "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-    },
-  });
-  const data = await res.json();
-  return data.orders ?? [];
-};
-
 const AdminDashboard = () => {
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["admin-orders"],
-    queryFn: () => fetchOrders(),
+    queryFn: async (): Promise<Order[]> => {
+      const { data, error } = await supabase
+        .from("orders")
+        .select("*, order_items(*)")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as Order[];
+    },
     refetchInterval: 30000,
   });
 
@@ -55,9 +48,7 @@ const AdminDashboard = () => {
     .filter((o) => ["confirmed", "shipped", "delivered"].includes(o.status))
     .reduce((s, o) => s + o.total, 0);
 
-  const recentOrders = [...orders]
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .slice(0, 10);
+  const recentOrders = [...orders].slice(0, 10);
 
   const stats = [
     { label: "Total Orders", value: totalOrders },
@@ -128,10 +119,7 @@ const AdminDashboard = () => {
                       {formatDistanceToNow(new Date(order.created_at), { addSuffix: true })}
                     </td>
                     <td className="px-5 py-3">
-                      <Link
-                        to="/admin/orders"
-                        className="text-xs text-gray-500 hover:text-gray-900 underline"
-                      >
+                      <Link to="/admin/orders" className="text-xs text-gray-500 hover:text-gray-900 underline">
                         View
                       </Link>
                     </td>

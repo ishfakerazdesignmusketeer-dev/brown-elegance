@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { formatPrice } from "@/lib/format";
 import { formatDistanceToNow } from "date-fns";
 import { ChevronDown, ChevronUp, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 
 const STATUS_OPTIONS = ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled"] as const;
 type Status = (typeof STATUS_OPTIONS)[number];
@@ -43,40 +43,6 @@ interface Order {
   order_items: OrderItem[];
 }
 
-const getProjectId = () => import.meta.env.VITE_SUPABASE_PROJECT_ID;
-
-const fetchOrders = async (status: string, search: string): Promise<Order[]> => {
-  const projectId = getProjectId();
-  const params = new URLSearchParams();
-  if (status !== "all") params.set("status", status);
-  if (search) params.set("search", search);
-  const url = `https://${projectId}.supabase.co/functions/v1/get-orders?${params}`;
-  const res = await fetch(url, {
-    headers: {
-      "x-admin-token": "brown_admin_authenticated",
-      "Content-Type": "application/json",
-      "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-    },
-  });
-  const data = await res.json();
-  return data.orders ?? [];
-};
-
-const updateOrderStatus = async (orderId: string, newStatus: string): Promise<void> => {
-  const projectId = getProjectId();
-  const params = new URLSearchParams({ updateId: orderId, newStatus });
-  const url = `https://${projectId}.supabase.co/functions/v1/get-orders?${params}`;
-  const res = await fetch(url, {
-    method: "PATCH",
-    headers: {
-      "x-admin-token": "brown_admin_authenticated",
-      "Content-Type": "application/json",
-      "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-    },
-  });
-  if (!res.ok) throw new Error("Failed to update status");
-};
-
 const AdminOrders = () => {
   const [activeTab, setActiveTab] = useState<string>("all");
   const [search, setSearch] = useState("");
@@ -91,13 +57,37 @@ const AdminOrders = () => {
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["admin-orders-list", activeTab, debouncedSearch],
-    queryFn: () => fetchOrders(activeTab, debouncedSearch),
+    queryFn: async (): Promise<Order[]> => {
+      let query = supabase
+        .from("orders")
+        .select("*, order_items(*)")
+        .order("created_at", { ascending: false });
+
+      if (activeTab !== "all") {
+        query = query.eq("status", activeTab);
+      }
+
+      if (debouncedSearch) {
+        query = query.or(
+          `order_number.ilike.%${debouncedSearch}%,customer_phone.ilike.%${debouncedSearch}%`
+        );
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return data as Order[];
+    },
     refetchInterval: 30000,
   });
 
   const mutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) =>
-      updateOrderStatus(id, status),
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const { error } = await supabase
+        .from("orders")
+        .update({ status })
+        .eq("id", id);
+      if (error) throw error;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-orders-list"] });
       queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
@@ -116,7 +106,6 @@ const AdminOrders = () => {
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
-        {/* Status Tabs */}
         <div className="flex flex-wrap gap-1">
           {tabs.map((tab) => (
             <button
@@ -133,7 +122,6 @@ const AdminOrders = () => {
           ))}
         </div>
 
-        {/* Search */}
         <div className="relative sm:ml-auto sm:w-64">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
           <Input
@@ -214,12 +202,10 @@ const AdminOrders = () => {
                       </td>
                     </tr>
 
-                    {/* Expanded Row */}
                     {expandedId === order.id && (
                       <tr key={`${order.id}-expanded`} className="bg-gray-50">
                         <td colSpan={8} className="px-8 py-4">
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                            {/* Delivery Info */}
                             <div>
                               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
                                 Delivery Address
@@ -231,7 +217,6 @@ const AdminOrders = () => {
                               )}
                             </div>
 
-                            {/* Order Items */}
                             <div>
                               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
                                 Items
