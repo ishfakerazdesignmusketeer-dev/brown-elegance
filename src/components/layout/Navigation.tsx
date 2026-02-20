@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Search, ShoppingBag, User, Menu } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import logo from "@/assets/logo.png";
+import { useCart } from "@/contexts/CartContext";
 
 const navLinks = [
   { label: "SHOP", href: "#shop" },
@@ -13,7 +14,7 @@ const navLinks = [
 
 const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const cartCount = 2; // Static placeholder
+  const { itemCount, setIsOpen: openCart } = useCart();
 
   return (
     <header className="bg-cream h-14 sticky top-0 z-40">
@@ -38,26 +39,27 @@ const Navigation = () => {
 
         {/* Right - Utility Icons */}
         <div className="flex items-center gap-5">
-          <button 
+          <button
             className="text-foreground hover:opacity-70 transition-opacity"
             aria-label="Search"
           >
             <Search className="w-5 h-5" />
           </button>
-          
-          <button 
+
+          <button
+            onClick={() => openCart(true)}
             className="relative text-foreground hover:opacity-70 transition-opacity"
             aria-label="Shopping cart"
           >
             <ShoppingBag className="w-5 h-5" />
-            {cartCount > 0 && (
+            {itemCount > 0 && (
               <span className="absolute -top-1.5 -right-1.5 bg-foreground text-background text-[10px] font-body w-4 h-4 rounded-full flex items-center justify-center">
-                {cartCount}
+                {itemCount}
               </span>
             )}
           </button>
-          
-          <button 
+
+          <button
             className="hidden sm:block text-foreground hover:opacity-70 transition-opacity"
             aria-label="Account"
           >
@@ -67,7 +69,7 @@ const Navigation = () => {
           {/* Mobile Menu */}
           <Sheet open={isOpen} onOpenChange={setIsOpen}>
             <SheetTrigger asChild>
-              <button 
+              <button
                 className="lg:hidden text-foreground hover:opacity-70 transition-opacity"
                 aria-label="Open menu"
               >

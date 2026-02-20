@@ -1,59 +1,45 @@
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Link } from "react-router-dom";
+import { useCart } from "@/contexts/CartContext";
+import { formatPrice } from "@/lib/format";
 
 interface Product {
-  id: number;
+  id: string;
   name: string;
+  slug: string;
   price: number;
-  image: string;
-  isPreOrder?: boolean;
+  images: string[] | null;
+  is_active: boolean;
 }
 
-const products: Product[] = [
-  {
-    id: 1,
-    name: "The Heritage Panjabi",
-    price: 4500,
-    image: "https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=600&h=800&fit=crop",
-    isPreOrder: true,
-  },
-  {
-    id: 2,
-    name: "The Evening Kurta",
-    price: 3800,
-    image: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=600&h=800&fit=crop",
-    isPreOrder: true,
-  },
-  {
-    id: 3,
-    name: "The Classic White",
-    price: 3200,
-    image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&h=800&fit=crop",
-    isPreOrder: false,
-  },
-  {
-    id: 4,
-    name: "The Monsoon Grey",
-    price: 4200,
-    image: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=600&h=800&fit=crop",
-    isPreOrder: true,
-  },
-  {
-    id: 5,
-    name: "The Celebration Gold",
-    price: 5500,
-    image: "https://images.unsplash.com/photo-1531891437562-4301cf35b7e4?w=600&h=800&fit=crop",
-    isPreOrder: false,
-  },
-  {
-    id: 6,
-    name: "The Midnight Navy",
-    price: 4800,
-    image: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=600&h=800&fit=crop",
-    isPreOrder: true,
-  },
-];
-
 const ProductGrid = () => {
+  const { addItem } = useCart();
+
+  const { data: products, isLoading } = useQuery({
+    queryKey: ["products"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("id, name, slug, price, images, is_active")
+        .eq("is_active", true)
+        .order("created_at");
+      if (error) throw error;
+      return data as Product[];
+    },
+  });
+
+  const handleQuickAdd = (product: Product) => {
+    const image = product.images?.[0] ?? "";
+    addItem(
+      { id: product.id, name: product.name, slug: product.slug, image, price: product.price },
+      "M",
+      1
+    );
+  };
+
   return (
     <section className="bg-cream py-20 lg:py-28">
       <div className="px-6 lg:px-12">
@@ -72,52 +58,57 @@ const ProductGrid = () => {
 
         {/* Product Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-10">
-          {products.map((product) => (
-            <div key={product.id} className="group">
-              {/* Image Container */}
-              <div className="relative aspect-[3/4] overflow-hidden bg-muted mb-5">
-                <img
-                  src={product.image}
-                  alt={product.name}
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                />
-                
-                {/* Pre-order Badge */}
-                {product.isPreOrder && (
-                  <div className="absolute top-4 left-4 bg-espresso text-cream px-3 py-1.5">
-                    <span className="font-body text-[10px] uppercase tracking-[1.5px]">
-                      Pre-Order
-                    </span>
-                  </div>
-                )}
-
-                {/* Hover Overlay with Quick Add */}
-                <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/20 transition-colors duration-300 flex items-end justify-center pb-6 opacity-0 group-hover:opacity-100">
-                  <Button 
-                    variant="secondary"
-                    className="bg-cream text-foreground hover:bg-cream/90 font-body text-[12px] uppercase tracking-[1px] px-6 py-2.5 rounded-none"
-                  >
-                    Quick Add
-                  </Button>
+          {isLoading
+            ? Array.from({ length: 6 }).map((_, i) => (
+                <div key={i}>
+                  <Skeleton className="aspect-[3/4] w-full mb-5" />
+                  <Skeleton className="h-5 w-3/4 mx-auto mb-2" />
+                  <Skeleton className="h-4 w-1/3 mx-auto" />
                 </div>
-              </div>
+              ))
+            : (products ?? []).map((product) => (
+                <div key={product.id} className="group">
+                  {/* Image Container */}
+                  <Link to={`/product/${product.slug}`} className="block relative aspect-[3/4] overflow-hidden bg-muted mb-5">
+                    <img
+                      src={product.images?.[0] ?? "/placeholder.svg"}
+                      alt={product.name}
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    />
 
-              {/* Product Info */}
-              <div className="text-center">
-                <h3 className="font-heading text-lg text-foreground group-hover:opacity-70 transition-opacity">
-                  {product.name}
-                </h3>
-                <p className="font-body text-sm text-muted-foreground mt-1">
-                  ৳ {product.price.toLocaleString()} BDT
-                </p>
-              </div>
-            </div>
-          ))}
+                    {/* Hover Overlay with Quick Add */}
+                    <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/20 transition-colors duration-300 flex items-end justify-center pb-6 opacity-0 group-hover:opacity-100">
+                      <Button
+                        variant="secondary"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleQuickAdd(product);
+                        }}
+                        className="bg-cream text-foreground hover:bg-cream/90 font-body text-[12px] uppercase tracking-[1px] px-6 py-2.5 rounded-none"
+                      >
+                        Quick Add
+                      </Button>
+                    </div>
+                  </Link>
+
+                  {/* Product Info */}
+                  <div className="text-center">
+                    <Link to={`/product/${product.slug}`}>
+                      <h3 className="font-heading text-lg text-foreground group-hover:opacity-70 transition-opacity">
+                        {product.name}
+                      </h3>
+                    </Link>
+                    <p className="font-body text-sm text-muted-foreground mt-1">
+                      {formatPrice(product.price)} BDT
+                    </p>
+                  </div>
+                </div>
+              ))}
         </div>
 
         {/* View All Button */}
         <div className="text-center mt-16">
-          <Button 
+          <Button
             variant="outline"
             className="border-foreground text-foreground hover:bg-foreground hover:text-background font-body text-[12px] uppercase tracking-[1.5px] px-10 py-6 rounded-none"
           >

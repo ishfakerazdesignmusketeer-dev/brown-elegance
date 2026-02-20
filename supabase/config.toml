@@ -1,1 +1,7 @@
 project_id = "obbwfxknunfyyvfgfocw"
+
+[functions.verify-admin-password]
+verify_jwt = false
+
+[functions.get-orders]
+verify_jwt = false
