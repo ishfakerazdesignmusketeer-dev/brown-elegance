@@ -159,7 +159,7 @@ const ProductDetail = () => {
               onMouseMove={handleMouseMove}
             >
               <img
-                src={getImageUrl(images[mainImage], 1200)}
+                src={images[mainImage]}
                 alt={product.name}
                 className="w-full h-full object-cover object-center transition-transform duration-200 ease-out"
                 style={{
@@ -182,7 +182,7 @@ const ProductDetail = () => {
                     style={{aspectRatio: '4/5'}}
                   >
                     <img
-                      src={getImageUrl(img, 200)}
+                      src={img}
                       alt={`View ${i + 1}`}
 className="w-full h-full object-cover object-center"
                       loading="lazy"
