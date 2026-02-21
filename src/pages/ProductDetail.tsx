@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCart } from "@/contexts/CartContext";
 import { formatPrice } from "@/lib/format";
+import { getOptimizedImageUrl } from "@/lib/image";
 import { Minus, Plus } from "lucide-react";
 import Navigation from "@/components/layout/Navigation";
 import AnnouncementBar from "@/components/layout/AnnouncementBar";
@@ -143,7 +144,7 @@ const ProductDetail = () => {
           {/* Left: Image Gallery */}
           <div>
             <div className="aspect-[3/4] overflow-hidden bg-muted mb-3">
-              <img src={images[mainImage]} alt={product.name} className="w-full h-full object-cover" />
+              <img src={getOptimizedImageUrl(images[mainImage], 1200, 80)} alt={product.name} className="w-full h-full object-cover" />
             </div>
             {images.length > 1 && (
               <div className="flex gap-2">
@@ -155,7 +156,7 @@ const ProductDetail = () => {
                       mainImage === i ? "border-foreground" : "border-transparent"
                     }`}
                   >
-                    <img src={img} alt={`View ${i + 1}`} className="w-full h-full object-cover" />
+                    <img src={getOptimizedImageUrl(img, 200, 70)} alt={`View ${i + 1}`} className="w-full h-full object-cover" />
                   </button>
                 ))}
               </div>
