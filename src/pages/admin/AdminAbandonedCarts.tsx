@@ -83,7 +83,7 @@ const AdminAbandonedCarts = () => {
   const buildRecoveryMessage = (cart: AbandonedCart): string => {
     const name = cart.customer_name || "there";
     const itemsList = cart.items.map((i) => `${i.name} | Size: ${i.size} | ${formatPrice(i.unit_price)}`).join("\n");
-    return `🟤 Hey ${name}!\n\nYou left something behind at BROWN 👀\n\nYour cart:\n${itemsList}\n\nTotal: ${formatPrice(cart.subtotal)}\n\nComplete your order here 👇\n${storeUrl}/checkout\n\nUse code COMEBACK10 for 10% off — valid for 24 hours! 🎁\n\nReply to this message if you need help. — Brown House Team`;
+    return `🟤 Hey ${name}!\n\nYou left something behind at BROWN HOUSE 👀\n\nYour cart:\n${itemsList}\n\nTotal: ${formatPrice(cart.subtotal)}\n\nComplete your order here 👇\n${storeUrl}/checkout\n\nUse code COMEBACK10 for 10% off — valid for 24 hours! 🎁\n\nReply to this message if you need help. — Brown House Team`;
   };
 
   const sendRecovery = async (cart: AbandonedCart) => {

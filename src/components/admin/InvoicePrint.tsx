@@ -48,9 +48,9 @@ const InvoicePrint = forwardRef<HTMLDivElement, InvoicePrintProps>(({ order }, r
         <div className="border-b-2 border-gray-900 pb-6 mb-6">
           <div className="flex justify-between items-start">
             <div>
-              <h1 className="text-3xl font-bold tracking-widest text-gray-900">BROWN</h1>
+              <h1 className="text-3xl font-bold tracking-widest text-gray-900">BROWN HOUSE</h1>
               <p className="text-xs text-gray-500 mt-1">Premium Bengali Menswear</p>
-              <p className="text-xs text-gray-400">www.brownbd.com</p>
+              <p className="text-xs text-gray-400">www.brownhouse.com</p>
             </div>
             <div className="text-right">
               <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold">Invoice</p>

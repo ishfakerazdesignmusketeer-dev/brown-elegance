@@ -1,13 +1,12 @@
 import { useState, useEffect } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatPrice } from "@/lib/format";
-import { X, Upload, Trash2, GripVertical } from "lucide-react";
+import { X, Upload, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 
 const SIZES = ["S", "M", "L", "XL", "XXL"];
-const CATEGORIES = ["formal", "everyday", "festive", "casual"];
 
 interface Variant {
   id: string;
@@ -21,11 +20,18 @@ interface Product {
   name: string;
   slug: string;
   category: string | null;
+  category_id: string | null;
   price: number;
   description: string | null;
   images: string[] | null;
   is_active: boolean | null;
   product_variants: Variant[];
+}
+
+interface Category {
+  id: string;
+  name: string;
+  slug: string;
 }
 
 interface ProductPanelProps {
@@ -44,6 +50,7 @@ const ProductPanel = ({ open, onClose, product }: ProductPanelProps) => {
 
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
+  const [categoryId, setCategoryId] = useState<string>("");
   const [category, setCategory] = useState("everyday");
   const [price, setPrice] = useState("");
   const [description, setDescription] = useState("");
@@ -53,10 +60,25 @@ const ProductPanel = ({ open, onClose, product }: ProductPanelProps) => {
     S: 0, M: 0, L: 0, XL: 0, XXL: 0,
   });
 
+  const { data: categories = [] } = useQuery({
+    queryKey: ["panel-categories"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("categories")
+        .select("id, name, slug")
+        .eq("is_active", true)
+        .order("sort_order");
+      if (error) throw error;
+      return data as Category[];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
   useEffect(() => {
     if (product) {
       setName(product.name);
       setSlug(product.slug);
+      setCategoryId(product.category_id ?? "");
       setCategory(product.category ?? "everyday");
       setPrice(String(product.price));
       setDescription(product.description ?? "");
@@ -66,7 +88,7 @@ const ProductPanel = ({ open, onClose, product }: ProductPanelProps) => {
       product.product_variants.forEach((v) => { s[v.size] = v.stock; });
       setStocks(s);
     } else {
-      setName(""); setSlug(""); setCategory("everyday"); setPrice("");
+      setName(""); setSlug(""); setCategoryId(""); setCategory("everyday"); setPrice("");
       setDescription(""); setImages([]); setIsActive(true);
       setStocks({ S: 0, M: 0, L: 0, XL: 0, XXL: 0 });
     }
@@ -75,6 +97,12 @@ const ProductPanel = ({ open, onClose, product }: ProductPanelProps) => {
   const handleNameChange = (val: string) => {
     setName(val);
     if (!product) setSlug(toSlug(val));
+  };
+
+  const handleCategoryChange = (id: string) => {
+    setCategoryId(id);
+    const cat = categories.find((c) => c.id === id);
+    if (cat) setCategory(cat.name.toLowerCase());
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -115,6 +143,7 @@ const ProductPanel = ({ open, onClose, product }: ProductPanelProps) => {
         name: name.trim(),
         slug: slug.trim(),
         category,
+        category_id: categoryId || null,
         price: parseInt(price),
         description: description.trim() || null,
         images,
@@ -163,43 +192,31 @@ const ProductPanel = ({ open, onClose, product }: ProductPanelProps) => {
 
   return (
     <div className="fixed inset-0 z-50 flex">
-      {/* Overlay */}
       <div className="flex-1 bg-black/40" onClick={onClose} />
-
-      {/* Panel */}
       <div className="w-full max-w-[480px] bg-white flex flex-col h-full overflow-hidden shadow-xl">
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
           <h2 className="text-base font-semibold text-gray-900">{product ? "Edit Product" : "Add New Product"}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-700">
-            <X className="w-5 h-5" />
-          </button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700"><X className="w-5 h-5" /></button>
         </div>
-
-        {/* Body */}
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-          {/* Name */}
           <div>
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Product Name *</label>
             <Input value={name} onChange={(e) => handleNameChange(e.target.value)} placeholder="e.g. Heritage Panjabi" className="h-9 text-sm" />
           </div>
-
-          {/* Slug */}
           <div>
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Slug *</label>
             <Input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="heritage-panjabi" className="h-9 text-sm font-mono" />
           </div>
-
-          {/* Category + Price */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Category</label>
               <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full h-9 text-sm border border-gray-200 rounded-md px-2 focus:outline-none focus:border-gray-400 capitalize"
+                value={categoryId}
+                onChange={(e) => handleCategoryChange(e.target.value)}
+                className="w-full h-9 text-sm border border-gray-200 rounded-md px-2 focus:outline-none focus:border-gray-400"
               >
-                {CATEGORIES.map((c) => <option key={c} value={c} className="capitalize">{c}</option>)}
+                <option value="">No category</option>
+                {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div>
@@ -207,35 +224,20 @@ const ProductPanel = ({ open, onClose, product }: ProductPanelProps) => {
               <Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="4800" className="h-9 text-sm" />
             </div>
           </div>
-
-          {/* Description */}
           <div>
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Description</label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              placeholder="Product description..."
-              className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 resize-none focus:outline-none focus:border-gray-400"
-            />
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder="Product description..." className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 resize-none focus:outline-none focus:border-gray-400" />
           </div>
-
-          {/* Images */}
           <div>
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Images</label>
             <div className="grid grid-cols-3 gap-2 mb-2">
               {images.map((url, idx) => (
                 <div key={idx} className="relative aspect-square rounded-md overflow-hidden border border-gray-200 group">
                   <img src={url} alt="" className="w-full h-full object-cover" />
-                  <button
-                    onClick={() => removeImage(idx)}
-                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
+                  <button onClick={() => removeImage(idx)} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Trash2 className="w-3 h-3" />
                   </button>
-                  {idx === 0 && (
-                    <div className="absolute bottom-1 left-1 bg-gray-900 text-white text-[9px] px-1.5 py-0.5 rounded">Main</div>
-                  )}
+                  {idx === 0 && <div className="absolute bottom-1 left-1 bg-gray-900 text-white text-[9px] px-1.5 py-0.5 rounded">Main</div>}
                 </div>
               ))}
               <label className="aspect-square rounded-md border-2 border-dashed border-gray-200 flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 transition-colors">
@@ -252,17 +254,13 @@ const ProductPanel = ({ open, onClose, product }: ProductPanelProps) => {
             </div>
             <p className="text-[10px] text-gray-400">First image is the main image. Multiple images allowed.</p>
           </div>
-
-          {/* Sizes & Stock */}
           <div>
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-2">Size & Stock</label>
             <div className="border border-gray-200 rounded-md overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
-                    {SIZES.map((s) => (
-                      <th key={s} className="py-2 text-center text-xs font-medium text-gray-500">{s}</th>
-                    ))}
+                    {SIZES.map((s) => <th key={s} className="py-2 text-center text-xs font-medium text-gray-500">{s}</th>)}
                   </tr>
                 </thead>
                 <tbody>
@@ -270,9 +268,7 @@ const ProductPanel = ({ open, onClose, product }: ProductPanelProps) => {
                     {SIZES.map((size) => (
                       <td key={size} className="py-3 px-2 text-center">
                         <input
-                          type="number"
-                          min={0}
-                          value={stocks[size]}
+                          type="number" min={0} value={stocks[size]}
                           onChange={(e) => setStocks((prev) => ({ ...prev, [size]: parseInt(e.target.value) || 0 }))}
                           className="w-full text-center text-sm border border-gray-200 rounded px-1 py-1 focus:outline-none focus:border-gray-400"
                         />
@@ -283,8 +279,6 @@ const ProductPanel = ({ open, onClose, product }: ProductPanelProps) => {
               </table>
             </div>
           </div>
-
-          {/* Is Active */}
           <div className="flex items-center justify-between py-3 border-t border-gray-100">
             <div>
               <p className="text-sm font-medium text-gray-900">Active / Visible</p>
@@ -298,20 +292,9 @@ const ProductPanel = ({ open, onClose, product }: ProductPanelProps) => {
             </button>
           </div>
         </div>
-
-        {/* Footer */}
         <div className="flex gap-3 px-6 py-4 border-t border-gray-200 flex-shrink-0">
-          <button
-            onClick={onClose}
-            className="flex-1 h-10 border border-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving || uploading}
-            className="flex-1 h-10 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
-          >
+          <button onClick={onClose} className="flex-1 h-10 border border-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
+          <button onClick={handleSave} disabled={saving || uploading} className="flex-1 h-10 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50">
             {saving ? "Saving..." : product ? "Update Product" : "Create Product"}
           </button>
         </div>

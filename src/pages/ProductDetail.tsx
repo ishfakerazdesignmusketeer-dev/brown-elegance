@@ -11,7 +11,6 @@ import Navigation from "@/components/layout/Navigation";
 import AnnouncementBar from "@/components/layout/AnnouncementBar";
 import Footer from "@/components/layout/Footer";
 
-
 interface Variant {
   size: string;
   stock: number;
@@ -25,8 +24,14 @@ interface Product {
   price: number;
   images: string[] | null;
   category: string | null;
+  category_id: string | null;
   is_active: boolean;
   product_variants: Variant[];
+}
+
+interface Category {
+  name: string;
+  slug: string;
 }
 
 const SIZES_ORDER = ["S", "M", "L", "XL", "XXL"];
@@ -51,6 +56,20 @@ const ProductDetail = () => {
       return data as Product;
     },
     enabled: !!slug,
+  });
+
+  const { data: category } = useQuery({
+    queryKey: ["product-category", product?.category_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("categories")
+        .select("name, slug")
+        .eq("id", product!.category_id!)
+        .single();
+      if (error) return null;
+      return data as Category;
+    },
+    enabled: !!product?.category_id,
   });
 
   if (isLoading) {
@@ -88,20 +107,12 @@ const ProductDetail = () => {
   const selectedVariant = sortedVariants.find((v) => v.size === selectedSize);
   const maxQty = selectedVariant?.stock ?? 0;
 
-  const images = product.images && product.images.length > 0
-    ? product.images
-    : ["/placeholder.svg"];
+  const images = product.images && product.images.length > 0 ? product.images : ["/placeholder.svg"];
 
   const handleAddToCart = () => {
     if (!selectedSize) return;
     addItem(
-      {
-        id: product.id,
-        name: product.name,
-        slug: product.slug,
-        image: images[0],
-        price: product.price,
-      },
+      { id: product.id, name: product.name, slug: product.slug, image: images[0], price: product.price },
       selectedSize,
       quantity
     );
@@ -111,14 +122,19 @@ const ProductDetail = () => {
     <div className="min-h-screen bg-cream">
       <AnnouncementBar />
       <Navigation />
-      
 
       <main className="px-6 lg:px-12 py-10 max-w-6xl mx-auto">
         {/* Breadcrumb */}
         <nav className="flex items-center gap-2 font-body text-xs text-muted-foreground mb-8">
           <Link to="/" className="hover:text-foreground transition-colors">Home</Link>
           <span>›</span>
-          <span className="capitalize">{product.category ?? "Collection"}</span>
+          {category ? (
+            <Link to={`/collections/${category.slug}`} className="hover:text-foreground transition-colors capitalize">
+              {category.name}
+            </Link>
+          ) : (
+            <span className="capitalize">{product.category ?? "Collection"}</span>
+          )}
           <span>›</span>
           <span className="text-foreground">{product.name}</span>
         </nav>
@@ -126,15 +142,9 @@ const ProductDetail = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
           {/* Left: Image Gallery */}
           <div>
-            {/* Main Image */}
             <div className="aspect-[3/4] overflow-hidden bg-muted mb-3">
-              <img
-                src={images[mainImage]}
-                alt={product.name}
-                className="w-full h-full object-cover"
-              />
+              <img src={images[mainImage]} alt={product.name} className="w-full h-full object-cover" />
             </div>
-            {/* Thumbnails */}
             {images.length > 1 && (
               <div className="flex gap-2">
                 {images.map((img, i) => (
@@ -154,7 +164,6 @@ const ProductDetail = () => {
 
           {/* Right: Product Info */}
           <div className="flex flex-col">
-            {/* Pre-Order Badge */}
             {allOutOfStock && (
               <span className="inline-block bg-espresso text-cream font-body text-[10px] uppercase tracking-[1.5px] px-3 py-1.5 mb-4 w-fit">
                 Pre-Order
@@ -191,10 +200,7 @@ const ProductDetail = () => {
                     <button
                       key={variant.size}
                       disabled={outOfStock}
-                      onClick={() => {
-                        setSelectedSize(variant.size);
-                        setQuantity(1);
-                      }}
+                      onClick={() => { setSelectedSize(variant.size); setQuantity(1); }}
                       className={`w-12 h-12 font-body text-sm border transition-all ${
                         outOfStock
                           ? "border-border text-muted-foreground line-through cursor-not-allowed opacity-40"
@@ -213,9 +219,7 @@ const ProductDetail = () => {
             {/* Quantity */}
             {selectedSize && maxQty > 0 && (
               <div className="mb-8">
-                <span className="font-body text-xs uppercase tracking-[1.5px] text-foreground block mb-3">
-                  Quantity
-                </span>
+                <span className="font-body text-xs uppercase tracking-[1.5px] text-foreground block mb-3">Quantity</span>
                 <div className="flex items-center border border-border w-fit">
                   <button
                     onClick={() => setQuantity((q) => Math.max(1, q - 1))}
@@ -236,17 +240,12 @@ const ProductDetail = () => {
               </div>
             )}
 
-            {/* Add to Cart */}
             <Button
               onClick={handleAddToCart}
               disabled={!selectedSize || maxQty === 0}
               className="w-full bg-foreground text-background hover:bg-foreground/90 font-body text-[12px] uppercase tracking-[1.5px] py-7 rounded-none disabled:opacity-50"
             >
-              {!selectedSize
-                ? "Select a Size"
-                : allOutOfStock
-                ? "Out of Stock"
-                : "Add to Cart"}
+              {!selectedSize ? "Select a Size" : allOutOfStock ? "Out of Stock" : "Add to Cart"}
             </Button>
 
             <p className="font-body text-xs text-muted-foreground text-center mt-4">

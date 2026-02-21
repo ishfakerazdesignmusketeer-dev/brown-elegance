@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate, Link, useLocation, Outlet } from "react-router-dom";
-import { LayoutDashboard, ShoppingBag, Grid3X3, Settings, LogOut, Menu, Users, Tag, ShoppingCart, Truck, CreditCard } from "lucide-react";
+import { LayoutDashboard, ShoppingBag, Grid3X3, Settings, LogOut, Menu, Users, Tag, ShoppingCart, Truck, CreditCard, Image, Layers, Link as LinkIcon } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -9,13 +9,16 @@ import { supabase } from "@/integrations/supabase/client";
 
 const navItems = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/admin/dashboard" },
+  { label: "Hero Slides", icon: Image, href: "/admin/hero-slides" },
   { label: "Orders", icon: ShoppingBag, href: "/admin/orders", badge: "pending" },
   { label: "Abandoned Carts", icon: ShoppingCart, href: "/admin/abandoned-carts", badge: "abandoned" },
   { label: "Products", icon: Grid3X3, href: "/admin/products" },
+  { label: "Categories", icon: Layers, href: "/admin/categories" },
   { label: "Customers", icon: Users, href: "/admin/customers" },
   { label: "Coupons", icon: Tag, href: "/admin/coupons" },
   { label: "Courier", icon: Truck, href: "/admin/courier", badge: "courier" },
   { label: "Payments", icon: CreditCard, href: "/admin/payments" },
+  { label: "Footer", icon: LinkIcon, href: "/admin/footer" },
   { label: "Settings", icon: Settings, href: "/admin/settings" },
 ];
 
@@ -48,7 +51,7 @@ const SidebarContent = ({
   return (
     <div className="flex flex-col h-full">
       <div className="px-6 py-5 border-b border-gray-200">
-        <p className="text-sm font-semibold text-gray-900 uppercase tracking-widest">Brown Admin</p>
+        <p className="text-sm font-semibold text-gray-900 uppercase tracking-widest">Brown House Admin</p>
       </div>
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
@@ -165,7 +168,7 @@ const AdminLayout = () => {
           >
             <Menu className="w-5 h-5" />
           </Button>
-          <p className="text-sm font-semibold text-gray-900 lg:hidden uppercase tracking-widest">Brown Admin</p>
+          <p className="text-sm font-semibold text-gray-900 lg:hidden uppercase tracking-widest">Brown House Admin</p>
         </header>
 
         <main className="flex-1 overflow-y-auto p-6">

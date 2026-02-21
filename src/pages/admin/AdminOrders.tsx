@@ -338,7 +338,7 @@ const AdminOrders = () => {
     const items = order.order_items
       .map((i) => `${i.product_name} | ${i.size} × ${i.quantity} | ${formatPrice(i.total_price)}`)
       .join("\n");
-    const msg = `🟤 Order Update — BROWN\n\nOrder: ${order.order_number}\nCustomer: ${order.customer_name}\nPhone: ${order.customer_phone}\nAddress: ${order.customer_address}, ${order.customer_city}\n\nItems:\n${items}\n\nTotal: ${formatPrice(order.total)}\nStatus: ${order.status.toUpperCase()}`;
+    const msg = `🟤 Order Update — BROWN HOUSE\n\nOrder: ${order.order_number}\nCustomer: ${order.customer_name}\nPhone: ${order.customer_phone}\nAddress: ${order.customer_address}, ${order.customer_city}\n\nItems:\n${items}\n\nTotal: ${formatPrice(order.total)}\nStatus: ${order.status.toUpperCase()}`;
     window.open(`https://wa.me/${order.customer_phone.replace(/^0/, "88")}?text=${encodeURIComponent(msg)}`, "_blank");
   };
 

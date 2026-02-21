@@ -85,6 +85,39 @@ export type Database = {
         }
         Relationships: []
       }
+      categories: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean | null
+          name: string
+          slug: string
+          sort_order: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          name: string
+          slug: string
+          sort_order?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          name?: string
+          slug?: string
+          sort_order?: number | null
+        }
+        Relationships: []
+      }
       coupons: {
         Row: {
           code: string
@@ -216,6 +249,63 @@ export type Database = {
           phone?: string
           total_orders?: number | null
           total_spent?: number | null
+        }
+        Relationships: []
+      }
+      footer_settings: {
+        Row: {
+          id: string
+          key: string
+          sort_order: number | null
+          value: string | null
+        }
+        Insert: {
+          id?: string
+          key: string
+          sort_order?: number | null
+          value?: string | null
+        }
+        Update: {
+          id?: string
+          key?: string
+          sort_order?: number | null
+          value?: string | null
+        }
+        Relationships: []
+      }
+      hero_slides: {
+        Row: {
+          created_at: string | null
+          cta_text: string | null
+          cta_url: string | null
+          id: string
+          image_url: string
+          is_active: boolean | null
+          sort_order: number | null
+          subtitle: string | null
+          title: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          cta_text?: string | null
+          cta_url?: string | null
+          id?: string
+          image_url: string
+          is_active?: boolean | null
+          sort_order?: number | null
+          subtitle?: string | null
+          title?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          cta_text?: string | null
+          cta_url?: string | null
+          id?: string
+          image_url?: string
+          is_active?: boolean | null
+          sort_order?: number | null
+          subtitle?: string | null
+          title?: string | null
         }
         Relationships: []
       }
@@ -436,6 +526,7 @@ export type Database = {
       products: {
         Row: {
           category: string | null
+          category_id: string | null
           created_at: string | null
           description: string | null
           id: string
@@ -447,6 +538,7 @@ export type Database = {
         }
         Insert: {
           category?: string | null
+          category_id?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
@@ -458,6 +550,7 @@ export type Database = {
         }
         Update: {
           category?: string | null
+          category_id?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
@@ -467,7 +560,15 @@ export type Database = {
           price?: number
           slug?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "products_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
