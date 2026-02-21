@@ -109,7 +109,7 @@ const HeroCarousel = () => {
               <img
                 src={getImageUrl(slide.image_url, 1920)}
                 alt={slide.title || "Hero slide"}
-                className="absolute inset-0 w-full h-full object-cover"
+                className="absolute inset-0 w-full h-full object-contain"
                 loading={index === 0 ? "eager" : "lazy"}
                 fetchPriority={index === 0 ? "high" : undefined}
                 decoding="async"
