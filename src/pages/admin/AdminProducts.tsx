@@ -78,6 +78,9 @@ const AdminProducts = () => {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      // Nullify product reference in order_items to avoid FK constraint
+      const { error: oiErr } = await supabase.from("order_items").update({ product_id: null }).eq("product_id", id);
+      if (oiErr) throw oiErr;
       // Delete variants first, then product
       const { error: varErr } = await supabase.from("product_variants").delete().eq("product_id", id);
       if (varErr) throw varErr;
