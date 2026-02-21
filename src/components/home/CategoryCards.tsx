@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "react-router-dom";
+import { getOptimizedImageUrl } from "@/lib/image";
 
 interface Category {
   id: string;
@@ -58,7 +59,7 @@ const CategoryCards = () => {
                 >
                   {cat.image_url ? (
                     <img
-                      src={cat.image_url}
+                      src={getOptimizedImageUrl(cat.image_url, 800)}
                       alt={cat.name}
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                     />

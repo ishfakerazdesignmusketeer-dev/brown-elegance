@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "react-router-dom";
 import { useCart } from "@/contexts/CartContext";
 import { formatPrice } from "@/lib/format";
+import { getOptimizedImageUrl } from "@/lib/image";
 
 interface Product {
   id: string;
@@ -71,7 +72,7 @@ const ProductGrid = () => {
                   {/* Image Container */}
                   <Link to={`/product/${product.slug}`} className="block relative aspect-[3/4] overflow-hidden bg-muted mb-5">
                     <img
-                      src={product.images?.[0] ?? "/placeholder.svg"}
+                      src={getOptimizedImageUrl(product.images?.[0] ?? "/placeholder.svg", 600)}
                       alt={product.name}
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                     />

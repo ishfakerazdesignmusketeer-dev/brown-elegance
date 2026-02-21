@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
 import { formatPrice } from "@/lib/format";
+import { getOptimizedImageUrl } from "@/lib/image";
 import Navigation from "@/components/layout/Navigation";
 import AnnouncementBar from "@/components/layout/AnnouncementBar";
 import Footer from "@/components/layout/Footer";
@@ -122,7 +123,7 @@ const Collections = () => {
               <div key={product.id} className="group">
                 <Link to={`/product/${product.slug}`} className="block relative aspect-[3/4] overflow-hidden bg-muted mb-5">
                   <img
-                    src={product.images?.[0] ?? "/placeholder.svg"}
+                    src={getOptimizedImageUrl(product.images?.[0] ?? "/placeholder.svg", 600)}
                     alt={product.name}
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                   />

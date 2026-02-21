@@ -5,6 +5,7 @@ import Autoplay from "embla-carousel-autoplay";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getOptimizedImageUrl } from "@/lib/image";
 
 interface HeroSlide {
   id: string;
@@ -98,7 +99,7 @@ const HeroCarousel = () => {
           {displaySlides.map((slide) => (
             <div key={slide.id} className="relative flex-[0_0_100%] min-w-0 h-full">
               <img
-                src={slide.image_url}
+                src={getOptimizedImageUrl(slide.image_url, 1920, 80)}
                 alt={slide.title || "Hero slide"}
                 className="absolute inset-0 w-full h-full object-cover"
               />

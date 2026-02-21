@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatPrice } from "@/lib/format";
+import { getOptimizedImageUrl } from "@/lib/image";
 import { Plus, Pencil, ToggleLeft, ToggleRight } from "lucide-react";
 import { toast } from "sonner";
 import ProductPanel from "@/components/admin/ProductPanel";
@@ -128,7 +129,7 @@ const AdminProducts = () => {
                 >
                   {product.images?.[0] ? (
                     <img
-                      src={product.images[0]}
+                      src={getOptimizedImageUrl(product.images[0], 200, 70)}
                       alt={product.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
