@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { CartProvider } from "@/contexts/CartContext";
 import CartDrawer from "@/components/cart/CartDrawer";
 import ScrollToTop from "@/components/ScrollToTop";
+import { useDynamicFavicon } from "@/hooks/use-dynamic-favicon";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import ProductDetail from "./pages/ProductDetail";
@@ -29,10 +30,16 @@ import AdminFooter from "./pages/admin/AdminFooter";
 
 const queryClient = new QueryClient();
 
+const DynamicFavicon = () => {
+  useDynamicFavicon();
+  return null;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <CartProvider>
+        <DynamicFavicon />
         <Toaster />
         <Sonner />
         <BrowserRouter>
