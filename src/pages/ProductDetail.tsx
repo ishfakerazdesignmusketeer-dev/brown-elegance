@@ -163,11 +163,12 @@ className="w-full h-auto block"
                     className={`w-20 overflow-hidden bg-[#F8F5E9] border-2 transition-colors ${
                       mainImage === i ? "border-foreground" : "border-transparent"
                     }`}
+                    style={{aspectRatio: '4/5'}}
                   >
                     <img
                       src={getImageUrl(img, 200)}
                       alt={`View ${i + 1}`}
-className="w-full h-auto block"
+className="w-full h-full object-cover object-center"
                       loading="lazy"
                       decoding="async"
                       width={200}
