@@ -72,14 +72,14 @@ const ProductGrid = () => {
                   <div key={product.id} className="group">
                     <Link to={`/product/${product.slug}`} className="block relative overflow-hidden bg-[#F8F5E9] mb-5" style={{aspectRatio: '4/5'}}>
                       <img
-                        src={getImageUrl(originalUrl, 600)}
+                        src={originalUrl}
                         alt={product.name}
                         className="absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-500 ease-in-out group-hover:opacity-0"
                         loading="lazy"
                       />
                       {product.images?.[1] && (
                         <img
-                          src={getImageUrl(product.images[1], 600)}
+                          src={product.images[1]}
                           alt={`${product.name} alternate`}
                           className="absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-500 ease-in-out opacity-0 group-hover:opacity-100"
                           loading="lazy"
