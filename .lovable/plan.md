@@ -1,55 +1,89 @@
 
 
-# Add `getOptimizedImageUrl()` Utility and Apply Across Codebase
+# Image Performance Optimization
 
 ## Overview
 
-Create a utility function that rewrites Supabase storage URLs to use the image transform API, then apply it at every image render point so browsers download only the size they need in WebP format.
+Add lazy loading, async decoding, placeholder backgrounds, and Page Visibility API autoplay control across all image-rendering components. Also add a preconnect hint to the Supabase storage domain in `index.html`.
 
 ---
 
-## Part 1: New Utility Function
+## 1. Hero Carousel (`src/components/home/HeroCarousel.tsx`)
 
-**File:** `src/lib/image.ts` (new file)
+**Image attributes:**
+- First slide (index 0): `loading="eager"` + `decoding="async"`
+- All other slides: `loading="lazy"` + `decoding="async"`
 
-```typescript
-export function getOptimizedImageUrl(
-  url: string,
-  width: number,
-  quality: number = 75
-): string {
-  if (!url || !url.includes("supabase")) return url;
-  return (
-    url.replace(
-      "/storage/v1/object/public/",
-      "/storage/v1/render/image/public/"
-    ) + `?width=${width}&quality=${quality}&format=webp`
-  );
-}
+**Placeholder background:**
+- Add `bg-[#F8F5E9]` to each slide container div (the one wrapping the `<img>`)
+
+**Page Visibility API -- pause autoplay when tab is hidden:**
+- Add a `useEffect` that listens to `document.visibilitychange`
+- When `document.hidden` is true, call `emblaApi.plugins().autoplay.stop()`
+- When visible again, call `emblaApi.plugins().autoplay.play()`
+- Clean up the event listener on unmount
+
+---
+
+## 2. Product Grid (`src/components/home/ProductGrid.tsx`)
+
+**Image attributes:**
+- All product images: add `loading="lazy"` + `decoding="async"`
+
+**Placeholder background:**
+- The link container already has `bg-muted`; change to `bg-[#F8F5E9]` for the cream placeholder
+- The `aspect-[3/4]` container is already in place -- no layout shift changes needed
+
+---
+
+## 3. Collections Page (`src/pages/Collections.tsx`)
+
+Same as Product Grid:
+- Add `loading="lazy"` + `decoding="async"` to all product images
+- Change link container background to `bg-[#F8F5E9]`
+
+---
+
+## 4. Category Cards (`src/components/home/CategoryCards.tsx`)
+
+- Add `loading="lazy"` + `decoding="async"` to category card images
+
+---
+
+## 5. Product Detail (`src/pages/ProductDetail.tsx`)
+
+- Main image: `loading="eager"` + `decoding="async"` (it's the primary content)
+- Thumbnail images: `loading="lazy"` + `decoding="async"`
+- Add `bg-[#F8F5E9]` to the main image container
+
+---
+
+## 6. Featured Carousel (`src/components/home/FeaturedCarousel.tsx`)
+
+- Add `loading="lazy"` + `decoding="async"` to the featured story image
+
+---
+
+## 7. `index.html` -- Preconnect
+
+Add before the Google Fonts preconnect:
+```html
+<link rel="preconnect" href="https://obbwfxknunfyyvfgfocw.supabase.co">
 ```
 
-Returns the original URL unchanged for non-Supabase URLs (Unsplash, placeholders, etc.).
+Note: Dynamic preloading of the first hero image is complex (requires fetching from DB before React mounts). Instead, the preconnect hint ensures the browser establishes the connection early, and the first slide's `loading="eager"` ensures it loads immediately.
 
 ---
 
-## Part 2: Apply to All Image Locations
+## Files Modified
 
-| File | Image Element | Call |
-|---|---|---|
-| `src/components/home/HeroCarousel.tsx` | Slide background image | `getOptimizedImageUrl(url, 1920, 80)` |
-| `src/components/home/ProductGrid.tsx` | Product card image | `getOptimizedImageUrl(url, 600, 75)` |
-| `src/components/home/CategoryCards.tsx` | Category card image | `getOptimizedImageUrl(url, 800, 75)` |
-| `src/pages/Collections.tsx` | Product card image | `getOptimizedImageUrl(url, 600, 75)` |
-| `src/pages/ProductDetail.tsx` | Main image | `getOptimizedImageUrl(url, 1200, 80)` |
-| `src/pages/ProductDetail.tsx` | Thumbnail buttons | `getOptimizedImageUrl(url, 200, 70)` |
-| `src/pages/admin/AdminProducts.tsx` | Admin product grid thumbnail | `getOptimizedImageUrl(url, 200, 70)` |
-
----
-
-## Technical Details
-
-- Each file gets a new import: `import { getOptimizedImageUrl } from "@/lib/image";`
-- The function wraps the existing `src` attribute value -- no other markup changes
-- Non-Supabase URLs (Unsplash hero fallbacks, `/placeholder.svg`) pass through untouched
-- The `format=webp` parameter lets the CDN serve WebP to all modern browsers
+| File | Changes |
+|---|---|
+| `index.html` | Add preconnect link |
+| `src/components/home/HeroCarousel.tsx` | loading/decoding attrs, bg placeholder, visibility API |
+| `src/components/home/ProductGrid.tsx` | loading/decoding attrs, cream bg |
+| `src/pages/Collections.tsx` | loading/decoding attrs, cream bg |
+| `src/components/home/CategoryCards.tsx` | loading/decoding attrs |
+| `src/pages/ProductDetail.tsx` | loading/decoding attrs, cream bg |
+| `src/components/home/FeaturedCarousel.tsx` | loading/decoding attrs |
 
