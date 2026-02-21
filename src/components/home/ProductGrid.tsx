@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "react-router-dom";
 import { useCart } from "@/contexts/CartContext";
 import { formatPrice } from "@/lib/format";
-import { getOptimizedImageUrl } from "@/lib/image";
+import { getImageUrl } from "@/lib/image";
 
 interface Product {
   id: string;
@@ -30,6 +30,7 @@ const ProductGrid = () => {
       if (error) throw error;
       return data as Product[];
     },
+    staleTime: 2 * 60 * 1000,
   });
 
   const handleQuickAdd = (product: Product) => {
@@ -44,7 +45,6 @@ const ProductGrid = () => {
   return (
     <section className="bg-cream py-20 lg:py-28">
       <div className="px-6 lg:px-12">
-        {/* Section Header */}
         <div className="text-center mb-16">
           <span className="font-body text-[12px] uppercase tracking-[2px] text-muted-foreground">
             Curated Collection
@@ -57,7 +57,6 @@ const ProductGrid = () => {
           </p>
         </div>
 
-        {/* Product Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-10">
           {isLoading
             ? Array.from({ length: 6 }).map((_, i) => (
@@ -67,52 +66,49 @@ const ProductGrid = () => {
                   <Skeleton className="h-4 w-1/3 mx-auto" />
                 </div>
               ))
-            : (products ?? []).map((product) => (
-                <div key={product.id} className="group">
-                  {/* Image Container */}
-                  <Link to={`/product/${product.slug}`} className="block relative aspect-[3/4] overflow-hidden bg-[#F8F5E9] mb-5">
-                    <img
-                      src={getOptimizedImageUrl(product.images?.[0] ?? "/placeholder.svg", 600)}
-                      alt={product.name}
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                      loading="lazy"
-                      decoding="async"
-                      width={600}
-                      height={800}
-                      onError={(e) => { e.currentTarget.src = product.images?.[0] ?? "/placeholder.svg"; }}
-                    />
-
-                    {/* Hover Overlay with Quick Add */}
-                    <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/20 transition-colors duration-300 flex items-end justify-center pb-6 opacity-0 group-hover:opacity-100">
-                      <Button
-                        variant="secondary"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          handleQuickAdd(product);
-                        }}
-                        className="bg-cream text-foreground hover:bg-cream/90 font-body text-[12px] uppercase tracking-[1px] px-6 py-2.5 rounded-none"
-                      >
-                        Quick Add
-                      </Button>
-                    </div>
-                  </Link>
-
-                  {/* Product Info */}
-                  <div className="text-center">
-                    <Link to={`/product/${product.slug}`}>
-                      <h3 className="font-heading text-lg text-foreground group-hover:opacity-70 transition-opacity">
-                        {product.name}
-                      </h3>
+            : (products ?? []).map((product) => {
+                const originalUrl = product.images?.[0] ?? "/placeholder.svg";
+                return (
+                  <div key={product.id} className="group">
+                    <Link to={`/product/${product.slug}`} className="block relative aspect-[3/4] overflow-hidden bg-[#F8F5E9] mb-5">
+                      <img
+                        src={getImageUrl(originalUrl, 600)}
+                        alt={product.name}
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                        loading="lazy"
+                        decoding="async"
+                        width={600}
+                        height={800}
+                        onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = originalUrl; }}
+                      />
+                      <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/20 transition-colors duration-300 flex items-end justify-center pb-6 opacity-0 group-hover:opacity-100">
+                        <Button
+                          variant="secondary"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleQuickAdd(product);
+                          }}
+                          className="bg-cream text-foreground hover:bg-cream/90 font-body text-[12px] uppercase tracking-[1px] px-6 py-2.5 rounded-none"
+                        >
+                          Quick Add
+                        </Button>
+                      </div>
                     </Link>
-                    <p className="font-body text-sm text-muted-foreground mt-1">
-                      {formatPrice(product.price)} BDT
-                    </p>
+                    <div className="text-center">
+                      <Link to={`/product/${product.slug}`}>
+                        <h3 className="font-heading text-lg text-foreground group-hover:opacity-70 transition-opacity">
+                          {product.name}
+                        </h3>
+                      </Link>
+                      <p className="font-body text-sm text-muted-foreground mt-1">
+                        {formatPrice(product.price)} BDT
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
         </div>
 
-        {/* View All Button */}
         <div className="text-center mt-16">
           <Button
             variant="outline"

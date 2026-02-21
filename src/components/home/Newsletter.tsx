@@ -7,8 +7,6 @@ const Newsletter = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Placeholder - would integrate with backend
-    console.log("Newsletter signup:", email);
     setEmail("");
   };
 
@@ -16,7 +14,6 @@ const Newsletter = () => {
     <section className="bg-cream py-20 lg:py-28">
       <div className="px-6 lg:px-12">
         <div className="max-w-2xl mx-auto text-center">
-          {/* Content */}
           <span className="font-body text-[12px] uppercase tracking-[2px] text-muted-foreground">
             Join the Circle
           </span>
@@ -28,7 +25,6 @@ const Newsletter = () => {
             Members receive 10% off their first purchase.
           </p>
 
-          {/* Form */}
           <form onSubmit={handleSubmit} className="mt-10 flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
             <Input
               type="email"

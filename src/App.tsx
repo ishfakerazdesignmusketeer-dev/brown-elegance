@@ -7,6 +7,7 @@ import { CartProvider } from "@/contexts/CartContext";
 import CartDrawer from "@/components/cart/CartDrawer";
 import ScrollToTop from "@/components/ScrollToTop";
 import { useDynamicFavicon } from "@/hooks/use-dynamic-favicon";
+import { lazy, Suspense } from "react";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import ProductDetail from "./pages/ProductDetail";
@@ -15,18 +16,19 @@ import OrderConfirmation from "./pages/OrderConfirmation";
 import Collections from "./pages/Collections";
 import AdminLogin from "./pages/admin/AdminLogin";
 import AdminLayout from "./components/admin/AdminLayout";
-import AdminDashboard from "./pages/admin/AdminDashboard";
-import AdminOrders from "./pages/admin/AdminOrders";
-import AdminProducts from "./pages/admin/AdminProducts";
-import AdminCustomers from "./pages/admin/AdminCustomers";
-import AdminCoupons from "./pages/admin/AdminCoupons";
-import AdminSettings from "./pages/admin/AdminSettings";
-import AdminAbandonedCarts from "./pages/admin/AdminAbandonedCarts";
-import AdminCourier from "./pages/admin/AdminCourier";
-import AdminPayments from "./pages/admin/AdminPayments";
-import AdminHeroSlides from "./pages/admin/AdminHeroSlides";
-import AdminCategories from "./pages/admin/AdminCategories";
-import AdminFooter from "./pages/admin/AdminFooter";
+
+const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
+const AdminOrders = lazy(() => import("./pages/admin/AdminOrders"));
+const AdminProducts = lazy(() => import("./pages/admin/AdminProducts"));
+const AdminCustomers = lazy(() => import("./pages/admin/AdminCustomers"));
+const AdminCoupons = lazy(() => import("./pages/admin/AdminCoupons"));
+const AdminSettings = lazy(() => import("./pages/admin/AdminSettings"));
+const AdminAbandonedCarts = lazy(() => import("./pages/admin/AdminAbandonedCarts"));
+const AdminCourier = lazy(() => import("./pages/admin/AdminCourier"));
+const AdminPayments = lazy(() => import("./pages/admin/AdminPayments"));
+const AdminHeroSlides = lazy(() => import("./pages/admin/AdminHeroSlides"));
+const AdminCategories = lazy(() => import("./pages/admin/AdminCategories"));
+const AdminFooter = lazy(() => import("./pages/admin/AdminFooter"));
 
 const queryClient = new QueryClient();
 
@@ -34,6 +36,12 @@ const DynamicFavicon = () => {
   useDynamicFavicon();
   return null;
 };
+
+const AdminFallback = () => (
+  <div className="flex items-center justify-center h-screen">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground" />
+  </div>
+);
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -56,21 +64,20 @@ const App = () => (
             <Route path="/admin" element={<Navigate to="/admin/login" replace />} />
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin" element={<AdminLayout />}>
-              <Route path="dashboard" element={<AdminDashboard />} />
-              <Route path="orders" element={<AdminOrders />} />
-              <Route path="products" element={<AdminProducts />} />
-              <Route path="customers" element={<AdminCustomers />} />
-              <Route path="coupons" element={<AdminCoupons />} />
-              <Route path="settings" element={<AdminSettings />} />
-              <Route path="abandoned-carts" element={<AdminAbandonedCarts />} />
-              <Route path="courier" element={<AdminCourier />} />
-              <Route path="payments" element={<AdminPayments />} />
-              <Route path="hero-slides" element={<AdminHeroSlides />} />
-              <Route path="categories" element={<AdminCategories />} />
-              <Route path="footer" element={<AdminFooter />} />
+              <Route path="dashboard" element={<Suspense fallback={<AdminFallback />}><AdminDashboard /></Suspense>} />
+              <Route path="orders" element={<Suspense fallback={<AdminFallback />}><AdminOrders /></Suspense>} />
+              <Route path="products" element={<Suspense fallback={<AdminFallback />}><AdminProducts /></Suspense>} />
+              <Route path="customers" element={<Suspense fallback={<AdminFallback />}><AdminCustomers /></Suspense>} />
+              <Route path="coupons" element={<Suspense fallback={<AdminFallback />}><AdminCoupons /></Suspense>} />
+              <Route path="settings" element={<Suspense fallback={<AdminFallback />}><AdminSettings /></Suspense>} />
+              <Route path="abandoned-carts" element={<Suspense fallback={<AdminFallback />}><AdminAbandonedCarts /></Suspense>} />
+              <Route path="courier" element={<Suspense fallback={<AdminFallback />}><AdminCourier /></Suspense>} />
+              <Route path="payments" element={<Suspense fallback={<AdminFallback />}><AdminPayments /></Suspense>} />
+              <Route path="hero-slides" element={<Suspense fallback={<AdminFallback />}><AdminHeroSlides /></Suspense>} />
+              <Route path="categories" element={<Suspense fallback={<AdminFallback />}><AdminCategories /></Suspense>} />
+              <Route path="footer" element={<Suspense fallback={<AdminFallback />}><AdminFooter /></Suspense>} />
             </Route>
 
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
