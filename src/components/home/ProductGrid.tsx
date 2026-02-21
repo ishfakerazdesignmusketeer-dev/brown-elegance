@@ -70,11 +70,11 @@ const ProductGrid = () => {
                 const originalUrl = product.images?.[0] ?? "/placeholder.svg";
                 return (
                   <div key={product.id} className="group">
-                    <Link to={`/product/${product.slug}`} className="block relative overflow-hidden bg-[#F8F5E9] mb-5">
+                    <Link to={`/product/${product.slug}`} className="block relative overflow-hidden bg-[#F8F5E9] mb-5" style={{aspectRatio: '4/5'}}>
                       <img
                         src={getImageUrl(originalUrl, 600)}
                         alt={product.name}
-                        className="w-full h-auto block transition-transform duration-700 group-hover:scale-105"
+                        className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
                         loading="lazy"
                         decoding="async"
                         width={600}
