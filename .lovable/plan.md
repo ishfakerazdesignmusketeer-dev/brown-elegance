@@ -1,33 +1,48 @@
 
+# Add Hover Effects to Product Pages
 
-# Fix Product Card Image Display
-
-Apply the user's exact image patterns to 3 locations across 2 files.
+Two hover effects: second-image fade on homepage cards, and zoom-follow-mouse on product detail main image.
 
 ## Changes
 
-### 1. Homepage Product Grid Cards (`src/components/home/ProductGrid.tsx`, ~line 73-80)
+### 1. Homepage Product Grid — Second Image Fade (`src/components/home/ProductGrid.tsx`)
 
-**Container (Link):** Add `style={{aspectRatio: '4/5'}}` and keep `overflow-hidden bg-[#F8F5E9]`
-- From: `className="block relative overflow-hidden bg-[#F8F5E9] mb-5"`
-- To: `className="block relative overflow-hidden bg-[#F8F5E9] mb-5" style={{aspectRatio: '4/5'}}`
+**Lines 73-83** — Replace the single image with two stacked absolute images inside the existing container:
 
-**Image (line ~77):**
-- From: `className="w-full h-auto block transition-transform duration-700 group-hover:scale-105"`
-- To: `className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105"`
+- Keep the Link wrapper with `relative overflow-hidden bg-[#F8F5E9]` and `style={{aspectRatio: '4/5'}}`
+- First image: `absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-500 ease-in-out group-hover:opacity-0`
+- Second image (only if `product.images?.[1]` exists): `absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-500 ease-in-out opacity-0 group-hover:opacity-100`
+- Remove the old `transition-transform duration-700 group-hover:scale-105` from the image (replaced by the fade effect)
+- The Quick Add overlay (lines 84-95) stays unchanged
+- The parent div already has `className="group"` — no change needed
 
-### 2. Product Detail — Main Image (`src/pages/ProductDetail.tsx`, ~line 149)
+### 2. Product Detail — Zoom on Hover (`src/pages/ProductDetail.tsx`)
 
-Already `w-full h-auto block` — just confirm it stays as-is. No change needed.
+**Line 45** — Add two new state variables after `mainImage`:
+```
+const [zoom, setZoom] = useState(false);
+const [pos, setPos] = useState({ x: 50, y: 50 });
+```
 
-### 3. Product Detail — Thumbnails (`src/pages/ProductDetail.tsx`, ~line 163 + 170)
+**Add a handler** (after `handleAddToCart` or near image section):
+```
+const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+  const rect = e.currentTarget.getBoundingClientRect();
+  const x = ((e.clientX - rect.left) / rect.width) * 100;
+  const y = ((e.clientY - rect.top) / rect.height) * 100;
+  setPos({ x, y });
+};
+```
 
-**Thumbnail button (~line 163):** Add `style={{aspectRatio: '4/5'}}`, keep `w-20 overflow-hidden bg-[#F8F5E9]`
+**Lines 145-156** — Replace main image container:
+- Container div: add `cursor-zoom-in`, `style={{ aspectRatio: '4/5' }}`, and mouse event handlers (`onMouseEnter`, `onMouseLeave`, `onMouseMove`)
+- Image: change to `w-full h-full object-cover object-center transition-transform duration-200 ease-out` with inline `style={{ transform: zoom ? 'scale(2)' : 'scale(1)', transformOrigin: ... }}`
+- Remove `width`/`height`/`decoding`/`onError` attributes that conflict, keep `loading="eager"`
+- Add `draggable={false}` to prevent drag interference
 
-**Thumbnail image (~line 170):**
-- From: `className="w-full h-auto block"`
-- To: `className="w-full h-full object-cover object-center"`
+Thumbnails (lines 157-180) remain completely unchanged.
 
 ## Summary
-4 line changes across 2 files. Main detail image untouched.
-
+- `ProductGrid.tsx`: Replace single image with two stacked images for fade effect (~10 lines changed)
+- `ProductDetail.tsx`: Add zoom state + mouse handler + update main image container (~20 lines changed)
+- No other files or styling affected
