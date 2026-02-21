@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "react-router-dom";
-import { getOptimizedImageUrl } from "@/lib/image";
+import { getImageUrl } from "@/lib/image";
 
 interface Category {
   id: string;
@@ -25,13 +25,13 @@ const CategoryCards = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("categories")
-        .select("*")
+        .select("id, name, slug, description, image_url, sort_order")
         .eq("is_active", true)
         .order("sort_order");
       if (error) throw error;
       return data as Category[];
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 10 * 60 * 1000,
   });
 
   return (
@@ -59,14 +59,14 @@ const CategoryCards = () => {
                 >
                   {cat.image_url ? (
                     <img
-                      src={getOptimizedImageUrl(cat.image_url, 800)}
+                      src={getImageUrl(cat.image_url, 800)}
                       alt={cat.name}
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                       loading="lazy"
                       decoding="async"
                       width={800}
                       height={600}
-                      onError={(e) => { e.currentTarget.src = cat.image_url!; }}
+                      onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = cat.image_url!; }}
                     />
                   ) : (
                     <div className={`w-full h-full bg-gradient-to-br ${PLACEHOLDER_GRADIENTS[idx % PLACEHOLDER_GRADIENTS.length]}`} />

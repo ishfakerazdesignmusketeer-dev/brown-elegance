@@ -110,7 +110,7 @@ const AdminLayout = () => {
         .eq("status", "pending");
       return count ?? 0;
     },
-    refetchInterval: 30000,
+    refetchInterval: 60000,
   });
 
   const { data: abandonedCount = 0 } = useQuery({

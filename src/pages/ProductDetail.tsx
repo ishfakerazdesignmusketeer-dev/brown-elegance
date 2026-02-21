@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCart } from "@/contexts/CartContext";
 import { formatPrice } from "@/lib/format";
-import { getOptimizedImageUrl } from "@/lib/image";
+import { getImageUrl } from "@/lib/image";
 import { Minus, Plus } from "lucide-react";
 import Navigation from "@/components/layout/Navigation";
 import AnnouncementBar from "@/components/layout/AnnouncementBar";
@@ -125,7 +125,6 @@ const ProductDetail = () => {
       <Navigation />
 
       <main className="px-6 lg:px-12 py-10 max-w-6xl mx-auto">
-        {/* Breadcrumb */}
         <nav className="flex items-center gap-2 font-body text-xs text-muted-foreground mb-8">
           <Link to="/" className="hover:text-foreground transition-colors">Home</Link>
           <span>›</span>
@@ -144,7 +143,16 @@ const ProductDetail = () => {
           {/* Left: Image Gallery */}
           <div>
             <div className="aspect-[3/4] overflow-hidden bg-[#F8F5E9] mb-3">
-              <img src={getOptimizedImageUrl(images[mainImage], 1200, 80)} alt={product.name} className="w-full h-full object-cover" loading="eager" decoding="async" width={1200} height={1600} onError={(e) => { e.currentTarget.src = images[mainImage]; }} />
+              <img
+                src={getImageUrl(images[mainImage], 1200)}
+                alt={product.name}
+                className="w-full h-full object-cover"
+                loading="eager"
+                decoding="async"
+                width={1200}
+                height={1600}
+                onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = images[mainImage]; }}
+              />
             </div>
             {images.length > 1 && (
               <div className="flex gap-2">
@@ -156,7 +164,16 @@ const ProductDetail = () => {
                       mainImage === i ? "border-foreground" : "border-transparent"
                     }`}
                   >
-                    <img src={getOptimizedImageUrl(img, 200, 70)} alt={`View ${i + 1}`} className="w-full h-full object-cover" loading="lazy" decoding="async" width={200} height={267} onError={(e) => { e.currentTarget.src = img; }} />
+                    <img
+                      src={getImageUrl(img, 200)}
+                      alt={`View ${i + 1}`}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                      decoding="async"
+                      width={200}
+                      height={267}
+                      onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = img; }}
+                    />
                   </button>
                 ))}
               </div>

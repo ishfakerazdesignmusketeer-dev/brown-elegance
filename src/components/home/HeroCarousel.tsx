@@ -5,7 +5,7 @@ import Autoplay from "embla-carousel-autoplay";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getOptimizedImageUrl } from "@/lib/image";
+import { getImageUrl } from "@/lib/image";
 
 interface HeroSlide {
   id: string;
@@ -25,7 +25,7 @@ const HeroCarousel = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("hero_slides")
-        .select("*")
+        .select("id, image_url, title, subtitle, cta_text, cta_url, sort_order")
         .eq("is_active", true)
         .order("sort_order");
       if (error) throw error;
@@ -57,7 +57,6 @@ const HeroCarousel = () => {
     return () => { emblaApi.off("select", onSelect); };
   }, [emblaApi, onSelect]);
 
-  // Pause autoplay when tab is hidden
   useEffect(() => {
     if (!emblaApi) return;
     const handleVisibility = () => {
@@ -101,25 +100,22 @@ const HeroCarousel = () => {
     sort_order: 1,
   }];
 
-  // Check if first slide has text content for overlay
-  const firstSlide = displaySlides[0];
-  const showOverlay = firstSlide.title || firstSlide.subtitle;
-
   return (
     <section className="relative h-screen w-full overflow-hidden">
       <div className="absolute inset-0" ref={emblaRef}>
         <div className="flex h-full">
           {displaySlides.map((slide, index) => (
-            <div key={slide.id} className="relative flex-[0_0_100%] min-w-0 h-full bg-[#F8F5E9]">
+            <div key={slide.id} className="relative flex-[0_0_100%] min-w-0 h-full bg-[#F8F5E9]" style={{ contain: "layout" }}>
               <img
-                src={getOptimizedImageUrl(slide.image_url, 1920, 80)}
+                src={getImageUrl(slide.image_url, 1920)}
                 alt={slide.title || "Hero slide"}
                 className="absolute inset-0 w-full h-full object-cover"
                 loading={index === 0 ? "eager" : "lazy"}
+                fetchPriority={index === 0 ? "high" : undefined}
                 decoding="async"
                 width={1920}
                 height={1080}
-                onError={(e) => { e.currentTarget.src = slide.image_url; }}
+                onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = slide.image_url; }}
               />
               <div className="absolute inset-0 bg-gradient-to-r from-black/40 via-black/20 to-transparent" />
             </div>
@@ -130,7 +126,6 @@ const HeroCarousel = () => {
       {/* Content Overlay */}
       <div className="relative z-10 h-full flex items-end pb-24 lg:pb-32">
         <div className="px-6 lg:px-12 xl:pl-14 max-w-2xl">
-          {/* Show content from the current slide */}
           {(() => {
             const current = displaySlides[selectedIndex] || displaySlides[0];
             return (

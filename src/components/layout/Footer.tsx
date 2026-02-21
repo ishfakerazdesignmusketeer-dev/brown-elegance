@@ -27,7 +27,8 @@ const Footer = () => {
       (data as FooterSetting[]).forEach((s) => { if (s.key && s.value) map[s.key] = s.value; });
       return map;
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: Infinity,
+    gcTime: Infinity,
   });
 
   const get = (key: string, fallback: string = "") => settingsMap[key] || fallback;

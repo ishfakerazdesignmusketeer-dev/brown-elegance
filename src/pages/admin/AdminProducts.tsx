@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatPrice } from "@/lib/format";
-import { getOptimizedImageUrl } from "@/lib/image";
+import { getImageUrl } from "@/lib/image";
 import { Plus, Pencil, ToggleLeft, ToggleRight } from "lucide-react";
 import { toast } from "sonner";
 import ProductPanel from "@/components/admin/ProductPanel";
@@ -96,7 +96,6 @@ const AdminProducts = () => {
         </button>
       </div>
 
-      {/* Product Grid */}
       {isLoading ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
           {Array.from({ length: 8 }).map((_, i) => (
@@ -117,22 +116,22 @@ const AdminProducts = () => {
           {products.map((product) => {
             const minStock = lowestStock(product);
             const isLowStock = minStock <= 5;
+            const originalUrl = product.images?.[0];
             return (
               <div
                 key={product.id}
                 className={`bg-white border rounded-lg overflow-hidden group ${!product.is_active ? "opacity-60" : ""} ${isLowStock && product.is_active ? "border-amber-200" : "border-gray-200"}`}
               >
-                {/* Image */}
                 <div
                   className="aspect-square bg-gray-100 relative cursor-pointer overflow-hidden"
                   onClick={() => handleEdit(product)}
                 >
-                  {product.images?.[0] ? (
+                  {originalUrl ? (
                     <img
-                      src={getOptimizedImageUrl(product.images[0], 200, 70)}
+                      src={getImageUrl(originalUrl, 200)}
                       alt={product.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      onError={(e) => { e.currentTarget.src = product.images![0]; }}
+                      onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = originalUrl; }}
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-gray-300 text-xs">No image</div>
@@ -155,7 +154,6 @@ const AdminProducts = () => {
                   </div>
                   <p className="text-sm font-semibold text-gray-900 mt-1.5">{formatPrice(product.price)}</p>
 
-                  {/* Stock summary */}
                   <div className="flex items-center justify-between mt-2">
                     <span className={`text-[10px] ${isLowStock ? "text-amber-600 font-semibold" : "text-gray-500"}`}>
                       {isLowStock && minStock === 0 ? "Out of stock" : isLowStock ? `Low stock (min: ${minStock})` : `Stock: ${totalStock(product)}`}
@@ -180,10 +178,8 @@ const AdminProducts = () => {
         </div>
       )}
 
-      {/* Stock Overview */}
       <StockOverview />
 
-      {/* Product Panel */}
       <ProductPanel
         open={panelOpen}
         onClose={() => setPanelOpen(false)}

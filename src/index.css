@@ -148,3 +148,18 @@
 .animate-fade-in {
   animation: fadeIn 0.5s ease-out;
 }
+
+/* Performance optimizations */
+html {
+  scroll-behavior: smooth;
+}
+
+.embla__container {
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+img {
+  content-visibility: auto;
+}
