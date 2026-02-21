@@ -10,6 +10,7 @@ import NotFound from "./pages/NotFound";
 import ProductDetail from "./pages/ProductDetail";
 import Checkout from "./pages/Checkout";
 import OrderConfirmation from "./pages/OrderConfirmation";
+import Collections from "./pages/Collections";
 import AdminLogin from "./pages/admin/AdminLogin";
 import AdminLayout from "./components/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -21,6 +22,9 @@ import AdminSettings from "./pages/admin/AdminSettings";
 import AdminAbandonedCarts from "./pages/admin/AdminAbandonedCarts";
 import AdminCourier from "./pages/admin/AdminCourier";
 import AdminPayments from "./pages/admin/AdminPayments";
+import AdminHeroSlides from "./pages/admin/AdminHeroSlides";
+import AdminCategories from "./pages/admin/AdminCategories";
+import AdminFooter from "./pages/admin/AdminFooter";
 
 const queryClient = new QueryClient();
 
@@ -37,6 +41,7 @@ const App = () => (
             <Route path="/product/:slug" element={<ProductDetail />} />
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/order-confirmation/:orderId" element={<OrderConfirmation />} />
+            <Route path="/collections/:slug" element={<Collections />} />
 
             {/* Admin routes */}
             <Route path="/admin" element={<Navigate to="/admin/login" replace />} />
@@ -51,6 +56,9 @@ const App = () => (
               <Route path="abandoned-carts" element={<AdminAbandonedCarts />} />
               <Route path="courier" element={<AdminCourier />} />
               <Route path="payments" element={<AdminPayments />} />
+              <Route path="hero-slides" element={<AdminHeroSlides />} />
+              <Route path="categories" element={<AdminCategories />} />
+              <Route path="footer" element={<AdminFooter />} />
             </Route>
 
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

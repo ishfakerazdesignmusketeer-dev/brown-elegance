@@ -19,6 +19,7 @@ interface Product {
   name: string;
   slug: string;
   category: string | null;
+  category_id: string | null;
   price: number;
   description: string | null;
   images: string[] | null;
