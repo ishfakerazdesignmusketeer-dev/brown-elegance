@@ -79,6 +79,7 @@ const ProductGrid = () => {
                       decoding="async"
                       width={600}
                       height={800}
+                      onError={(e) => { e.currentTarget.src = product.images?.[0] ?? "/placeholder.svg"; }}
                     />
 
                     {/* Hover Overlay with Quick Add */}

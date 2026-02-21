@@ -3,11 +3,11 @@ export function getOptimizedImageUrl(
   width: number,
   quality: number = 75
 ): string {
-  if (!url || !url.includes("supabase")) return url;
-  return (
-    url.replace(
-      "/storage/v1/object/public/",
-      "/storage/v1/render/image/public/"
-    ) + `?width=${width}&quality=${quality}&format=webp`
+  if (!url) return '';
+  if (!url.includes('supabase.co/storage/v1/object/public/')) return url;
+  const transformUrl = url.replace(
+    '/storage/v1/object/public/',
+    '/storage/v1/render/image/public/'
   );
+  return `${transformUrl}?width=${width}&quality=${quality}&format=webp`;
 }

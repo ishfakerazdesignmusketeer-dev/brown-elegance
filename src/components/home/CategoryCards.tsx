@@ -66,6 +66,7 @@ const CategoryCards = () => {
                       decoding="async"
                       width={800}
                       height={600}
+                      onError={(e) => { e.currentTarget.src = cat.image_url!; }}
                     />
                   ) : (
                     <div className={`w-full h-full bg-gradient-to-br ${PLACEHOLDER_GRADIENTS[idx % PLACEHOLDER_GRADIENTS.length]}`} />
