@@ -1,23 +1,22 @@
 
 
-# Fix Image Display — object-contain
+# Fix Product Image Display — object-cover with object-top
 
-Targeted CSS-only changes to three image elements across two files. No logic or layout changes.
+Revert from `object-contain` back to `object-cover` but add `object-top` so faces/upper body are visible. Use `aspect-[3/4]` consistently.
 
 ## Changes
 
-### 1. Product Grid Cards (`src/components/home/ProductGrid.tsx`, line 77)
-- Change `object-cover` to `object-contain` on the product card image
-- Container already has `bg-[#F8F5E9]` -- no change needed there
+### 1. Product Grid Cards (`src/components/home/ProductGrid.tsx`, ~line 72-77)
+- Container already has `aspect-[3/4]` -- confirm no change needed
+- Image: change `object-contain` to `object-cover object-top`
 
-### 2. Product Detail — Main Image (`src/pages/ProductDetail.tsx`, line 149)
-- Change `object-cover` to `object-contain` on the main product image
-- Container already has `bg-[#F8F5E9]` -- no change needed
+### 2. Product Detail — Main Image (`src/pages/ProductDetail.tsx`, ~line 144-149)
+- Container already has `aspect-[3/4]` -- confirm no change needed
+- Image: change `object-contain` to `object-cover object-top`
 
-### 3. Product Detail — Thumbnails (`src/pages/ProductDetail.tsx`, line 163 + 170)
-- Change thumbnail container background from `bg-muted` to `bg-[#F8F5E9]`
-- Change thumbnail `object-cover` to `object-contain` on line 170
+### 3. Product Detail — Thumbnails (`src/pages/ProductDetail.tsx`, ~line 167-170)
+- Image: change `object-contain` to `object-cover object-top`
 
 ### Summary
-Only 4 lines change across 2 files. Everything else stays the same.
+3 lines changed across 2 files. Only `object-fit` and `object-position` classes are modified.
 
