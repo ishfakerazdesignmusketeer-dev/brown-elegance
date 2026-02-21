@@ -121,11 +121,15 @@ const Collections = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-10">
             {products.map((product) => (
               <div key={product.id} className="group">
-                <Link to={`/product/${product.slug}`} className="block relative aspect-[3/4] overflow-hidden bg-muted mb-5">
+                <Link to={`/product/${product.slug}`} className="block relative aspect-[3/4] overflow-hidden bg-[#F8F5E9] mb-5">
                   <img
                     src={getOptimizedImageUrl(product.images?.[0] ?? "/placeholder.svg", 600)}
                     alt={product.name}
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    loading="lazy"
+                    decoding="async"
+                    width={600}
+                    height={800}
                   />
                   <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/20 transition-colors duration-300 flex items-end justify-center pb-6 opacity-0 group-hover:opacity-100">
                     <Button

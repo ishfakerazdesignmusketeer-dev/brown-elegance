@@ -57,6 +57,19 @@ const HeroCarousel = () => {
     return () => { emblaApi.off("select", onSelect); };
   }, [emblaApi, onSelect]);
 
+  // Pause autoplay when tab is hidden
+  useEffect(() => {
+    if (!emblaApi) return;
+    const handleVisibility = () => {
+      const autoplay = emblaApi.plugins()?.autoplay;
+      if (!autoplay) return;
+      if (document.hidden) autoplay.stop();
+      else autoplay.play();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [emblaApi]);
+
   const scrollTo = useCallback(
     (index: number) => { if (emblaApi) emblaApi.scrollTo(index); },
     [emblaApi]
@@ -96,12 +109,16 @@ const HeroCarousel = () => {
     <section className="relative h-screen w-full overflow-hidden">
       <div className="absolute inset-0" ref={emblaRef}>
         <div className="flex h-full">
-          {displaySlides.map((slide) => (
-            <div key={slide.id} className="relative flex-[0_0_100%] min-w-0 h-full">
+          {displaySlides.map((slide, index) => (
+            <div key={slide.id} className="relative flex-[0_0_100%] min-w-0 h-full bg-[#F8F5E9]">
               <img
                 src={getOptimizedImageUrl(slide.image_url, 1920, 80)}
                 alt={slide.title || "Hero slide"}
                 className="absolute inset-0 w-full h-full object-cover"
+                loading={index === 0 ? "eager" : "lazy"}
+                decoding="async"
+                width={1920}
+                height={1080}
               />
               <div className="absolute inset-0 bg-gradient-to-r from-black/40 via-black/20 to-transparent" />
             </div>
