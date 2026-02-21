@@ -18,8 +18,8 @@ export const useBranding = () => {
       const map: Record<string, string | null> = {};
       data.forEach((s) => { map[s.key] = s.value; });
       return {
-        logoUrl: map.logo_url ?? null,
-        faviconUrl: map.favicon_url ?? null,
+        logoUrl: map.logo_url || null,
+        faviconUrl: map.favicon_url || null,
       };
     },
     staleTime: 5 * 60 * 1000,

@@ -25,8 +25,8 @@ const FIELDS: BrandingField[] = [
   {
     key: "favicon_url",
     label: "Favicon",
-    hint: "PNG or ICO, 32×32 or 64×64",
-    accept: "image/png,image/x-icon,image/svg+xml",
+    hint: "JPG only, 32×32 or 64×64",
+    accept: "image/jpeg",
     folder: "favicon",
   },
 ];
