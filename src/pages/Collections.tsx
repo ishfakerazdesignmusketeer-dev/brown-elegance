@@ -22,6 +22,8 @@ const Collections = () => {
   const { slug } = useParams<{ slug: string }>();
   const { addItem } = useCart();
 
+  const isAllCollections = !slug;
+
   const { data: category, isLoading: catLoading } = useQuery({
     queryKey: ["category", slug],
     queryFn: async () => {
@@ -38,18 +40,21 @@ const Collections = () => {
   });
 
   const { data: products = [], isLoading: prodsLoading } = useQuery({
-    queryKey: ["collection-products", category?.id],
+    queryKey: ["collection-products", isAllCollections ? "all" : category?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("products")
         .select("id, name, slug, price, images")
-        .eq("category_id", category!.id)
         .eq("is_active", true)
         .order("created_at");
+      if (!isAllCollections && category?.id) {
+        query = query.eq("category_id", category.id);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return data as Product[];
     },
-    enabled: !!category?.id,
+    enabled: isAllCollections || !!category?.id,
   });
 
   const handleQuickAdd = (product: Product) => {
@@ -60,7 +65,7 @@ const Collections = () => {
     );
   };
 
-  if (catLoading) {
+  if (catLoading || (isAllCollections && prodsLoading)) {
     return (
       <div className="min-h-screen bg-cream">
         <AnnouncementBar />
@@ -82,7 +87,7 @@ const Collections = () => {
     );
   }
 
-  if (!category) {
+  if (!isAllCollections && !category) {
     return (
       <div className="min-h-screen bg-cream flex flex-col items-center justify-center gap-4">
         <p className="font-heading text-3xl text-foreground">Collection not found</p>
@@ -90,6 +95,8 @@ const Collections = () => {
       </div>
     );
   }
+
+  const pageTitle = isAllCollections ? "All Collections" : category!.name;
 
   return (
     <div className="min-h-screen bg-cream">
@@ -100,11 +107,11 @@ const Collections = () => {
         <nav className="flex items-center gap-2 font-body text-xs text-muted-foreground mb-8">
           <Link to="/" className="hover:text-foreground transition-colors">Home</Link>
           <span>›</span>
-          <span className="text-foreground">{category.name}</span>
+          <span className="text-foreground">{pageTitle}</span>
         </nav>
 
         <h1 className="font-heading text-4xl lg:text-5xl text-foreground mb-12">
-          {category.name}
+          {pageTitle}
         </h1>
 
         {products.length === 0 ? (

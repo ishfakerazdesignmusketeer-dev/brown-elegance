@@ -96,7 +96,7 @@ const HeroCarousel = () => {
     title: "Brown House — Handwoven Khadi,",
     subtitle: "Tailored Quietly",
     cta_text: "EXPLORE THE COLLECTION",
-    cta_url: "#collection",
+    cta_url: "/collections",
     sort_order: 1,
   }];
 
@@ -160,7 +160,7 @@ const HeroCarousel = () => {
                     </a>
                   ) : (
                     <a
-                      href="#collection"
+                      href="/collections"
                       className="inline-flex items-center justify-center border border-white/80 text-white font-body text-[12px] uppercase tracking-[1.5px] px-7 py-4 hover:bg-white/10 transition-colors"
                     >
                       EXPLORE THE COLLECTION

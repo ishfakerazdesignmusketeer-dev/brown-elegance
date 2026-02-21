@@ -58,6 +58,7 @@ const App = () => (
             <Route path="/product/:slug" element={<ProductDetail />} />
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/order-confirmation/:orderId" element={<OrderConfirmation />} />
+            <Route path="/collections" element={<Collections />} />
             <Route path="/collections/:slug" element={<Collections />} />
 
             {/* Admin routes */}
