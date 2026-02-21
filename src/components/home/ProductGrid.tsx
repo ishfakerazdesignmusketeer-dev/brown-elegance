@@ -74,7 +74,7 @@ const ProductGrid = () => {
                       <img
                         src={getImageUrl(originalUrl, 600)}
                         alt={product.name}
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                        className="w-full h-full object-contain transition-transform duration-700 group-hover:scale-105"
                         loading="lazy"
                         decoding="async"
                         width={600}
