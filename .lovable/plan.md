@@ -1,48 +1,34 @@
 
-# Add Hover Effects to Product Pages
 
-Two hover effects: second-image fade on homepage cards, and zoom-follow-mouse on product detail main image.
+# Fix Broken Product Images
 
-## Changes
+## Problem
+The `getImageUrl` helper rewrites image URLs to use the `/render/image/` transformation endpoint, which is not available on this project. The main product image broke because its `onError` fallback was removed in the last edit. Thumbnails still work because they kept their `onError` fallback.
 
-### 1. Homepage Product Grid — Second Image Fade (`src/components/home/ProductGrid.tsx`)
+## Solution
+Stop using the broken image transformation entirely. Use the original storage URLs directly for all product images.
 
-**Lines 73-83** — Replace the single image with two stacked absolute images inside the existing container:
+### Changes
 
-- Keep the Link wrapper with `relative overflow-hidden bg-[#F8F5E9]` and `style={{aspectRatio: '4/5'}}`
-- First image: `absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-500 ease-in-out group-hover:opacity-0`
-- Second image (only if `product.images?.[1]` exists): `absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-500 ease-in-out opacity-0 group-hover:opacity-100`
-- Remove the old `transition-transform duration-700 group-hover:scale-105` from the image (replaced by the fade effect)
-- The Quick Add overlay (lines 84-95) stays unchanged
-- The parent div already has `className="group"` — no change needed
+**`src/pages/ProductDetail.tsx` (line 162)** -- Main image: use raw URL instead of transformed
+- From: `src={getImageUrl(images[mainImage], 1200)}`
+- To: `src={images[mainImage]}`
 
-### 2. Product Detail — Zoom on Hover (`src/pages/ProductDetail.tsx`)
+**`src/pages/ProductDetail.tsx` (line 185)** -- Thumbnails: use raw URL
+- From: `src={getImageUrl(img, 200)}`
+- To: `src={img}`
 
-**Line 45** — Add two new state variables after `mainImage`:
-```
-const [zoom, setZoom] = useState(false);
-const [pos, setPos] = useState({ x: 50, y: 50 });
-```
+**`src/components/home/ProductGrid.tsx` (lines 75, 83)** -- Homepage grid: use raw URLs
+- Line 75: `src={getImageUrl(originalUrl, 600)}` to `src={originalUrl}`
+- Line 83: `src={getImageUrl(product.images[1], 600)}` to `src={product.images[1]}`
 
-**Add a handler** (after `handleAddToCart` or near image section):
-```
-const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-  const rect = e.currentTarget.getBoundingClientRect();
-  const x = ((e.clientX - rect.left) / rect.width) * 100;
-  const y = ((e.clientY - rect.top) / rect.height) * 100;
-  setPos({ x, y });
-};
-```
+**`src/pages/Collections.tsx` (line ~131)** -- Collection grid: use raw URL
+- From: `src={getImageUrl(originalUrl, 600)}` to `src={originalUrl}`
 
-**Lines 145-156** — Replace main image container:
-- Container div: add `cursor-zoom-in`, `style={{ aspectRatio: '4/5' }}`, and mouse event handlers (`onMouseEnter`, `onMouseLeave`, `onMouseMove`)
-- Image: change to `w-full h-full object-cover object-center transition-transform duration-200 ease-out` with inline `style={{ transform: zoom ? 'scale(2)' : 'scale(1)', transformOrigin: ... }}`
-- Remove `width`/`height`/`decoding`/`onError` attributes that conflict, keep `loading="eager"`
-- Add `draggable={false}` to prevent drag interference
+This removes all `getImageUrl` calls from product image rendering. The images will load directly from storage, which works reliably.
 
-Thumbnails (lines 157-180) remain completely unchanged.
+## Files changed
+- `src/pages/ProductDetail.tsx` (2 lines)
+- `src/components/home/ProductGrid.tsx` (2 lines)
+- `src/pages/Collections.tsx` (1 line)
 
-## Summary
-- `ProductGrid.tsx`: Replace single image with two stacked images for fade effect (~10 lines changed)
-- `ProductDetail.tsx`: Add zoom state + mouse handler + update main image container (~20 lines changed)
-- No other files or styling affected
