@@ -43,6 +43,15 @@ const ProductDetail = () => {
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [mainImage, setMainImage] = useState(0);
+  const [zoom, setZoom] = useState(false);
+  const [pos, setPos] = useState({ x: 50, y: 50 });
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    setPos({ x, y });
+  };
 
   const { data: product, isLoading } = useQuery({
     queryKey: ["product", slug],
@@ -142,16 +151,23 @@ const ProductDetail = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
           {/* Left: Image Gallery */}
           <div>
-            <div className="overflow-hidden bg-[#F8F5E9] mb-3">
+            <div
+              className="w-full overflow-hidden bg-[#F8F5E9] mb-3 cursor-zoom-in"
+              style={{ aspectRatio: '4/5' }}
+              onMouseEnter={() => setZoom(true)}
+              onMouseLeave={() => setZoom(false)}
+              onMouseMove={handleMouseMove}
+            >
               <img
                 src={getImageUrl(images[mainImage], 1200)}
                 alt={product.name}
-className="w-full h-auto block"
+                className="w-full h-full object-cover object-center transition-transform duration-200 ease-out"
+                style={{
+                  transform: zoom ? 'scale(2)' : 'scale(1)',
+                  transformOrigin: `${pos.x}% ${pos.y}%`,
+                }}
                 loading="eager"
-                decoding="async"
-                width={1200}
-                height={1600}
-                onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = images[mainImage]; }}
+                draggable={false}
               />
             </div>
             {images.length > 1 && (
