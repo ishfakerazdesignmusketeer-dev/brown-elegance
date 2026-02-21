@@ -146,7 +146,7 @@ const ProductDetail = () => {
               <img
                 src={getImageUrl(images[mainImage], 1200)}
                 alt={product.name}
-className="w-full h-full object-contain"
+className="w-full h-full object-cover object-top"
                 loading="eager"
                 decoding="async"
                 width={1200}
@@ -167,7 +167,7 @@ className="w-full h-full object-contain"
                     <img
                       src={getImageUrl(img, 200)}
                       alt={`View ${i + 1}`}
-className="w-full h-full object-contain"
+className="w-full h-full object-cover object-top"
                       loading="lazy"
                       decoding="async"
                       width={200}
