@@ -76,7 +76,7 @@ const HeroCarousel = () => {
 
   if (isLoading) {
     return (
-      <section className="relative h-screen w-full overflow-hidden bg-muted">
+      <section className="relative aspect-video w-full overflow-hidden bg-muted">
         <Skeleton className="absolute inset-0 rounded-none" />
         <div className="relative z-10 h-full flex items-end pb-24 lg:pb-32">
           <div className="px-6 lg:px-12 xl:pl-14 max-w-2xl space-y-4">
@@ -101,7 +101,7 @@ const HeroCarousel = () => {
   }];
 
   return (
-    <section className="relative h-screen w-full overflow-hidden">
+    <section className="relative aspect-video w-full overflow-hidden">
       <div className="absolute inset-0" ref={emblaRef}>
         <div className="flex h-full">
           {displaySlides.map((slide, index) => (
