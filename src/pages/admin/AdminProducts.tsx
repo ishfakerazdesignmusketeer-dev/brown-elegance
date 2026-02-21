@@ -132,6 +132,7 @@ const AdminProducts = () => {
                       src={getOptimizedImageUrl(product.images[0], 200, 70)}
                       alt={product.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      onError={(e) => { e.currentTarget.src = product.images![0]; }}
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-gray-300 text-xs">No image</div>

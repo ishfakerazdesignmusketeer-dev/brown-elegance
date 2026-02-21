@@ -130,6 +130,7 @@ const Collections = () => {
                     decoding="async"
                     width={600}
                     height={800}
+                    onError={(e) => { e.currentTarget.src = product.images?.[0] ?? "/placeholder.svg"; }}
                   />
                   <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/20 transition-colors duration-300 flex items-end justify-center pb-6 opacity-0 group-hover:opacity-100">
                     <Button

@@ -143,8 +143,8 @@ const ProductDetail = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
           {/* Left: Image Gallery */}
           <div>
-            <div className="aspect-[3/4] overflow-hidden bg-muted mb-3">
-              <img src={getOptimizedImageUrl(images[mainImage], 1200, 80)} alt={product.name} className="w-full h-full object-cover" />
+            <div className="aspect-[3/4] overflow-hidden bg-[#F8F5E9] mb-3">
+              <img src={getOptimizedImageUrl(images[mainImage], 1200, 80)} alt={product.name} className="w-full h-full object-cover" loading="eager" decoding="async" width={1200} height={1600} onError={(e) => { e.currentTarget.src = images[mainImage]; }} />
             </div>
             {images.length > 1 && (
               <div className="flex gap-2">
@@ -156,7 +156,7 @@ const ProductDetail = () => {
                       mainImage === i ? "border-foreground" : "border-transparent"
                     }`}
                   >
-                    <img src={getOptimizedImageUrl(img, 200, 70)} alt={`View ${i + 1}`} className="w-full h-full object-cover" loading="lazy" decoding="async" width={200} height={267} />
+                    <img src={getOptimizedImageUrl(img, 200, 70)} alt={`View ${i + 1}`} className="w-full h-full object-cover" loading="lazy" decoding="async" width={200} height={267} onError={(e) => { e.currentTarget.src = img; }} />
                   </button>
                 ))}
               </div>
