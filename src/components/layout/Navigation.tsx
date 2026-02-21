@@ -3,9 +3,10 @@ import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Search, ShoppingBag, User, Menu, ChevronDown } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
-import logo from "@/assets/logo.png";
+import defaultLogo from "@/assets/logo.png";
 import { useCart } from "@/contexts/CartContext";
 import { supabase } from "@/integrations/supabase/client";
+import { useBranding } from "@/hooks/use-branding";
 
 interface Category {
   id: string;
@@ -24,6 +25,8 @@ const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [collectionsOpen, setCollectionsOpen] = useState(false);
   const { itemCount, setIsOpen: openCart } = useCart();
+  const { data: branding } = useBranding();
+  const logoSrc = branding?.logoUrl || defaultLogo;
 
   const { data: categories = [] } = useQuery({
     queryKey: ["nav-categories"],
@@ -44,7 +47,7 @@ const Navigation = () => {
       <div className="h-full px-6 lg:px-12 flex items-center justify-between">
         {/* Left - Logo */}
         <Link to="/" className="h-10">
-          <img src={logo} alt="Brown House" className="h-full w-auto" />
+          <img src={logoSrc} alt="Brown House" className="h-full w-auto" />
         </Link>
 
         {/* Center - Desktop Navigation */}

@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Eye, EyeOff, Save } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import BrandingSection from "@/components/admin/BrandingSection";
 
 interface Setting {
   id: string;
@@ -64,6 +65,11 @@ const AdminSettings = () => {
   return (
     <div>
       <h1 className="text-xl font-semibold text-gray-900 mb-6">Settings</h1>
+
+      {/* Branding Section */}
+      <div className="mb-8">
+        <BrandingSection />
+      </div>
 
       <div className="bg-white border border-gray-200 rounded-lg p-6 max-w-lg">
         {isLoading ? (
