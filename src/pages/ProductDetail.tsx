@@ -142,11 +142,11 @@ const ProductDetail = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
           {/* Left: Image Gallery */}
           <div>
-            <div className="aspect-[3/4] overflow-hidden bg-[#F8F5E9] mb-3">
+            <div className="overflow-hidden bg-[#F8F5E9] mb-3">
               <img
                 src={getImageUrl(images[mainImage], 1200)}
                 alt={product.name}
-className="w-full h-full object-cover object-top"
+className="w-full h-auto block"
                 loading="eager"
                 decoding="async"
                 width={1200}
@@ -160,14 +160,14 @@ className="w-full h-full object-cover object-top"
                   <button
                     key={i}
                     onClick={() => setMainImage(i)}
-                    className={`w-16 h-20 overflow-hidden bg-[#F8F5E9] border-2 transition-colors ${
+                    className={`w-20 overflow-hidden bg-[#F8F5E9] border-2 transition-colors ${
                       mainImage === i ? "border-foreground" : "border-transparent"
                     }`}
                   >
                     <img
                       src={getImageUrl(img, 200)}
                       alt={`View ${i + 1}`}
-className="w-full h-full object-cover object-top"
+className="w-full h-auto block"
                       loading="lazy"
                       decoding="async"
                       width={200}
