@@ -146,7 +146,7 @@ const ProductDetail = () => {
               <img
                 src={getImageUrl(images[mainImage], 1200)}
                 alt={product.name}
-                className="w-full h-full object-cover"
+className="w-full h-full object-contain"
                 loading="eager"
                 decoding="async"
                 width={1200}
@@ -160,14 +160,14 @@ const ProductDetail = () => {
                   <button
                     key={i}
                     onClick={() => setMainImage(i)}
-                    className={`w-16 h-20 overflow-hidden bg-muted border-2 transition-colors ${
+                    className={`w-16 h-20 overflow-hidden bg-[#F8F5E9] border-2 transition-colors ${
                       mainImage === i ? "border-foreground" : "border-transparent"
                     }`}
                   >
                     <img
                       src={getImageUrl(img, 200)}
                       alt={`View ${i + 1}`}
-                      className="w-full h-full object-cover"
+className="w-full h-full object-contain"
                       loading="lazy"
                       decoding="async"
                       width={200}
