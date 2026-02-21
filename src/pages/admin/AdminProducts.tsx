@@ -3,10 +3,20 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatPrice } from "@/lib/format";
 import { getImageUrl } from "@/lib/image";
-import { Plus, Pencil, ToggleLeft, ToggleRight } from "lucide-react";
+import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
 import { toast } from "sonner";
 import ProductPanel from "@/components/admin/ProductPanel";
 import StockOverview from "@/components/admin/StockOverview";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Variant {
   id: string;
@@ -39,6 +49,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 const AdminProducts = () => {
   const [panelOpen, setPanelOpen] = useState(false);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
   const queryClient = useQueryClient();
 
   const { data: products = [], isLoading } = useQuery({
@@ -63,6 +74,23 @@ const AdminProducts = () => {
       toast.success(is_active ? "Product activated" : "Product hidden");
     },
     onError: () => toast.error("Failed to update product"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      // Delete variants first, then product
+      const { error: varErr } = await supabase.from("product_variants").delete().eq("product_id", id);
+      if (varErr) throw varErr;
+      const { error } = await supabase.from("products").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-products"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-stock-overview"] });
+      toast.success("Product deleted");
+      setDeleteTarget(null);
+    },
+    onError: () => toast.error("Failed to delete product"),
   });
 
   const handleEdit = (product: Product) => {
@@ -158,18 +186,30 @@ const AdminProducts = () => {
                     <span className={`text-[10px] ${isLowStock ? "text-amber-600 font-semibold" : "text-gray-500"}`}>
                       {isLowStock && minStock === 0 ? "Out of stock" : isLowStock ? `Low stock (min: ${minStock})` : `Stock: ${totalStock(product)}`}
                     </span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleActiveMutation.mutate({ id: product.id, is_active: !product.is_active });
-                      }}
-                      className="text-gray-400 hover:text-gray-700 transition-colors"
-                    >
-                      {product.is_active
-                        ? <ToggleRight className="w-5 h-5 text-green-500" />
-                        : <ToggleLeft className="w-5 h-5" />
-                      }
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteTarget(product);
+                        }}
+                        className="text-gray-300 hover:text-red-500 transition-colors"
+                        title="Delete product"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleActiveMutation.mutate({ id: product.id, is_active: !product.is_active });
+                        }}
+                        className="text-gray-400 hover:text-gray-700 transition-colors"
+                      >
+                        {product.is_active
+                          ? <ToggleRight className="w-5 h-5 text-green-500" />
+                          : <ToggleLeft className="w-5 h-5" />
+                        }
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -185,6 +225,26 @@ const AdminProducts = () => {
         onClose={() => setPanelOpen(false)}
         product={editProduct}
       />
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete "{deleteTarget?.name}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this product and all its variants. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
