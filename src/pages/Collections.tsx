@@ -122,7 +122,7 @@ const Collections = () => {
                 <div key={product.id} className="group">
                   <Link to={`/product/${product.slug}`} className="block relative aspect-[3/4] overflow-hidden bg-[#F8F5E9] mb-5">
                     <img
-                      src={originalUrl}
+                      src={getImageUrl(originalUrl, 600)}
                       alt={product.name}
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                       loading="lazy"
