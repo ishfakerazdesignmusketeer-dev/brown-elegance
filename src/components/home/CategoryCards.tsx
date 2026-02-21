@@ -62,6 +62,10 @@ const CategoryCards = () => {
                       src={getOptimizedImageUrl(cat.image_url, 800)}
                       alt={cat.name}
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                      loading="lazy"
+                      decoding="async"
+                      width={800}
+                      height={600}
                     />
                   ) : (
                     <div className={`w-full h-full bg-gradient-to-br ${PLACEHOLDER_GRADIENTS[idx % PLACEHOLDER_GRADIENTS.length]}`} />

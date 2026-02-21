@@ -72,6 +72,10 @@ const FeaturedCarousel = () => {
                 src={currentItem.image}
                 alt={currentItem.title}
                 className="w-full h-full object-cover animate-fade-in"
+                loading="lazy"
+                decoding="async"
+                width={1200}
+                height={800}
               />
             </div>
 

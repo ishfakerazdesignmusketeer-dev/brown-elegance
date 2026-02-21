@@ -70,11 +70,15 @@ const ProductGrid = () => {
             : (products ?? []).map((product) => (
                 <div key={product.id} className="group">
                   {/* Image Container */}
-                  <Link to={`/product/${product.slug}`} className="block relative aspect-[3/4] overflow-hidden bg-muted mb-5">
+                  <Link to={`/product/${product.slug}`} className="block relative aspect-[3/4] overflow-hidden bg-[#F8F5E9] mb-5">
                     <img
                       src={getOptimizedImageUrl(product.images?.[0] ?? "/placeholder.svg", 600)}
                       alt={product.name}
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                      loading="lazy"
+                      decoding="async"
+                      width={600}
+                      height={800}
                     />
 
                     {/* Hover Overlay with Quick Add */}

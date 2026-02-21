@@ -156,7 +156,7 @@ const ProductDetail = () => {
                       mainImage === i ? "border-foreground" : "border-transparent"
                     }`}
                   >
-                    <img src={getOptimizedImageUrl(img, 200, 70)} alt={`View ${i + 1}`} className="w-full h-full object-cover" />
+                    <img src={getOptimizedImageUrl(img, 200, 70)} alt={`View ${i + 1}`} className="w-full h-full object-cover" loading="lazy" decoding="async" width={200} height={267} />
                   </button>
                 ))}
               </div>
