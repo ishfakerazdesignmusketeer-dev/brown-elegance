@@ -1,33 +1,41 @@
 
 
-# Fix Product Card Image Display
+# Add Skeleton Loading Placeholders
 
-Apply the user's exact image patterns to 3 locations across 2 files.
+3 small changes across 2 files.
 
 ## Changes
 
-### 1. Homepage Product Grid Cards (`src/components/home/ProductGrid.tsx`, ~line 73-80)
+### 1. Product Grid Skeletons (`src/components/home/ProductGrid.tsx`, lines 62-67)
 
-**Container (Link):** Add `style={{aspectRatio: '4/5'}}` and keep `overflow-hidden bg-[#F8F5E9]`
-- From: `className="block relative overflow-hidden bg-[#F8F5E9] mb-5"`
-- To: `className="block relative overflow-hidden bg-[#F8F5E9] mb-5" style={{aspectRatio: '4/5'}}`
+Replace the current `<Skeleton>` components with the user's exact markup:
 
-**Image (line ~77):**
-- From: `className="w-full h-auto block transition-transform duration-700 group-hover:scale-105"`
-- To: `className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105"`
+```
+<div key={i}>
+  <div className="w-full bg-[#ede9d9] animate-pulse rounded-md" style={{aspectRatio:'4/5'}} />
+  <div className="h-4 w-24 bg-[#ede9d9] animate-pulse rounded-md mt-2" />
+  <div className="h-4 w-16 bg-[#ede9d9] animate-pulse rounded-md mt-1" />
+</div>
+```
 
-### 2. Product Detail — Main Image (`src/pages/ProductDetail.tsx`, ~line 149)
+Keep the 6-card count as-is.
 
-Already `w-full h-auto block` — just confirm it stays as-is. No change needed.
+### 2. Hero Carousel Loading State (`src/components/home/HeroCarousel.tsx`, lines 78-90)
 
-### 3. Product Detail — Thumbnails (`src/pages/ProductDetail.tsx`, ~line 163 + 170)
+Replace the current skeleton section with a simple cream background + pulse:
 
-**Thumbnail button (~line 163):** Add `style={{aspectRatio: '4/5'}}`, keep `w-20 overflow-hidden bg-[#F8F5E9]`
+```
+<section className="relative h-screen w-full overflow-hidden bg-[#F8F5E9] animate-pulse" />
+```
 
-**Thumbnail image (~line 170):**
-- From: `className="w-full h-auto block"`
-- To: `className="w-full h-full object-cover object-center"`
+### 3. Product Grid staleTime (`src/components/home/ProductGrid.tsx`, line 33)
+
+Update from `2 * 60 * 1000` to `5 * 60 * 1000`. Hero and CategoryCards already use 5+ minutes.
 
 ## Summary
-4 line changes across 2 files. Main detail image untouched.
+
+- 2 files changed: `ProductGrid.tsx`, `HeroCarousel.tsx`
+- Skeleton cards match the 4:5 aspect ratio of real product cards
+- Hero shows a clean cream pulse instead of multiple skeleton blocks
+- All homepage queries cached for 5 minutes
 
