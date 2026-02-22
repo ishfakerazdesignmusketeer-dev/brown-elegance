@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatPrice } from "@/lib/format";
-import { X, Upload, Trash2 } from "lucide-react";
+import { X, Upload, Trash2, Link as LinkIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 
@@ -47,6 +47,7 @@ const ProductPanel = ({ open, onClose, product }: ProductPanelProps) => {
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [imageUrlInput, setImageUrlInput] = useState("");
 
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
@@ -252,7 +253,29 @@ const ProductPanel = ({ open, onClose, product }: ProductPanelProps) => {
                 <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} disabled={uploading} />
               </label>
             </div>
-            <p className="text-[10px] text-gray-400">First image is the main image. Multiple images allowed.</p>
+            <div className="flex gap-2 mt-2">
+              <Input
+                value={imageUrlInput}
+                onChange={(e) => setImageUrlInput(e.target.value)}
+                placeholder="Paste image URL..."
+                className="h-8 text-xs flex-1"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const url = imageUrlInput.trim();
+                  if (!url) return;
+                  setImages((prev) => [...prev, url]);
+                  setImageUrlInput("");
+                  toast.success("Image URL added");
+                }}
+                disabled={!imageUrlInput.trim()}
+                className="h-8 px-3 text-xs border border-gray-200 rounded-md hover:bg-gray-50 disabled:opacity-40 flex items-center gap-1"
+              >
+                <LinkIcon className="w-3 h-3" /> Add URL
+              </button>
+            </div>
+            <p className="text-[10px] text-gray-400 mt-1">First image is the main image. Upload or paste URLs.</p>
           </div>
           <div>
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-2">Size & Stock</label>
