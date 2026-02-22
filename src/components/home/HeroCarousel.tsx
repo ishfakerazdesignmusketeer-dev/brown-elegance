@@ -76,17 +76,7 @@ const HeroCarousel = () => {
 
   if (isLoading) {
     return (
-      <section className="relative h-screen w-full overflow-hidden bg-muted">
-        <Skeleton className="absolute inset-0 rounded-none" />
-        <div className="relative z-10 h-full flex items-end pb-24 lg:pb-32">
-          <div className="px-6 lg:px-12 xl:pl-14 max-w-2xl space-y-4">
-            <Skeleton className="h-4 w-48" />
-            <Skeleton className="h-14 w-96" />
-            <Skeleton className="h-5 w-80" />
-            <Skeleton className="h-12 w-64" />
-          </div>
-        </div>
-      </section>
+      <section className="relative h-screen w-full overflow-hidden bg-[#F8F5E9] animate-pulse" />
     );
   }
 
