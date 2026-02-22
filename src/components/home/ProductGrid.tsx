@@ -30,7 +30,7 @@ const ProductGrid = () => {
       if (error) throw error;
       return data as Product[];
     },
-    staleTime: 2 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
   });
 
   const handleQuickAdd = (product: Product) => {
@@ -61,9 +61,9 @@ const ProductGrid = () => {
           {isLoading
             ? Array.from({ length: 6 }).map((_, i) => (
                 <div key={i}>
-                  <Skeleton className="aspect-[3/4] w-full mb-5" />
-                  <Skeleton className="h-5 w-3/4 mx-auto mb-2" />
-                  <Skeleton className="h-4 w-1/3 mx-auto" />
+                  <div className="w-full bg-[#ede9d9] animate-pulse rounded-md" style={{aspectRatio:'4/5'}} />
+                  <div className="h-4 w-24 bg-[#ede9d9] animate-pulse rounded-md mt-2" />
+                  <div className="h-4 w-16 bg-[#ede9d9] animate-pulse rounded-md mt-1" />
                 </div>
               ))
             : (products ?? []).map((product) => {
