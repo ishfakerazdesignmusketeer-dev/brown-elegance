@@ -30,7 +30,10 @@ const ProductGrid = () => {
       if (error) throw error;
       return data as Product[];
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
   const handleQuickAdd = (product: Product) => {
@@ -75,8 +78,9 @@ const ProductGrid = () => {
                         src={getImageUrl(originalUrl, 600)}
                         alt={product.name}
                         className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
-                        loading="lazy"
+                        loading="eager"
                         decoding="async"
+                        fetchPriority="high"
                         width={600}
                         height={800}
                         onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = originalUrl; }}

@@ -142,7 +142,7 @@ const ProductDetail = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
           {/* Left: Image Gallery */}
           <div>
-            <div className="overflow-hidden bg-[#F8F5E9] mb-3">
+            <div className="overflow-hidden bg-[#F8F5E9] mb-3" style={{ contain: 'layout style', willChange: 'auto' }}>
               <img
                 src={getImageUrl(images[mainImage], 1200)}
                 alt={product.name}
