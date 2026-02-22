@@ -1,41 +1,42 @@
 
+# Fix Product Image Reloading on Scroll
 
-# Add Skeleton Loading Placeholders
-
-3 small changes across 2 files.
+3 changes across 2 files to prevent image reloading and reduce unnecessary API calls.
 
 ## Changes
 
-### 1. Product Grid Skeletons (`src/components/home/ProductGrid.tsx`, lines 62-67)
+### 1. Homepage Product Grid — Eager Loading (`src/components/home/ProductGrid.tsx`, line 78)
 
-Replace the current `<Skeleton>` components with the user's exact markup:
-
-```
-<div key={i}>
-  <div className="w-full bg-[#ede9d9] animate-pulse rounded-md" style={{aspectRatio:'4/5'}} />
-  <div className="h-4 w-24 bg-[#ede9d9] animate-pulse rounded-md mt-2" />
-  <div className="h-4 w-16 bg-[#ede9d9] animate-pulse rounded-md mt-1" />
-</div>
-```
-
-Keep the 6-card count as-is.
-
-### 2. Hero Carousel Loading State (`src/components/home/HeroCarousel.tsx`, lines 78-90)
-
-Replace the current skeleton section with a simple cream background + pulse:
+Change `loading="lazy"` to `loading="eager"` and add `fetchpriority="high"` (new attribute after line 79):
 
 ```
-<section className="relative h-screen w-full overflow-hidden bg-[#F8F5E9] animate-pulse" />
+loading="eager"
+decoding="async"
+fetchpriority="high"
 ```
 
-### 3. Product Grid staleTime (`src/components/home/ProductGrid.tsx`, line 33)
+### 2. Homepage Product Grid — Query Cache (`src/components/home/ProductGrid.tsx`, line 33)
 
-Update from `2 * 60 * 1000` to `5 * 60 * 1000`. Hero and CategoryCards already use 5+ minutes.
+Replace current `staleTime: 5 * 60 * 1000` with:
+
+```
+staleTime: 10 * 60 * 1000,
+gcTime: 30 * 60 * 1000,
+refetchOnWindowFocus: false,
+refetchOnMount: false,
+```
+
+### 3. Product Detail — Main Image Container (`src/pages/ProductDetail.tsx`, line 145)
+
+Add `style` to the main image container `div`:
+
+```
+<div className="overflow-hidden bg-[#F8F5E9] mb-3" style={{ contain: 'layout style', willChange: 'auto' }}>
+```
 
 ## Summary
 
-- 2 files changed: `ProductGrid.tsx`, `HeroCarousel.tsx`
-- Skeleton cards match the 4:5 aspect ratio of real product cards
-- Hero shows a clean cream pulse instead of multiple skeleton blocks
-- All homepage queries cached for 5 minutes
-
+- 2 files, 3 edits
+- Product grid images load eagerly with high priority — no more unload/reload on scroll
+- Query data cached 30 min, no refetch on window focus or remount
+- Product detail main image container gets CSS containment for stable layout
