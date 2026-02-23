@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate, Link, useLocation, Outlet } from "react-router-dom";
-import { LayoutDashboard, ShoppingBag, Grid3X3, Settings, LogOut, Menu, Users, Tag, ShoppingCart, Truck, CreditCard, Image, Layers, Link as LinkIcon } from "lucide-react";
+import { LayoutDashboard, ShoppingBag, Grid3X3, Settings, LogOut, Menu, Users, Tag, ShoppingCart, Truck, CreditCard, Image, Layers, Link as LinkIcon, Film } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 const navItems = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/admin/dashboard" },
   { label: "Hero Slides", icon: Image, href: "/admin/hero-slides" },
+  { label: "Reels", icon: Film, href: "/admin/reels" },
   { label: "Orders", icon: ShoppingBag, href: "/admin/orders", badge: "pending" },
   { label: "Abandoned Carts", icon: ShoppingCart, href: "/admin/abandoned-carts", badge: "abandoned" },
   { label: "Products", icon: Grid3X3, href: "/admin/products" },

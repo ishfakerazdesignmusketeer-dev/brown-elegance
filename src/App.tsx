@@ -34,6 +34,7 @@ const AdminPayments = lazy(() => import("./pages/admin/AdminPayments"));
 const AdminHeroSlides = lazy(() => import("./pages/admin/AdminHeroSlides"));
 const AdminCategories = lazy(() => import("./pages/admin/AdminCategories"));
 const AdminFooter = lazy(() => import("./pages/admin/AdminFooter"));
+const AdminReels = lazy(() => import("./pages/admin/AdminReels"));
 
 const queryClient = new QueryClient();
 
@@ -87,6 +88,7 @@ const App = () => (
                 <Route path="hero-slides" element={<Suspense fallback={<AdminFallback />}><AdminHeroSlides /></Suspense>} />
                 <Route path="categories" element={<Suspense fallback={<AdminFallback />}><AdminCategories /></Suspense>} />
                 <Route path="footer" element={<Suspense fallback={<AdminFallback />}><AdminFooter /></Suspense>} />
+                <Route path="reels" element={<Suspense fallback={<AdminFallback />}><AdminReels /></Suspense>} />
               </Route>
 
               <Route path="*" element={<NotFound />} />
