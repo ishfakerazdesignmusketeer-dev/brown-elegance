@@ -79,9 +79,9 @@ const FeaturedCarousel = () => {
         <div className="relative max-w-6xl mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
             {/* Video Card */}
-            <div className="flex justify-center lg:justify-start">
+            <div className="flex justify-center">
               {reel ? (
-                <div className="relative flex-shrink-0 overflow-hidden rounded-lg" style={{ width: '270px', height: '480px' }}>
+                <div className="relative flex-shrink-0 overflow-hidden rounded-lg" style={{ width: '320px', height: '560px' }}>
                   <video
                     ref={videoRef}
                     src={reel.video_url}
@@ -123,10 +123,11 @@ const FeaturedCarousel = () => {
                 </div>
               ) : (
                 <div
-                  className="flex-shrink-0 overflow-hidden rounded-lg bg-cream/10 flex items-center justify-center"
-                  style={{ width: '270px', height: '480px' }}
+                  className="flex-shrink-0 overflow-hidden rounded-lg bg-cream/10 border border-cream/20 flex flex-col items-center justify-center gap-3"
+                  style={{ width: '320px', height: '560px' }}
                 >
-                  <p className="text-cream/50 font-body text-sm">Video coming soon</p>
+                  <span className="text-cream/40 text-4xl">🎬</span>
+                  <p className="text-cream/60 font-body text-sm tracking-wide">Video coming soon</p>
                 </div>
               )}
             </div>
