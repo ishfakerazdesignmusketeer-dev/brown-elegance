@@ -12,6 +12,7 @@ import Navigation from "@/components/layout/Navigation";
 import AnnouncementBar from "@/components/layout/AnnouncementBar";
 import Footer from "@/components/layout/Footer";
 import AddToCartModal from "@/components/cart/AddToCartModal";
+import { ShoppingBag } from "lucide-react";
 
 interface Product {
   id: string;
@@ -147,7 +148,8 @@ const Collections = () => {
                       height={800}
                       onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = originalUrl; }}
                     />
-                    <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/20 transition-colors duration-300 flex items-end justify-center pb-6 opacity-100 lg:opacity-0 lg:group-hover:opacity-100">
+                    {/* Desktop overlay */}
+                    <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/20 transition-colors duration-300 hidden lg:flex items-end justify-center pb-6 opacity-0 group-hover:opacity-100">
                       <Button
                         variant="secondary"
                         onClick={(e) => { e.preventDefault(); handleQuickAdd(product); }}
@@ -156,6 +158,14 @@ const Collections = () => {
                         Add to Cart
                       </Button>
                     </div>
+                    {/* Mobile bottom bar */}
+                    <button
+                      onClick={(e) => { e.preventDefault(); handleQuickAdd(product); }}
+                      className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-1.5 bg-cream/90 backdrop-blur-sm text-foreground font-body text-[10px] uppercase tracking-[1px] py-1.5 lg:hidden"
+                    >
+                      <ShoppingBag className="w-3 h-3" />
+                      Add to Cart
+                    </button>
                   </Link>
                   <div className="text-center">
                     <Link to={`/product/${product.slug}`}>
