@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const navItems = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/admin/dashboard" },
@@ -95,11 +96,16 @@ const SidebarContent = ({
 const AdminLayout = () => {
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { isAdmin } = useAuth();
 
   useEffect(() => {
+    // Auto-grant admin session if logged in as admin
+    if (isAdmin) {
+      sessionStorage.setItem("brown_admin_auth", "true");
+    }
     const auth = sessionStorage.getItem("brown_admin_auth");
     if (!auth) navigate("/admin");
-  }, [navigate]);
+  }, [navigate, isAdmin]);
 
   const { data: pendingCount = 0 } = useQuery({
     queryKey: ["admin-pending-count"],

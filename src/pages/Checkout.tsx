@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/contexts/CartContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { formatPrice } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +40,7 @@ interface AppliedCoupon {
 
 const Checkout = () => {
   const { items, subtotal, clearCart, sessionId } = useCart();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,7 +71,26 @@ const Checkout = () => {
     register,
     handleSubmit,
     formState: { errors },
+    setValue,
   } = useForm<FormData>({ resolver: zodResolver(schema) });
+
+  // Pre-fill form for logged-in users
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("profiles")
+      .select("full_name, phone, default_address, default_city")
+      .eq("id", user.id)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          if (data.full_name) setValue("customer_name", data.full_name);
+          if (data.phone) setValue("customer_phone", data.phone);
+          if (data.default_address) setValue("customer_address", data.default_address);
+          if (data.default_city) setValue("customer_city", data.default_city);
+        }
+      });
+  }, [user, setValue]);
 
   const discountAmount = appliedCoupon?.discount_amount ?? 0;
   const total = subtotal + DELIVERY_CHARGE - discountAmount;
@@ -161,6 +182,7 @@ const Checkout = () => {
           total,
           payment_method: "COD",
           status: "pending",
+          user_id: user?.id ?? null,
         })
         .select("id, order_number")
         .single();
