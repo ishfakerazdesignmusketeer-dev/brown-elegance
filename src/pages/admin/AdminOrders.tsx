@@ -271,8 +271,16 @@ const AdminOrders = () => {
 
   const mutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const { error } = await supabase.from("orders").update({ status }).eq("id", id);
-      if (error) throw error;
+      console.log("Updating order status:", { id, status });
+      const { error } = await supabase
+        .from("orders")
+        .update({ status: status })
+        .eq("id", id);
+      if (error) {
+        console.error("Supabase update error:", error);
+        throw error;
+      }
+      console.log("Order status updated successfully");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-orders-list"] });
@@ -280,7 +288,10 @@ const AdminOrders = () => {
       queryClient.invalidateQueries({ queryKey: ["admin-pending-count"] });
       toast.success("Status updated");
     },
-    onError: () => toast.error("Failed to update status"),
+    onError: (err) => {
+      console.error("Mutation error:", err);
+      toast.error("Failed to update status");
+    },
   });
 
   const deliveryNoteMutation = useMutation({
@@ -459,7 +470,12 @@ const AdminOrders = () => {
                       <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                         <select
                           value={order.status}
-                          onChange={(e) => mutation.mutate({ id: order.id, status: e.target.value })}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            const newStatus = e.target.value;
+                            console.log("Status dropdown changed:", { orderId: order.id, newStatus });
+                            mutation.mutate({ id: order.id, status: newStatus });
+                          }}
                           className={`text-xs font-medium px-2 py-1 rounded border-0 cursor-pointer ${STATUS_COLORS[order.status]}`}
                         >
                           {STATUS_OPTIONS.map((s) => (
