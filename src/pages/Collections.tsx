@@ -1,14 +1,17 @@
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
 import { formatPrice } from "@/lib/format";
 import { getImageUrl } from "@/lib/image";
+import { useIsMobile } from "@/hooks/use-mobile";
 import Navigation from "@/components/layout/Navigation";
 import AnnouncementBar from "@/components/layout/AnnouncementBar";
 import Footer from "@/components/layout/Footer";
+import AddToCartModal from "@/components/cart/AddToCartModal";
 
 interface Product {
   id: string;
@@ -21,6 +24,8 @@ interface Product {
 const Collections = () => {
   const { slug } = useParams<{ slug: string }>();
   const { addItem } = useCart();
+  const isMobile = useIsMobile();
+  const [modalProduct, setModalProduct] = useState<Product | null>(null);
 
   const isAllCollections = !slug;
 
@@ -58,11 +63,15 @@ const Collections = () => {
   });
 
   const handleQuickAdd = (product: Product) => {
-    addItem(
-      { id: product.id, name: product.name, slug: product.slug, image: product.images?.[0] ?? "", price: product.price },
-      "M",
-      1
-    );
+    if (isMobile) {
+      setModalProduct(product);
+    } else {
+      addItem(
+        { id: product.id, name: product.name, slug: product.slug, image: product.images?.[0] ?? "", price: product.price },
+        "M",
+        1
+      );
+    }
   };
 
   if (catLoading || (isAllCollections && prodsLoading)) {
@@ -166,6 +175,12 @@ const Collections = () => {
       </main>
 
       <Footer />
+
+      <AddToCartModal
+        product={modalProduct}
+        open={!!modalProduct}
+        onClose={() => setModalProduct(null)}
+      />
     </div>
   );
 };
