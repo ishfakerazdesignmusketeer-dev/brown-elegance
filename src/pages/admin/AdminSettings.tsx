@@ -16,6 +16,7 @@ const SETTING_META: Record<string, { label: string; type?: string; placeholder?:
   whatsapp_number: { label: "WhatsApp Number", placeholder: "8801883132020" },
   delivery_charge: { label: "Delivery Charge (৳)", type: "number", placeholder: "80" },
   admin_password: { label: "Admin Password", type: "password", placeholder: "••••••••" },
+  admin_email: { label: "Admin Email (for dashboard access)", type: "email", placeholder: "admin@example.com" },
   store_name: { label: "Store Name", placeholder: "BROWN" },
   store_email: { label: "Store Email", placeholder: "hello@brownbd.com" },
   store_url: { label: "Store URL", placeholder: "https://brownbd.com" },
@@ -60,7 +61,7 @@ const AdminSettings = () => {
     }
   };
 
-  const orderedKeys = ["store_name", "store_email", "store_url", "whatsapp_number", "bkash_number", "nagad_number", "delivery_charge", "admin_password"];
+  const orderedKeys = ["store_name", "store_email", "store_url", "admin_email", "whatsapp_number", "bkash_number", "nagad_number", "delivery_charge", "admin_password"];
 
   return (
     <div>
