@@ -161,9 +161,9 @@ const Collections = () => {
                     {/* Mobile bottom bar */}
                     <button
                       onClick={(e) => { e.preventDefault(); handleQuickAdd(product); }}
-                      className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-1.5 bg-cream/90 backdrop-blur-sm text-foreground font-body text-[10px] uppercase tracking-[1px] py-1.5 lg:hidden"
+                      className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-1.5 bg-cream/90 backdrop-blur-sm text-foreground font-body text-[9px] uppercase tracking-[1px] py-1 lg:hidden"
                     >
-                      <ShoppingBag className="w-3 h-3" />
+                      <ShoppingBag className="w-2.5 h-2.5" />
                       Add to Cart
                     </button>
                   </Link>
