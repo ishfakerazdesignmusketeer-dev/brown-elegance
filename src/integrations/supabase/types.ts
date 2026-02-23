@@ -600,6 +600,36 @@ export type Database = {
         }
         Relationships: []
       }
+      reels: {
+        Row: {
+          caption: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          sort_order: number | null
+          thumbnail_url: string | null
+          video_url: string
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          sort_order?: number | null
+          thumbnail_url?: string | null
+          video_url: string
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          sort_order?: number | null
+          thumbnail_url?: string | null
+          video_url?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
