@@ -85,10 +85,10 @@ const FeaturedCarousel = () => {
                 <div className="relative flex-shrink-0 overflow-hidden rounded-lg" style={{ width: '320px', height: '560px' }}>
                   {isYouTubeUrl(reel.video_url) ? (
                     <iframe
-                      src={`https://www.youtube.com/embed/${getYouTubeId(reel.video_url)}?autoplay=1&mute=${muted ? 1 : 0}&loop=1&playlist=${getYouTubeId(reel.video_url)}&controls=0&playsinline=1&rel=0&modestbranding=1`}
+                      src={`https://www.youtube.com/embed/${getYouTubeId(reel.video_url)}?autoplay=1&mute=${muted ? 1 : 0}&controls=0&modestbranding=1&showinfo=0&rel=0&loop=1&playlist=${getYouTubeId(reel.video_url)}&playsinline=1`}
                       className="w-full h-full"
                       allow="autoplay; encrypted-media"
-                      allowFullScreen
+                      allowFullScreen={false}
                       frameBorder="0"
                     />
                   ) : (
