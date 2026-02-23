@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, X } from "lucide-react";
@@ -64,7 +65,9 @@ const AuthModal = ({ open, onOpenChange }: AuthModalProps) => {
     }
     try {
       await signUp(email, password, name);
-      setMessage("Check your email to confirm your account.");
+      toast.success("Welcome to Brown House!");
+      reset();
+      onOpenChange(false);
     } catch (err: any) {
       setError(err.message || "Sign up failed");
     } finally {
