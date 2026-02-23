@@ -27,10 +27,8 @@ const featuredItems = [
 const FeaturedCarousel = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
-  const [muted, setMuted] = useState(false);
+  const [muted, setMuted] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const sectionRef = useRef<HTMLDivElement>(null);
-  const hasPlayedRef = useRef(false);
 
   const { data: reel } = useQuery({
     queryKey: ["featured-reel"],
@@ -61,43 +59,10 @@ const FeaturedCarousel = () => {
     return () => clearInterval(interval);
   }, [isPaused, nextSlide]);
 
-  // Intersection Observer: autoplay with sound on first scroll into view
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !hasPlayedRef.current) {
-          hasPlayedRef.current = true;
-          if (videoRef.current) {
-            videoRef.current.muted = false;
-            videoRef.current.play().catch(() => {
-              videoRef.current!.muted = true;
-              setMuted(true);
-              videoRef.current!.play();
-            });
-          }
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.5 }
-    );
-    if (sectionRef.current) {
-      observer.observe(sectionRef.current);
-    }
-    return () => observer.disconnect();
-  }, []);
-
-  const toggleMute = () => {
-    if (videoRef.current) {
-      videoRef.current.muted = !videoRef.current.muted;
-      setMuted(videoRef.current.muted);
-    }
-  };
-
   const currentItem = featuredItems[currentIndex];
 
   return (
     <section
-      ref={sectionRef}
       className="bg-espresso py-20 lg:py-28"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}>
@@ -131,6 +96,7 @@ const FeaturedCarousel = () => {
                       ref={videoRef}
                       src={reel.video_url}
                       poster={reel.thumbnail_url ?? undefined}
+                      autoPlay
                       muted={muted}
                       loop
                       playsInline
@@ -142,7 +108,7 @@ const FeaturedCarousel = () => {
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
                   {/* Mute/Unmute button */}
                   <button
-                    onClick={toggleMute}
+                    onClick={() => setMuted(!muted)}
                     className="absolute bottom-4 right-4 bg-black/40 hover:bg-black/60 text-white rounded-full p-2 transition-all duration-200 backdrop-blur-sm z-10"
                   >
                     {muted ? (
