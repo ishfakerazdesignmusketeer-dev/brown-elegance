@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, Film } from "lucide-react";
+import { isYouTubeUrl, getYouTubeId } from "@/lib/video";
 
 interface Reel {
   id: string;
@@ -155,11 +156,11 @@ const AdminReels = () => {
           <SheetTitle>{editId ? "Edit Reel" : "Add Reel"}</SheetTitle>
           <div className="space-y-4 mt-6">
             <div>
-              <Label>Video URL (Cloudflare R2)</Label>
+              <Label>Video URL (Cloudflare R2 or YouTube)</Label>
               <Input
                 value={form.video_url}
                 onChange={(e) => setForm({ ...form, video_url: e.target.value })}
-                placeholder="https://pub-xxx.r2.dev/your-reel.mp4"
+                placeholder="https://youtu.be/... or https://pub-xxx.r2.dev/reel.mp4"
               />
             </div>
             <div>
@@ -197,13 +198,22 @@ const AdminReels = () => {
             {form.video_url && (
               <div>
                 <Label className="text-xs text-gray-500">Preview</Label>
-                <video
-                  src={form.video_url}
-                  className="w-28 h-48 object-cover rounded-lg mt-1"
-                  muted
-                  controls
-                  preload="metadata"
-                />
+                {isYouTubeUrl(form.video_url) ? (
+                  <iframe
+                    src={`https://www.youtube.com/embed/${getYouTubeId(form.video_url)}`}
+                    className="w-28 h-48 rounded-lg mt-1"
+                    allow="autoplay; encrypted-media"
+                    frameBorder="0"
+                  />
+                ) : (
+                  <video
+                    src={form.video_url}
+                    className="w-28 h-48 object-cover rounded-lg mt-1"
+                    muted
+                    controls
+                    preload="metadata"
+                  />
+                )}
               </div>
             )}
 

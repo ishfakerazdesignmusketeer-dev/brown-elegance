@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
+import { isYouTubeUrl, getYouTubeId } from "@/lib/video";
 
 const featuredItems = [
 {
@@ -82,23 +83,33 @@ const FeaturedCarousel = () => {
             <div className="flex justify-center">
               {reel ? (
                 <div className="relative flex-shrink-0 overflow-hidden rounded-lg" style={{ width: '320px', height: '560px' }}>
-                  <video
-                    ref={videoRef}
-                    src={reel.video_url}
-                    poster={reel.thumbnail_url ?? undefined}
-                    autoPlay
-                    muted={muted}
-                    loop
-                    playsInline
-                    preload="metadata"
-                    className="w-full h-full object-cover"
-                  />
+                  {isYouTubeUrl(reel.video_url) ? (
+                    <iframe
+                      src={`https://www.youtube.com/embed/${getYouTubeId(reel.video_url)}?autoplay=1&mute=${muted ? 1 : 0}&loop=1&playlist=${getYouTubeId(reel.video_url)}&controls=0&playsinline=1&rel=0&modestbranding=1`}
+                      className="w-full h-full"
+                      allow="autoplay; encrypted-media"
+                      allowFullScreen
+                      frameBorder="0"
+                    />
+                  ) : (
+                    <video
+                      ref={videoRef}
+                      src={reel.video_url}
+                      poster={reel.thumbnail_url ?? undefined}
+                      autoPlay
+                      muted={muted}
+                      loop
+                      playsInline
+                      preload="metadata"
+                      className="w-full h-full object-cover"
+                    />
+                  )}
                   {/* Bottom gradient */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
                   {/* Mute/Unmute button */}
                   <button
                     onClick={() => setMuted(!muted)}
-                    className="absolute bottom-4 right-4 bg-black/40 hover:bg-black/60 text-white rounded-full p-2 transition-all duration-200 backdrop-blur-sm"
+                    className="absolute bottom-4 right-4 bg-black/40 hover:bg-black/60 text-white rounded-full p-2 transition-all duration-200 backdrop-blur-sm z-10"
                   >
                     {muted ? (
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -116,7 +127,7 @@ const FeaturedCarousel = () => {
                   </button>
                   {/* Caption */}
                   {reel.caption && (
-                    <div className="absolute bottom-14 left-4 right-12">
+                    <div className="absolute bottom-14 left-4 right-12 z-10">
                       <p className="text-white text-sm font-body leading-snug">{reel.caption}</p>
                     </div>
                   )}
