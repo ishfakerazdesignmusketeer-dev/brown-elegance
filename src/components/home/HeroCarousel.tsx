@@ -35,7 +35,7 @@ const HeroCarousel = () => {
   });
 
   const autoplayPlugin = Autoplay({
-    delay: 5000,
+    delay: 4000,
     stopOnInteraction: false,
     stopOnMouseEnter: true,
   });
