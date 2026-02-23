@@ -159,7 +159,7 @@ const Navigation = () => {
             </button>
 
             {/* User icon + dropdown */}
-            <div className="relative hidden sm:block" ref={dropdownRef}>
+            <div className="relative" ref={dropdownRef}>
               <button
                 onClick={handleUserClick}
                 className="text-foreground hover:opacity-70 transition-opacity"
