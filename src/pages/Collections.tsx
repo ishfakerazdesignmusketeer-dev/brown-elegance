@@ -138,13 +138,13 @@ const Collections = () => {
                       height={800}
                       onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = originalUrl; }}
                     />
-                    <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/20 transition-colors duration-300 flex items-end justify-center pb-6 opacity-0 group-hover:opacity-100">
+                    <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/20 transition-colors duration-300 flex items-end justify-center pb-6 opacity-100 lg:opacity-0 lg:group-hover:opacity-100">
                       <Button
                         variant="secondary"
                         onClick={(e) => { e.preventDefault(); handleQuickAdd(product); }}
                         className="bg-cream text-foreground hover:bg-cream/90 font-body text-[12px] uppercase tracking-[1px] px-6 py-2.5 rounded-none"
                       >
-                        Quick Add
+                        Add to Cart
                       </Button>
                     </div>
                   </Link>
