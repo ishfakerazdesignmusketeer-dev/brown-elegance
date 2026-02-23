@@ -140,7 +140,7 @@ const Navigation = () => {
           </nav>
 
           {/* Right - Utility Icons */}
-          <div className="flex items-center gap-5">
+          <div className="flex items-center gap-5 [&_button]:flex [&_button]:items-center [&_button]:justify-center">
             <button className="text-foreground hover:opacity-70 transition-opacity" aria-label="Search">
               <Search className="w-5 h-5" />
             </button>
