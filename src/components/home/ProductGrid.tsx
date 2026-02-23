@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -6,6 +7,8 @@ import { Link } from "react-router-dom";
 import { useCart } from "@/contexts/CartContext";
 import { formatPrice } from "@/lib/format";
 import { getImageUrl } from "@/lib/image";
+import { useIsMobile } from "@/hooks/use-mobile";
+import AddToCartModal from "@/components/cart/AddToCartModal";
 
 interface Product {
   id: string;
@@ -18,6 +21,8 @@ interface Product {
 
 const ProductGrid = () => {
   const { addItem } = useCart();
+  const isMobile = useIsMobile();
+  const [modalProduct, setModalProduct] = useState<Product | null>(null);
 
   const { data: products, isLoading } = useQuery({
     queryKey: ["products"],
@@ -37,12 +42,16 @@ const ProductGrid = () => {
   });
 
   const handleQuickAdd = (product: Product) => {
-    const image = product.images?.[0] ?? "";
-    addItem(
-      { id: product.id, name: product.name, slug: product.slug, image, price: product.price },
-      "M",
-      1
-    );
+    if (isMobile) {
+      setModalProduct(product);
+    } else {
+      const image = product.images?.[0] ?? "";
+      addItem(
+        { id: product.id, name: product.name, slug: product.slug, image, price: product.price },
+        "M",
+        1
+      );
+    }
   };
 
   return (
@@ -122,6 +131,12 @@ const ProductGrid = () => {
           </Button>
         </div>
       </div>
+
+      <AddToCartModal
+        product={modalProduct}
+        open={!!modalProduct}
+        onClose={() => setModalProduct(null)}
+      />
     </section>
   );
 };
