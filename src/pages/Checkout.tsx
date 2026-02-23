@@ -218,19 +218,7 @@ const Checkout = () => {
         }
       }
 
-      // 4. Build WhatsApp message
-      const waNumber = "8801883132020";
-      const itemsText = items
-        .map((i) => `${i.name} | Size: ${i.size} | Qty: ${i.quantity} | ${formatPrice(i.unit_price * i.quantity)}`)
-        .join("\n");
-
-      const discountLine = discountAmount > 0 ? `\nDiscount (${appliedCoupon?.code}): -${formatPrice(discountAmount)}` : "";
-      const message = `🟤 New Order — BROWN HOUSE\n\nOrder: ${order.order_number}\nCustomer: ${data.customer_name}\nPhone: ${data.customer_phone}\nAddress: ${data.customer_address}, ${data.customer_city}\n\nItems:\n${itemsText}\n\nSubtotal: ${formatPrice(subtotal)}\nDelivery: ${formatPrice(DELIVERY_CHARGE)}${discountLine}\nTotal: ${formatPrice(total)}\n\nPayment: Cash on Delivery`;
-
-      const waUrl = `https://wa.me/${waNumber}?text=${encodeURIComponent(message)}`;
-      window.open(waUrl, "_blank");
-
-      // 5. Mark abandoned cart as converted
+      // 4. Mark abandoned cart as converted
       supabase
         .from("abandoned_carts")
         .update({ converted: true, converted_order_id: order.id })
