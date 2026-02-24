@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Play } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { isYouTubeUrl, getYouTubeId } from "@/lib/video";
@@ -28,6 +28,7 @@ const FeaturedCarousel = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [muted, setMuted] = useState(true);
+  const [ytActivated, setYtActivated] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const { data: reel } = useQuery({
@@ -84,13 +85,34 @@ const FeaturedCarousel = () => {
               {reel ? (
                 <div className="relative flex-shrink-0 overflow-hidden rounded-lg" style={{ width: '320px', height: '560px' }}>
                   {isYouTubeUrl(reel.video_url) ? (
-                    <iframe
-                      src={`https://www.youtube.com/embed/${getYouTubeId(reel.video_url)}?autoplay=1&mute=${muted ? 1 : 0}&controls=0&modestbranding=1&showinfo=0&rel=0&loop=1&playlist=${getYouTubeId(reel.video_url)}&playsinline=1`}
-                      className="w-full h-full"
-                      allow="autoplay; encrypted-media"
-                      allowFullScreen={false}
-                      frameBorder="0"
-                    />
+                    ytActivated ? (
+                      <iframe
+                        src={`https://www.youtube.com/embed/${getYouTubeId(reel.video_url)}?autoplay=1&mute=${muted ? 1 : 0}&controls=0&modestbranding=1&showinfo=0&rel=0&loop=1&playlist=${getYouTubeId(reel.video_url)}&playsinline=1`}
+                        className="w-full h-full"
+                        allow="autoplay; encrypted-media"
+                        allowFullScreen={false}
+                        frameBorder="0"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <button
+                        onClick={() => setYtActivated(true)}
+                        className="w-full h-full relative group cursor-pointer bg-black"
+                        aria-label="Play video"
+                      >
+                        <img
+                          src={reel.thumbnail_url || `https://img.youtube.com/vi/${getYouTubeId(reel.video_url)}/hqdefault.jpg`}
+                          alt={reel.caption || "Video thumbnail"}
+                          className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+                          loading="lazy"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="w-16 h-16 rounded-full bg-cream/90 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <Play className="w-7 h-7 text-espresso ml-1" fill="currentColor" />
+                          </div>
+                        </div>
+                      </button>
+                    )
                   ) : (
                     <video
                       ref={videoRef}
