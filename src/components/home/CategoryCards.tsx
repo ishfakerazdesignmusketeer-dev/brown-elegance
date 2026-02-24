@@ -35,7 +35,7 @@ const CategoryCards = () => {
   });
 
   return (
-    <section className="bg-background py-20 lg:py-28">
+    <section className="bg-background py-10 lg:py-14">
       <div className="px-6 lg:px-12">
         <div className="text-center mb-16">
           <span className="font-body text-[12px] uppercase tracking-[2px] text-muted-foreground">
