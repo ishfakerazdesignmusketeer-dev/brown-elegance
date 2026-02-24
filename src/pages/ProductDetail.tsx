@@ -228,24 +228,19 @@ className="w-full h-full object-cover object-center"
 
             {/* Size Selector */}
             <div className="mb-6">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <span className="font-body text-xs uppercase tracking-[1.5px] text-foreground">Size</span>
-                  {sizeChartUrl && (
-                    <button
-                      onClick={() => setSizeChartOpen(true)}
-                      className="flex items-center gap-1 text-xs uppercase tracking-widest text-foreground/60 hover:text-foreground underline underline-offset-4 transition-colors duration-200"
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M21 21H3V3"/>
-                        <path d="M21 3L3 21"/>
-                      </svg>
-                      Size Chart
-                    </button>
-                  )}
-                </div>
-                {selectedSize && selectedVariant && selectedVariant.stock > 0 && selectedVariant.stock <= 5 && (
-                  <span className="font-body text-xs text-destructive">Only {selectedVariant.stock} left</span>
+              <div className="flex items-center gap-3 mb-3">
+                <span className="font-body text-xs uppercase tracking-[1.5px] text-foreground">Size</span>
+                {sizeChartUrl && (
+                  <button
+                    onClick={() => setSizeChartOpen(true)}
+                    className="flex items-center gap-1 text-xs uppercase tracking-widest text-foreground/60 hover:text-foreground underline underline-offset-4 transition-colors duration-200"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 21H3V3"/>
+                      <path d="M21 3L3 21"/>
+                    </svg>
+                    Size Chart
+                  </button>
                 )}
               </div>
               <div className="flex flex-wrap gap-2">
@@ -257,7 +252,7 @@ className="w-full h-full object-cover object-center"
                       key={variant.size}
                       disabled={outOfStock}
                       onClick={() => { setSelectedSize(variant.size); setQuantity(1); }}
-                      className={`w-12 h-12 font-body text-sm border transition-all ${
+                      className={`w-14 h-14 font-body text-sm border transition-all flex flex-col items-center justify-center ${
                         outOfStock
                           ? "border-border text-muted-foreground line-through cursor-not-allowed opacity-40"
                           : isSelected
@@ -265,7 +260,13 @@ className="w-full h-full object-cover object-center"
                           : "border-border text-foreground hover:border-foreground"
                       }`}
                     >
-                      {variant.size}
+                      <span>{variant.size}</span>
+                      {!outOfStock && variant.stock > 5 && (
+                        <span className="text-[9px] text-muted-foreground leading-none">{variant.stock} left</span>
+                      )}
+                      {!outOfStock && variant.stock <= 5 && (
+                        <span className="text-[9px] text-destructive font-semibold leading-none">Low stock</span>
+                      )}
                     </button>
                   );
                 })}

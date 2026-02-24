@@ -122,7 +122,7 @@ const AddToCartModal = ({ product, open, onClose }: AddToCartModalProps) => {
                     key={variant.size}
                     disabled={outOfStock}
                     onClick={() => { setSelectedSize(variant.size); setQuantity(1); }}
-                    className={`w-14 h-12 font-body text-sm border transition-all rounded-md ${
+                    className={`w-14 h-14 font-body text-sm border transition-all rounded-md flex flex-col items-center justify-center ${
                       outOfStock
                         ? "border-border text-muted-foreground line-through cursor-not-allowed opacity-40"
                         : isSelected
@@ -130,16 +130,19 @@ const AddToCartModal = ({ product, open, onClose }: AddToCartModalProps) => {
                         : "border-border text-foreground hover:border-foreground"
                     }`}
                   >
-                    {variant.size}
+                    <span>{variant.size}</span>
+                    {!outOfStock && variant.stock > 5 && (
+                      <span className="text-[9px] text-muted-foreground leading-none">{variant.stock} left</span>
+                    )}
+                    {!outOfStock && variant.stock <= 5 && (
+                      <span className="text-[9px] text-destructive font-semibold leading-none">Low stock</span>
+                    )}
                   </button>
                 );
               }) : (
                 <p className="font-body text-sm text-muted-foreground">Loading sizes...</p>
               )}
             </div>
-            {selectedSize && selectedVariant && selectedVariant.stock > 0 && selectedVariant.stock <= 5 && (
-              <p className="font-body text-xs text-destructive mt-2">Only {selectedVariant.stock} left</p>
-            )}
           </div>
 
           {/* Quantity */}
