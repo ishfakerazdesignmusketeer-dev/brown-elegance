@@ -118,26 +118,30 @@ const AddToCartModal = ({ product, open, onClose }: AddToCartModalProps) => {
                 const outOfStock = variant.stock === 0;
                 const isSelected = selectedSize === variant.size;
                 return (
-                  <button
-                    key={variant.size}
-                    disabled={outOfStock}
-                    onClick={() => { setSelectedSize(variant.size); setQuantity(1); }}
-                    className={`w-14 h-14 font-body text-sm border transition-all rounded-md flex flex-col items-center justify-center ${
-                      outOfStock
-                        ? "border-border text-muted-foreground line-through cursor-not-allowed opacity-40"
-                        : isSelected
-                        ? "border-foreground bg-foreground text-background"
-                        : "border-border text-foreground hover:border-foreground"
-                    }`}
-                  >
-                    <span>{variant.size}</span>
+                  <div key={variant.size} className="flex flex-col items-center gap-1">
+                    <button
+                      disabled={outOfStock}
+                      onClick={() => { setSelectedSize(variant.size); setQuantity(1); }}
+                      className={`w-14 h-12 font-body text-sm border transition-all rounded-md ${
+                        outOfStock
+                          ? "border-border text-muted-foreground line-through cursor-not-allowed opacity-40"
+                          : isSelected
+                          ? "border-foreground bg-foreground text-background"
+                          : "border-border text-foreground hover:border-foreground"
+                      }`}
+                    >
+                      {variant.size}
+                    </button>
                     {!outOfStock && variant.stock > 5 && (
-                      <span className="text-[9px] text-muted-foreground leading-none">{variant.stock} left</span>
+                      <span className="font-body text-[10px] text-muted-foreground">{variant.stock} left</span>
                     )}
                     {!outOfStock && variant.stock <= 5 && (
-                      <span className="text-[9px] text-destructive font-semibold leading-none">Low stock</span>
+                      <span className="font-body text-[10px] text-destructive font-semibold">Low stock</span>
                     )}
-                  </button>
+                    {outOfStock && (
+                      <span className="font-body text-[10px] text-muted-foreground/50">Out</span>
+                    )}
+                  </div>
                 );
               }) : (
                 <p className="font-body text-sm text-muted-foreground">Loading sizes...</p>
