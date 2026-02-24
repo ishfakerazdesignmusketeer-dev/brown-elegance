@@ -1,45 +1,31 @@
 
-# Show Stock Count Per Size + Per-Size Low Stock Alerts
+# "You May Also Like" Product Recommendations
 
-## Overview
-Display the actual stock count beneath each size button on the product detail page and the add-to-cart modal. Show a red "Low stock" warning on individual sizes that have 5 or fewer units -- not a blanket warning for the whole product.
+## What This Does
+Adds a product suggestions section below the main product details on every product page. When a customer views a product, they will see a row of related products to encourage browsing and boost sales.
 
-## Changes
-
-### 1. `src/pages/ProductDetail.tsx` -- Frontend size buttons with stock count
-
-**Current behavior:** Size buttons show only the size label (S, M, L...). A single "Only N left" message appears only after selecting a low-stock size.
-
-**New behavior:**
-- Each size button displays the stock count below the size label (e.g., "M" on top, "8 left" below)
-- Sizes with stock 1-5 show a small red "Low stock" text below the button instead of the count
-- Out-of-stock sizes stay as-is (line-through, disabled, opacity-40) with no count
-- Remove the old single "Only N left" message from the header row since each size now self-reports
-
-**Button markup change:**
-```
-<button ...>
-  <span>{variant.size}</span>
-  {variant.stock > 5 && <span className="text-[9px] text-muted-foreground">{variant.stock} left</span>}
-  {variant.stock > 0 && variant.stock <= 5 && <span className="text-[9px] text-destructive font-semibold">Low stock</span>}
-</button>
-```
-- Button height increased slightly (h-12 to h-14) to fit the second line
-- Flex column layout inside button
-
-### 2. `src/components/cart/AddToCartModal.tsx` -- Same treatment in quick-add modal
-
-Apply the same per-size stock count and "Low stock" alert to the bottom-sheet modal's size buttons. Remove the existing "Only N left" paragraph that shows after selection.
-
-### 3. `src/components/admin/StockOverview.tsx` -- Per-size low stock warning in admin
-
-**Current behavior:** Stock cells are color-coded (red for 0, amber for 1-5, green for 6+) but no explicit text warning.
-
-**New behavior:** No changes needed here -- the color coding already serves as the per-size alert. The amber/red background on individual cells already highlights which specific sizes are low. This matches the user's request: "Low stock should be an alert on each size."
+## How It Works
+- Shows up to 4 related products from the **same category** as the current product
+- If the product has no category or fewer than 4 category matches, fills remaining slots with other active products (random)
+- Each suggested product card shows the image, name, and price -- clicking takes the customer to that product's page
+- The section appears between the product details and the footer, with a "You May Also Like" heading
 
 ## Technical Details
 
-- No database changes needed -- stock data is already fetched per variant
-- No new queries -- existing `product_variants` data has `stock` field
-- The threshold for "Low stock" is stock <= 5 (matching existing convention)
-- Stock of 0 shows the button as disabled/struck-through with no additional label
+### New Component: `src/components/product/YouMayAlsoLike.tsx`
+- Accepts `productId` and `categoryId` as props
+- Queries the `products` table for up to 4 active products in the same category, excluding the current product
+- Falls back to random active products if not enough category matches
+- Renders a responsive grid (2 columns on mobile, 4 on desktop)
+- Each card links to `/product/{slug}` and uses the existing `getImageUrl` and `formatPrice` helpers
+- Uses `@tanstack/react-query` with a query key like `["related-products", productId]`
+
+### Edit: `src/pages/ProductDetail.tsx`
+- Import and render `<YouMayAlsoLike />` after the `</main>` closing tag, before the size chart modal and `<Footer />`
+- Pass `product.id` and `product.category_id` as props
+
+### Styling
+- Matches the existing site aesthetic: `font-heading` for the title, `font-body` for price/labels
+- Uses the cream background (`bg-cream`) consistent with the rest of the page
+- Product cards use a `bg-[#F8F5E9]` image container matching the product detail page style
+- Section padding kept consistent with other homepage sections (`py-10 lg:py-14`)
