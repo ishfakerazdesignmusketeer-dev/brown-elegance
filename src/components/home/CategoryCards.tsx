@@ -56,6 +56,7 @@ const CategoryCards = () => {
                   key={cat.id}
                   to={`/collections/${cat.slug}`}
                   className="group relative aspect-[4/3] overflow-hidden"
+                  style={{ contain: 'layout style' }}
                 >
                   {cat.image_url ? (
                     <img

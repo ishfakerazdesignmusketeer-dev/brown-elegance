@@ -38,7 +38,7 @@ const Navigation = () => {
   const navigate = useNavigate();
 
   const { data: categories = [] } = useQuery({
-    queryKey: ["nav-categories"],
+    queryKey: ["categories-public"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("categories")

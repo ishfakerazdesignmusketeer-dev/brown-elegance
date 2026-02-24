@@ -11,16 +11,17 @@ import ScrollToTop from "@/components/ScrollToTop";
 import { useDynamicFavicon } from "@/hooks/use-dynamic-favicon";
 import { lazy, Suspense } from "react";
 import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
-import ProductDetail from "./pages/ProductDetail";
-import Checkout from "./pages/Checkout";
-import OrderConfirmation from "./pages/OrderConfirmation";
-import Collections from "./pages/Collections";
 import AdminLogin from "./pages/admin/AdminLogin";
 import AdminLayout from "./components/admin/AdminLayout";
-import MyOrders from "./pages/MyOrders";
-import MyProfile from "./pages/MyProfile";
-import ResetPassword from "./pages/ResetPassword";
+
+const NotFound = lazy(() => import("./pages/NotFound"));
+const ProductDetail = lazy(() => import("./pages/ProductDetail"));
+const Checkout = lazy(() => import("./pages/Checkout"));
+const OrderConfirmation = lazy(() => import("./pages/OrderConfirmation"));
+const Collections = lazy(() => import("./pages/Collections"));
+const MyOrders = lazy(() => import("./pages/MyOrders"));
+const MyProfile = lazy(() => import("./pages/MyProfile"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const AdminOrders = lazy(() => import("./pages/admin/AdminOrders"));
@@ -63,14 +64,14 @@ const App = () => (
             <CartReminder />
             <Routes>
               <Route path="/" element={<Index />} />
-              <Route path="/product/:slug" element={<ProductDetail />} />
-              <Route path="/checkout" element={<Checkout />} />
-              <Route path="/order-confirmation/:orderId" element={<OrderConfirmation />} />
-              <Route path="/collections" element={<Collections />} />
-              <Route path="/collections/:slug" element={<Collections />} />
-              <Route path="/my-orders" element={<MyOrders />} />
-              <Route path="/my-profile" element={<MyProfile />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/product/:slug" element={<Suspense fallback={<AdminFallback />}><ProductDetail /></Suspense>} />
+              <Route path="/checkout" element={<Suspense fallback={<AdminFallback />}><Checkout /></Suspense>} />
+              <Route path="/order-confirmation/:orderId" element={<Suspense fallback={<AdminFallback />}><OrderConfirmation /></Suspense>} />
+              <Route path="/collections" element={<Suspense fallback={<AdminFallback />}><Collections /></Suspense>} />
+              <Route path="/collections/:slug" element={<Suspense fallback={<AdminFallback />}><Collections /></Suspense>} />
+              <Route path="/my-orders" element={<Suspense fallback={<AdminFallback />}><MyOrders /></Suspense>} />
+              <Route path="/my-profile" element={<Suspense fallback={<AdminFallback />}><MyProfile /></Suspense>} />
+              <Route path="/reset-password" element={<Suspense fallback={<AdminFallback />}><ResetPassword /></Suspense>} />
 
               {/* Admin routes */}
               <Route path="/admin" element={<Navigate to="/admin/login" replace />} />
@@ -91,7 +92,7 @@ const App = () => (
                 <Route path="reels" element={<Suspense fallback={<AdminFallback />}><AdminReels /></Suspense>} />
               </Route>
 
-              <Route path="*" element={<NotFound />} />
+              <Route path="*" element={<Suspense fallback={<AdminFallback />}><NotFound /></Suspense>} />
             </Routes>
           </BrowserRouter>
         </CartProvider>
