@@ -20,7 +20,7 @@ interface Variant {
   stock: number;
 }
 
-const SIZES_ORDER = ["S", "M", "L", "XL", "XXL"];
+const SIZES_ORDER = ["S", "M", "L", "XL"];
 
 interface AddToCartModalProps {
   product: ProductForModal | null;

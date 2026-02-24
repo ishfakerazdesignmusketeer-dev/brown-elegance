@@ -35,7 +35,7 @@ interface Category {
   slug: string;
 }
 
-const SIZES_ORDER = ["S", "M", "L", "XL", "XXL"];
+const SIZES_ORDER = ["S", "M", "L", "XL"];
 
 const ProductDetail = () => {
   const { slug } = useParams<{ slug: string }>();
