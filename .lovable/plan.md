@@ -1,31 +1,85 @@
 
-# "You May Also Like" Product Recommendations
 
-## What This Does
-Adds a product suggestions section below the main product details on every product page. When a customer views a product, they will see a row of related products to encourage browsing and boost sales.
+# Subtle Scroll Reveal Animations
 
-## How It Works
-- Shows up to 4 related products from the **same category** as the current product
-- If the product has no category or fewer than 4 category matches, fills remaining slots with other active products (random)
-- Each suggested product card shows the image, name, and price -- clicking takes the customer to that product's page
-- The section appears between the product details and the footer, with a "You May Also Like" heading
+## Overview
+Add elegant, understated fade-and-rise animations that trigger as sections scroll into view. Uses the browser's native IntersectionObserver for smooth, performant animations -- no extra libraries needed. The effect is a gentle upward drift with opacity change, consistent with the luxury brand aesthetic.
+
+## Approach
+Create a single reusable hook (`useScrollReveal`) that attaches to any element. When the element enters the viewport, it transitions from slightly below and transparent to its final position. Each section gets a small stagger delay so content flows in naturally rather than all at once.
+
+## Changes
+
+### 1. New Hook: `src/hooks/use-scroll-reveal.ts`
+- Custom hook using `IntersectionObserver` with a 10% threshold
+- Returns a `ref` to attach to any element
+- Applies a CSS class (`scroll-revealed`) when the element enters the viewport
+- Triggers only once per element (no re-animation on scroll back up)
+
+### 2. CSS: `src/index.css`
+Add two small utility classes:
+- `.scroll-reveal` -- initial state: `opacity: 0; transform: translateY(24px)`
+- `.scroll-revealed` -- final state: `opacity: 1; transform: translateY(0)` with a `0.7s cubic-bezier` transition
+- Respects `prefers-reduced-motion` by disabling the animation for accessibility
+
+### 3. Apply to Homepage Sections
+Each section heading block and content grid gets the reveal treatment:
+- **ProductGrid** -- section title block + product grid
+- **CategoryCards** -- section title block + category grid
+- **FeaturedCarousel** -- section title block + carousel content
+- **Newsletter** -- entire inner content block
+- **YouMayAlsoLike** -- section title + product grid
+
+### 4. Apply to Product Detail Page
+- Product info column (right side) fades in on load
+- "You May Also Like" section reveals on scroll
 
 ## Technical Details
 
-### New Component: `src/components/product/YouMayAlsoLike.tsx`
-- Accepts `productId` and `categoryId` as props
-- Queries the `products` table for up to 4 active products in the same category, excluding the current product
-- Falls back to random active products if not enough category matches
-- Renders a responsive grid (2 columns on mobile, 4 on desktop)
-- Each card links to `/product/{slug}` and uses the existing `getImageUrl` and `formatPrice` helpers
-- Uses `@tanstack/react-query` with a query key like `["related-products", productId]`
+**Hook usage pattern** (same in every component):
+```tsx
+import { useScrollReveal } from "@/hooks/use-scroll-reveal";
 
-### Edit: `src/pages/ProductDetail.tsx`
-- Import and render `<YouMayAlsoLike />` after the `</main>` closing tag, before the size chart modal and `<Footer />`
-- Pass `product.id` and `product.category_id` as props
+const titleRef = useScrollReveal();
+const contentRef = useScrollReveal();
 
-### Styling
-- Matches the existing site aesthetic: `font-heading` for the title, `font-body` for price/labels
-- Uses the cream background (`bg-cream`) consistent with the rest of the page
-- Product cards use a `bg-[#F8F5E9]` image container matching the product detail page style
-- Section padding kept consistent with other homepage sections (`py-10 lg:py-14`)
+<div ref={titleRef} className="scroll-reveal text-center mb-16">
+  ...heading...
+</div>
+<div ref={contentRef} className="scroll-reveal grid ...">
+  ...content...
+</div>
+```
+
+**CSS additions** (in `src/index.css`):
+```css
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.scroll-revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .scroll-reveal { opacity: 1; transform: none; transition: none; }
+}
+```
+
+**Performance notes:**
+- No JavaScript animation frames -- purely CSS transitions triggered by a class toggle
+- IntersectionObserver is extremely lightweight
+- `will-change` is intentionally not used to avoid layer promotion overhead
+- Each observer disconnects after triggering (fires once)
+
+## Files Modified
+1. `src/hooks/use-scroll-reveal.ts` (new)
+2. `src/index.css` (add 2 utility classes)
+3. `src/components/home/ProductGrid.tsx`
+4. `src/components/home/CategoryCards.tsx`
+5. `src/components/home/FeaturedCarousel.tsx`
+6. `src/components/home/Newsletter.tsx`
+7. `src/components/product/YouMayAlsoLike.tsx`
+
