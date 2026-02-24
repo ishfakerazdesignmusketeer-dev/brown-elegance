@@ -6,7 +6,7 @@ import { X, Upload, Trash2, Link as LinkIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 
-const SIZES = ["S", "M", "L", "XL", "XXL"];
+const SIZES = ["S", "M", "L", "XL"];
 
 interface Variant {
   id: string;
@@ -58,7 +58,7 @@ const ProductPanel = ({ open, onClose, product }: ProductPanelProps) => {
   const [images, setImages] = useState<string[]>([]);
   const [isActive, setIsActive] = useState(true);
   const [stocks, setStocks] = useState<Record<string, number>>({
-    S: 0, M: 0, L: 0, XL: 0, XXL: 0,
+    S: 0, M: 0, L: 0, XL: 0,
   });
 
   const { data: categories = [] } = useQuery({
@@ -85,13 +85,13 @@ const ProductPanel = ({ open, onClose, product }: ProductPanelProps) => {
       setDescription(product.description ?? "");
       setImages(product.images ?? []);
       setIsActive(product.is_active ?? true);
-      const s: Record<string, number> = { S: 0, M: 0, L: 0, XL: 0, XXL: 0 };
+      const s: Record<string, number> = { S: 0, M: 0, L: 0, XL: 0 };
       product.product_variants.forEach((v) => { s[v.size] = v.stock; });
       setStocks(s);
     } else {
       setName(""); setSlug(""); setCategoryId(""); setCategory("everyday"); setPrice("");
       setDescription(""); setImages([]); setIsActive(true);
-      setStocks({ S: 0, M: 0, L: 0, XL: 0, XXL: 0 });
+      setStocks({ S: 0, M: 0, L: 0, XL: 0 });
     }
   }, [product, open]);
 
