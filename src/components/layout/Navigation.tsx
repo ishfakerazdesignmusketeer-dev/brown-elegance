@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useBranding } from "@/hooks/use-branding";
 import AuthModal from "@/components/AuthModal";
+import ContactModal from "@/components/ContactModal";
 
 interface Category {
   id: string;
@@ -27,6 +28,7 @@ const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [collectionsOpen, setCollectionsOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
   const [userDropdown, setUserDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { itemCount, setIsOpen: openCart } = useCart();
@@ -84,6 +86,7 @@ const Navigation = () => {
   return (
     <>
       <AuthModal open={authOpen} onOpenChange={setAuthOpen} />
+      <ContactModal open={contactOpen} onOpenChange={setContactOpen} />
       <header className="bg-cream h-14 sticky top-0 z-40">
         <div className="h-full px-6 lg:px-12 flex items-center justify-between">
           {/* Left - Logo */}
@@ -128,15 +131,25 @@ const Navigation = () => {
               )}
             </div>
 
-            {navLinks.slice(1).map((link) => (
-              <a
-                key={link.label}
-                href={link.href}
-                className="font-body text-[14px] text-foreground hover:opacity-70 transition-opacity"
-              >
-                {link.label}
-              </a>
-            ))}
+            {navLinks.slice(1).map((link) =>
+              link.label === "CONTACT" ? (
+                <button
+                  key={link.label}
+                  onClick={() => setContactOpen(true)}
+                  className="font-body text-[14px] text-foreground hover:opacity-70 transition-opacity"
+                >
+                  {link.label}
+                </button>
+              ) : (
+                <a
+                  key={link.label}
+                  href={link.href}
+                  className="font-body text-[14px] text-foreground hover:opacity-70 transition-opacity"
+                >
+                  {link.label}
+                </a>
+              )
+            )}
           </nav>
 
           {/* Right - Utility Icons */}
@@ -245,16 +258,26 @@ const Navigation = () => {
                     </div>
                   </div>
 
-                  {navLinks.slice(1).map((link) => (
-                    <a
-                      key={link.label}
-                      href={link.href}
-                      onClick={() => setIsOpen(false)}
-                      className="font-heading text-2xl text-foreground hover:opacity-70 transition-opacity"
-                    >
-                      {link.label}
-                    </a>
-                  ))}
+                  {navLinks.slice(1).map((link) =>
+                    link.label === "CONTACT" ? (
+                      <button
+                        key={link.label}
+                        onClick={() => { setIsOpen(false); setContactOpen(true); }}
+                        className="font-heading text-2xl text-foreground hover:opacity-70 transition-opacity text-left"
+                      >
+                        {link.label}
+                      </button>
+                    ) : (
+                      <a
+                        key={link.label}
+                        href={link.href}
+                        onClick={() => setIsOpen(false)}
+                        className="font-heading text-2xl text-foreground hover:opacity-70 transition-opacity"
+                      >
+                        {link.label}
+                      </a>
+                    )
+                  )}
 
                   <div className="border-t border-border pt-8 mt-4 space-y-4">
                     {user ? (
