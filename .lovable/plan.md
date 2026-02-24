@@ -1,63 +1,40 @@
 
-# Website Performance Optimization Plan
 
-## Problems Found
+# Fix Product Image Reloading on Scroll
 
-### 1. CSS `content-visibility: auto` on ALL images (THE MAIN CULPRIT)
-In `src/index.css`, there's a global rule:
-```css
-img {
-  content-visibility: auto;
-}
-```
-This tells the browser to skip rendering images that are off-screen. When you scroll away, the browser **discards** the rendered image. When you scroll back, it has to **re-decode and re-paint** it -- causing the "reload" flash you're seeing. This is great for long lists of hundreds of items, but destructive for a landing page with only a handful of images.
+## Root Cause
 
-### 2. Image optimization does nothing for your images
-The `getImageUrl()` function only transforms Supabase storage URLs. Your product images are hosted on **Cloudflare R2** (`pub-12652926770d4b41b09dd22412430496.r2.dev`) and category images on **ibb.co**. These URLs pass through completely untouched -- no resizing, no compression. The browser downloads the full original file every time.
+The product images use `loading="lazy"`, which tells the browser it's okay to **defer and potentially unload** these images. With only 3 products on the page, lazy loading is counterproductive -- the browser unloads the images when you scroll away, then re-fetches them when you scroll back. The hero images don't have this problem because they use `loading="eager"`.
 
-### 3. Favicon is 2.7 MB
-The `favicon.png` file is **2,735 KB**. A favicon should be under 10 KB. This single file is larger than all your JavaScript combined and loads on every page.
+Additionally, the R2 server isn't sending `Cache-Control` headers, so the browser has weaker caching guarantees for these images.
 
-### 4. No hero image preloading
-The first hero image (largest element on screen) only starts loading after React mounts, queries the database, and renders. There's no `<link rel="preload">` to give the browser a head start.
+The image file sizes are actually fine (340-395 KB each, already in WebP format) -- this is not a size problem.
 
----
+## The Fix (2 changes)
 
-## The Fix (4 changes)
+### 1. Switch product images to eager loading
+Since there are only 3 products, all images should load eagerly and stay in memory. This is exactly how the hero carousel works and why it doesn't have the reloading issue.
 
-### Step 1: Remove the global `content-visibility: auto` from images
-**File:** `src/index.css`
+**File:** `src/components/home/ProductGrid.tsx`
+- Change `loading="lazy"` to `loading="eager"` on product images
+- Add `fetchPriority="low"` so they don't compete with the hero for bandwidth
 
-Remove the `img { content-visibility: auto; }` rule. This single change fixes the "images reload when scrolling back" problem entirely.
+### 2. Add CSS containment to product image containers
+Add `contain: layout style` to each product card's image container (same technique used on the hero slides) so the browser doesn't recalculate layout when scrolling.
 
-### Step 2: Compress the favicon
-**File:** `public/favicon.png`
-
-Resize to 64x64 pixels and compress to PNG (target: under 10 KB). This saves ~2.7 MB on every page load.
-
-### Step 3: Preload the first hero image
-**File:** `index.html`
-
-Add a `<link rel="preload">` for the first hero slide image so the browser starts downloading it immediately, before React even boots. This shaves seconds off the perceived load time. Since the hero image URL comes from the database, we'll add preload dynamically in the HeroCarousel component using a `useEffect` that injects a `<link rel="preload">` tag into `<head>` for the first slide's image.
-
-### Step 4: Add proper lazy loading boundaries
-**File:** `src/components/home/ProductGrid.tsx`, `src/components/home/CategoryCards.tsx`
-
-Keep `loading="lazy"` on below-the-fold images (product grid, category cards) but ensure hero carousel images use `loading="eager"` (already done for index 0). No `content-visibility` anywhere.
-
----
+**File:** `src/components/home/ProductGrid.tsx`
+- Add `style={{ contain: 'layout style' }}` to the image wrapper `<Link>` element
 
 ## Technical Details
 
 | Change | File | What |
 |--------|------|------|
-| Remove content-visibility | `src/index.css` | Delete the `img { content-visibility: auto; }` rule |
-| Compress favicon | `public/favicon.png` | Resize to 64x64, compress (~10 KB) |
-| Preload hero image | `src/components/home/HeroCarousel.tsx` | Add dynamic `<link rel="preload">` for first slide |
-| Lazy load below-fold | `src/components/home/ProductGrid.tsx` | Change product images from `loading="eager"` to `loading="lazy"` |
+| Eager loading | `ProductGrid.tsx` | `loading="eager"` + `fetchPriority="low"` on product `<img>` |
+| CSS containment | `ProductGrid.tsx` | `contain: layout style` on image container |
 
-### Expected Impact
-- No more "image reload" flashing when scrolling back to products
-- ~2.7 MB less data on every page load (favicon)
-- Hero image starts loading ~1-2 seconds earlier (preload)
-- Below-fold images don't compete with hero for bandwidth (lazy loading)
+### Why This Works
+- **Hero images don't reload** because they use `loading="eager"` -- the browser keeps them decoded in memory
+- **Product images reload** because `loading="lazy"` lets the browser discard them when off-screen
+- With only 3 products, eager loading adds negligible load time but prevents all re-fetching
+- `fetchPriority="low"` ensures the hero still loads first
+
