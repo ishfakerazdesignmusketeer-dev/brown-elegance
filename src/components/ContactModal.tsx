@@ -24,8 +24,8 @@ const ContactModal = ({ open, onOpenChange }: ContactModalProps) => {
     staleTime: 5 * 60 * 1000,
   });
 
-  const email = data?.contact_email || "hello@brownhouse.in";
-  const phone = data?.contact_phone || "+91 98765 43210";
+  const email = data?.contact_email || "houseofbrown.global@gmail.com";
+  const phone = data?.contact_phone || "+880 1350-049649";
   const address = data?.contact_address;
 
   return (
