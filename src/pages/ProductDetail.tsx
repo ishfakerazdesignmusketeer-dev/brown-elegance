@@ -1,6 +1,6 @@
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -43,6 +43,29 @@ const ProductDetail = () => {
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [mainImage, setMainImage] = useState(0);
+  const [sizeChartOpen, setSizeChartOpen] = useState(false);
+
+  const { data: sizeChartUrl } = useQuery({
+    queryKey: ["size-chart"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("admin_settings")
+        .select("value")
+        .eq("key", "size_chart_url")
+        .single();
+      return data?.value || null;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  useEffect(() => {
+    if (!sizeChartOpen) return;
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSizeChartOpen(false);
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [sizeChartOpen]);
 
   const { data: product, isLoading } = useQuery({
     queryKey: ["product", slug],
@@ -206,7 +229,21 @@ className="w-full h-full object-cover object-center"
             {/* Size Selector */}
             <div className="mb-6">
               <div className="flex items-center justify-between mb-3">
-                <span className="font-body text-xs uppercase tracking-[1.5px] text-foreground">Size</span>
+                <div className="flex items-center gap-3">
+                  <span className="font-body text-xs uppercase tracking-[1.5px] text-foreground">Size</span>
+                  {sizeChartUrl && (
+                    <button
+                      onClick={() => setSizeChartOpen(true)}
+                      className="flex items-center gap-1 text-xs uppercase tracking-widest text-foreground/60 hover:text-foreground underline underline-offset-4 transition-colors duration-200"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21 21H3V3"/>
+                        <path d="M21 3L3 21"/>
+                      </svg>
+                      Size Chart
+                    </button>
+                  )}
+                </div>
                 {selectedSize && selectedVariant && selectedVariant.stock > 0 && selectedVariant.stock <= 5 && (
                   <span className="font-body text-xs text-destructive">Only {selectedVariant.stock} left</span>
                 )}
@@ -273,6 +310,37 @@ className="w-full h-full object-cover object-center"
           </div>
         </div>
       </main>
+
+      {sizeChartOpen && sizeChartUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onClick={() => setSizeChartOpen(false)}
+        >
+          <div
+            className="relative bg-background rounded-lg max-w-lg w-full max-h-[90vh] overflow-auto shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h3 className="font-heading text-xl text-foreground">Size Chart</h3>
+              <button
+                onClick={() => setSizeChartOpen(false)}
+                className="text-foreground/40 hover:text-foreground transition-colors p-1"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+            <div className="p-4">
+              <img src={sizeChartUrl} alt="Size Chart" className="w-full h-auto" />
+              <p className="text-xs text-center text-muted-foreground mt-3 font-body">
+                All measurements are in inches
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Footer />
     </div>

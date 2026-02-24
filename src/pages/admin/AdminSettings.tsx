@@ -20,6 +20,7 @@ const SETTING_META: Record<string, { label: string; type?: string; placeholder?:
   store_name: { label: "Store Name", placeholder: "BROWN" },
   store_email: { label: "Store Email", placeholder: "hello@brownbd.com" },
   store_url: { label: "Store URL", placeholder: "https://brownbd.com" },
+  size_chart_url: { label: "Size Chart Image URL", placeholder: "https://... image URL" },
   bkash_number: { label: "bKash Number", placeholder: "01XXXXXXXXX" },
   nagad_number: { label: "Nagad Number", placeholder: "01XXXXXXXXX" },
 };
@@ -61,7 +62,7 @@ const AdminSettings = () => {
     }
   };
 
-  const orderedKeys = ["store_name", "store_email", "store_url", "admin_email", "whatsapp_number", "bkash_number", "nagad_number", "delivery_charge", "admin_password"];
+  const orderedKeys = ["store_name", "store_email", "store_url", "admin_email", "whatsapp_number", "bkash_number", "nagad_number", "size_chart_url", "delivery_charge", "admin_password"];
 
   return (
     <div>
@@ -111,6 +112,9 @@ const AdminSettings = () => {
                       </button>
                     )}
                   </div>
+                  {key === "size_chart_url" && values[key] && (
+                    <img src={values[key]} alt="Size chart preview" className="mt-2 max-h-32 rounded border border-border object-contain" />
+                  )}
                 </div>
               );
             })}
