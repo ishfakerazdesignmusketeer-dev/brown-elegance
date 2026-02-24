@@ -136,12 +136,14 @@ const ProductGrid = () => {
         </div>
 
         <div className="text-center mt-16">
-          <Button
-            variant="outline"
-            className="border-foreground text-foreground hover:bg-foreground hover:text-background font-body text-[12px] uppercase tracking-[1.5px] px-10 py-6 rounded-none"
-          >
-            View All Products
-          </Button>
+          <Link to="/collections">
+            <Button
+              variant="outline"
+              className="border-foreground text-foreground hover:bg-foreground hover:text-background font-body text-[12px] uppercase tracking-[1.5px] px-10 py-6 rounded-none"
+            >
+              View All Products
+            </Button>
+          </Link>
         </div>
       </div>
 
