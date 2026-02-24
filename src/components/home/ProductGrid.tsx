@@ -56,7 +56,7 @@ const ProductGrid = () => {
   };
 
   return (
-    <section className="bg-cream pt-12 pb-20 lg:pt-16 lg:pb-28">
+    <section className="bg-cream pt-12 pb-10 lg:pt-16 lg:pb-14">
       <div className="px-6 lg:px-12">
         <div className="text-center mb-16">
           <span className="font-body text-[12px] uppercase tracking-[2px] text-muted-foreground">
