@@ -11,6 +11,7 @@ import { Minus, Plus } from "lucide-react";
 import Navigation from "@/components/layout/Navigation";
 import AnnouncementBar from "@/components/layout/AnnouncementBar";
 import Footer from "@/components/layout/Footer";
+import YouMayAlsoLike from "@/components/product/YouMayAlsoLike";
 
 interface Variant {
   size: string;
@@ -315,6 +316,8 @@ className="w-full h-full object-cover object-center"
           </div>
         </div>
       </main>
+
+      <YouMayAlsoLike productId={product.id} categoryId={product.category_id} />
 
       {sizeChartOpen && sizeChartUrl && (
         <div
