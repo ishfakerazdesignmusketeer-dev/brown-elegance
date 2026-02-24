@@ -57,6 +57,21 @@ const HeroCarousel = () => {
     return () => { emblaApi.off("select", onSelect); };
   }, [emblaApi, onSelect]);
 
+  // Preload first hero image for faster LCP
+  useEffect(() => {
+    const firstImage = slides[0]?.image_url;
+    if (!firstImage) return;
+    const url = getImageUrl(firstImage, 1920);
+    const existing = document.querySelector(`link[rel="preload"][href="${url}"]`);
+    if (existing) return;
+    const link = document.createElement("link");
+    link.rel = "preload";
+    link.as = "image";
+    link.href = url;
+    document.head.appendChild(link);
+    return () => { link.remove(); };
+  }, [slides]);
+
   useEffect(() => {
     if (!emblaApi) return;
     const handleVisibility = () => {
