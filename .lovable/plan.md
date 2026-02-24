@@ -1,45 +1,45 @@
 
-# Add Size Chart Popup to Product Detail Page
+# Show Stock Count Per Size + Per-Size Low Stock Alerts
 
 ## Overview
-Add a "Size Chart" button on the product detail page that opens a modal showing a size chart image. The image URL is managed from the admin settings page.
+Display the actual stock count beneath each size button on the product detail page and the add-to-cart modal. Show a red "Low stock" warning on individual sizes that have 5 or fewer units -- not a blanket warning for the whole product.
 
-## Database Change
-Insert a new row into `admin_settings` with key `size_chart_url` so the admin can configure the size chart image URL.
+## Changes
 
-## File Changes
+### 1. `src/pages/ProductDetail.tsx` -- Frontend size buttons with stock count
 
-### 1. `src/pages/admin/AdminSettings.tsx`
-- Add `size_chart_url` to `SETTING_META` with label "Size Chart Image URL", placeholder "https://... image URL"
-- Add `size_chart_url` to the `orderedKeys` array (before `delivery_charge`)
-- Add an image preview below the input when the value is a non-empty URL (small thumbnail with max-height)
+**Current behavior:** Size buttons show only the size label (S, M, L...). A single "Only N left" message appears only after selecting a low-stock size.
 
-### 2. `src/pages/ProductDetail.tsx`
-- Add `sizeChartOpen` state (`useState(false)`)
-- Fetch `size_chart_url` from `admin_settings` using `useQuery`
-- Add a "Size Chart" button next to the "Size" label (inline SVG ruler icon + text, styled as underlined link)
-- Add a modal overlay that shows when `sizeChartOpen` is true:
-  - Fixed overlay with backdrop blur
-  - White card with header (title + close button), scrollable image, and "All measurements are in inches" note
-  - Close on: click outside, X button, Escape key
-  - Only render the button if `size_chart_url` exists
-- Fully responsive on mobile with `max-h-[90vh] overflow-auto`
+**New behavior:**
+- Each size button displays the stock count below the size label (e.g., "M" on top, "8 left" below)
+- Sizes with stock 1-5 show a small red "Low stock" text below the button instead of the count
+- Out-of-stock sizes stay as-is (line-through, disabled, opacity-40) with no count
+- Remove the old single "Only N left" message from the header row since each size now self-reports
+
+**Button markup change:**
+```
+<button ...>
+  <span>{variant.size}</span>
+  {variant.stock > 5 && <span className="text-[9px] text-muted-foreground">{variant.stock} left</span>}
+  {variant.stock > 0 && variant.stock <= 5 && <span className="text-[9px] text-destructive font-semibold">Low stock</span>}
+</button>
+```
+- Button height increased slightly (h-12 to h-14) to fit the second line
+- Flex column layout inside button
+
+### 2. `src/components/cart/AddToCartModal.tsx` -- Same treatment in quick-add modal
+
+Apply the same per-size stock count and "Low stock" alert to the bottom-sheet modal's size buttons. Remove the existing "Only N left" paragraph that shows after selection.
+
+### 3. `src/components/admin/StockOverview.tsx` -- Per-size low stock warning in admin
+
+**Current behavior:** Stock cells are color-coded (red for 0, amber for 1-5, green for 6+) but no explicit text warning.
+
+**New behavior:** No changes needed here -- the color coding already serves as the per-size alert. The amber/red background on individual cells already highlights which specific sizes are low. This matches the user's request: "Low stock should be an alert on each size."
 
 ## Technical Details
 
-**ProductDetail.tsx changes:**
-- New query: `useQuery({ queryKey: ["size-chart"], queryFn: ... })` fetching from `admin_settings` where key = `size_chart_url`
-- Escape key listener via `useEffect` that listens when modal is open
-- Size Chart button placed in the existing size selector header row (next to the "Size" label and stock warning)
-- Modal built inline (no separate component needed) matching the user's exact markup
-
-**AdminSettings.tsx changes:**
-- Add to `SETTING_META`:
-```
-size_chart_url: { label: "Size Chart Image URL", placeholder: "https://... image URL" }
-```
-- Add `"size_chart_url"` to `orderedKeys` array
-- Add conditional image preview below the input when key is `size_chart_url` and value is non-empty
-
-**Migration:**
-- Insert `size_chart_url` key into `admin_settings` if it doesn't already exist
+- No database changes needed -- stock data is already fetched per variant
+- No new queries -- existing `product_variants` data has `stock` field
+- The threshold for "Low stock" is stock <= 5 (matching existing convention)
+- Stock of 0 shows the button as disabled/struck-through with no additional label
