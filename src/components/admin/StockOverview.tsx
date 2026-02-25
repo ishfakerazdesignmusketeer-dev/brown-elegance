@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-const SIZES = ["S", "M", "L", "XL"];
+const SIZES = ["S", "M", "L", "XL", "XXL"];
 
 interface Variant {
   id: string;
@@ -18,10 +18,10 @@ interface Product {
   product_variants: Variant[];
 }
 
-const stockColor = (stock: number) => {
-  if (stock === 0) return "bg-red-50 text-red-700 font-semibold";
-  if (stock <= 5) return "bg-amber-50 text-amber-700 font-semibold";
-  return "bg-green-50 text-green-700";
+const cellStyle = (stock: number) => {
+  if (stock === 0) return "bg-[#FEE2E2] text-red-700 font-semibold line-through";
+  if (stock <= 5) return "bg-[#FEF3C7] text-amber-700 font-semibold";
+  return "bg-white text-green-700";
 };
 
 const StockOverview = () => {
@@ -42,10 +42,7 @@ const StockOverview = () => {
 
   const mutation = useMutation({
     mutationFn: async ({ variantId, stock }: { variantId: string; stock: number }) => {
-      const { error } = await supabase
-        .from("product_variants")
-        .update({ stock })
-        .eq("id", variantId);
+      const { error } = await supabase.from("product_variants").update({ stock }).eq("id", variantId);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -104,17 +101,11 @@ const StockOverview = () => {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
-                <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">
-                  Product
-                </th>
+                <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Product</th>
                 {SIZES.map((s) => (
-                  <th key={s} className="text-center px-3 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide w-16">
-                    {s}
-                  </th>
+                  <th key={s} className="text-center px-3 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide w-16">{s}</th>
                 ))}
-                <th className="text-center px-3 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">
-                  Total
-                </th>
+                <th className="text-center px-3 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Total</th>
                 <th className="px-3 py-3"></th>
               </tr>
             </thead>
@@ -126,9 +117,7 @@ const StockOverview = () => {
                 });
                 return (
                   <tr key={product.id} className="border-b border-gray-50 hover:bg-gray-50">
-                    <td className="px-5 py-3 text-gray-900 font-medium max-w-[200px] truncate">
-                      {product.name}
-                    </td>
+                    <td className="px-5 py-3 text-gray-900 font-medium max-w-[200px] truncate">{product.name}</td>
                     {SIZES.map((size) => {
                       const variant = getVariant(product, size);
                       const stock = getStock(product, size);
@@ -139,10 +128,8 @@ const StockOverview = () => {
                               type="number"
                               min={0}
                               value={stock}
-                              onChange={(e) =>
-                                handleChange(variant.id, parseInt(e.target.value) || 0)
-                              }
-                              className={`w-14 text-center text-xs rounded px-1 py-1 border border-transparent hover:border-gray-300 focus:border-gray-400 focus:outline-none transition-colors ${stockColor(stock)}`}
+                              onChange={(e) => handleChange(variant.id, parseInt(e.target.value) || 0)}
+                              className={`w-14 text-center text-xs rounded px-1 py-1 border border-transparent hover:border-gray-300 focus:border-gray-400 focus:outline-none transition-colors ${cellStyle(stock)}`}
                             />
                           ) : (
                             <span className="text-gray-300 text-xs">—</span>
@@ -150,9 +137,7 @@ const StockOverview = () => {
                         </td>
                       );
                     })}
-                    <td className="px-3 py-3 text-center text-xs text-gray-600">
-                      {totalStock(product)}
-                    </td>
+                    <td className="px-3 py-3 text-center text-xs text-gray-600">{totalStock(product)}</td>
                     <td className="px-3 py-3">
                       {hasEdits && (
                         <button
@@ -170,6 +155,13 @@ const StockOverview = () => {
           </table>
         </div>
       )}
+
+      {/* Legend */}
+      <div className="px-5 py-3 border-t border-gray-100 flex items-center gap-4 text-[10px]">
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-green-100 border border-green-300"></span> <span className="text-gray-500">In Stock</span></span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-[#FEF3C7] border border-amber-300"></span> <span className="text-gray-500">Low Stock (≤5)</span></span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-[#FEE2E2] border border-red-300"></span> <span className="text-gray-500">Out of Stock</span></span>
+      </div>
     </div>
   );
 };

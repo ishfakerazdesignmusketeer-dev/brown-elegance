@@ -11,13 +11,20 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import AddToCartModal from "@/components/cart/AddToCartModal";
 import { ShoppingBag } from "lucide-react";
 
+interface ProductVariant {
+  stock: number;
+}
+
 interface Product {
   id: string;
   name: string;
   slug: string;
   price: number;
+  offer_price: number | null;
+  is_preorder: boolean | null;
   images: string[] | null;
   is_active: boolean;
+  product_variants: ProductVariant[];
 }
 
 const ProductGrid = () => {
@@ -30,11 +37,11 @@ const ProductGrid = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("id, name, slug, price, images, is_active")
+        .select("id, name, slug, price, offer_price, is_preorder, images, is_active, product_variants(stock)")
         .eq("is_active", true)
         .order("created_at");
       if (error) throw error;
-      return data as Product[];
+      return data as unknown as Product[];
     },
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
@@ -47,12 +54,24 @@ const ProductGrid = () => {
       setModalProduct(product);
     } else {
       const image = product.images?.[0] ?? "";
+      const displayPrice = product.offer_price != null && product.offer_price < product.price ? product.offer_price : product.price;
       addItem(
-        { id: product.id, name: product.name, slug: product.slug, image, price: product.price },
+        { id: product.id, name: product.name, slug: product.slug, image, price: displayPrice },
         "M",
         1
       );
     }
+  };
+
+  const allSoldOut = (p: Product) => p.product_variants.length > 0 && p.product_variants.every(v => v.stock === 0);
+  const hasSale = (p: Product) => p.offer_price != null && p.offer_price < p.price;
+
+  // Badge: Pre-Order > Sold Out > SALE
+  const getBadge = (p: Product): { text: string; className: string; position: string } | null => {
+    if (p.is_preorder) return { text: "Pre-Order", className: "bg-amber-500 text-white", position: "top-2 left-2" };
+    if (allSoldOut(p)) return { text: "Sold Out", className: "bg-red-600 text-white", position: "top-2 left-2" };
+    if (hasSale(p)) return { text: "SALE", className: "bg-red-600 text-white", position: "top-2 right-2" };
+    return null;
   };
 
   return (
@@ -81,8 +100,11 @@ const ProductGrid = () => {
               ))
             : (products ?? []).map((product) => {
                 const originalUrl = product.images?.[0] ?? "/placeholder.svg";
+                const isSoldOut = allSoldOut(product);
+                const badge = getBadge(product);
+                const showOfferPrice = hasSale(product);
                 return (
-                  <div key={product.id} className="group">
+                  <div key={product.id} className={`group ${isSoldOut && !product.is_preorder ? "opacity-75" : ""}`}>
                     <Link to={`/product/${product.slug}`} className="block relative overflow-hidden bg-[#F8F5E9] mb-5" style={{aspectRatio: '4/5', contain: 'layout style'}}>
                       <img
                         src={getImageUrl(originalUrl, 600)}
@@ -95,29 +117,38 @@ const ProductGrid = () => {
                         height={800}
                         onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = originalUrl; }}
                       />
+                      {/* Badge */}
+                      {badge && (
+                        <span className={`absolute ${badge.position} font-body text-[9px] uppercase tracking-[1px] px-2 py-1 ${badge.className} z-10`}>
+                          {badge.text}
+                        </span>
+                      )}
                       {/* Desktop overlay */}
                       <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/20 transition-colors duration-300 hidden lg:flex items-end justify-center pb-6 opacity-0 group-hover:opacity-100">
                         <Button
                           variant="secondary"
+                          disabled={isSoldOut && !product.is_preorder}
                           onClick={(e) => {
                             e.preventDefault();
                             handleQuickAdd(product);
                           }}
-                          className="bg-cream text-foreground hover:bg-cream/90 font-body text-[12px] uppercase tracking-[1px] px-6 py-2.5 rounded-none"
+                          className="bg-cream text-foreground hover:bg-cream/90 font-body text-[12px] uppercase tracking-[1px] px-6 py-2.5 rounded-none disabled:opacity-50"
                         >
-                          Add to Cart
+                          {product.is_preorder ? "Pre-Order" : "Add to Cart"}
                         </Button>
                       </div>
                       {/* Mobile bottom bar */}
                       <button
                         onClick={(e) => {
                           e.preventDefault();
+                          if (isSoldOut && !product.is_preorder) return;
                           handleQuickAdd(product);
                         }}
-                        className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-1.5 bg-cream/90 backdrop-blur-sm text-foreground font-body text-[10px] uppercase tracking-[1px] py-1.5 lg:hidden"
+                        disabled={isSoldOut && !product.is_preorder}
+                        className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-1.5 bg-cream/90 backdrop-blur-sm text-foreground font-body text-[10px] uppercase tracking-[1px] py-1.5 lg:hidden disabled:opacity-50"
                       >
                         <ShoppingBag className="w-3 h-3" />
-                        Add to Cart
+                        {product.is_preorder ? "Pre-Order" : "Add to Cart"}
                       </button>
                     </Link>
                     <div className="text-center">
@@ -126,9 +157,16 @@ const ProductGrid = () => {
                           {product.name}
                         </h3>
                       </Link>
-                      <p className="font-body text-sm text-muted-foreground mt-1">
-                        {formatPrice(product.price)} BDT
-                      </p>
+                      {showOfferPrice ? (
+                        <div className="mt-1">
+                          <span className="font-body text-sm font-bold text-foreground">{formatPrice(product.offer_price!)} BDT</span>
+                          <span className="font-body text-xs text-muted-foreground line-through ml-2">{formatPrice(product.price)}</span>
+                        </div>
+                      ) : (
+                        <p className="font-body text-sm text-muted-foreground mt-1">
+                          {formatPrice(product.price)} BDT
+                        </p>
+                      )}
                     </div>
                   </div>
                 );

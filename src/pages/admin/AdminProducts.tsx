@@ -3,8 +3,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatPrice } from "@/lib/format";
 import { getImageUrl } from "@/lib/image";
-import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
+import { Plus, Pencil, Trash2, Search } from "lucide-react";
 import { toast } from "sonner";
+import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 import ProductPanel from "@/components/admin/ProductPanel";
 import StockOverview from "@/components/admin/StockOverview";
 import {
@@ -17,12 +19,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
+} from "@/components/ui/table";
 
 interface Variant {
   id: string;
   size: string;
   stock: number;
   product_id: string;
+  is_available: boolean;
 }
 
 interface Product {
@@ -32,9 +38,16 @@ interface Product {
   category: string | null;
   category_id: string | null;
   price: number;
+  offer_price: number | null;
+  sku: string | null;
+  weight: number | null;
   description: string | null;
   images: string[] | null;
   is_active: boolean | null;
+  is_featured: boolean | null;
+  is_preorder: boolean | null;
+  meta_title: string | null;
+  meta_description: string | null;
   created_at: string | null;
   product_variants: Variant[];
 }
@@ -50,6 +63,7 @@ const AdminProducts = () => {
   const [panelOpen, setPanelOpen] = useState(false);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
+  const [search, setSearch] = useState("");
   const queryClient = useQueryClient();
 
   const { data: products = [], isLoading } = useQuery({
@@ -60,28 +74,39 @@ const AdminProducts = () => {
         .select("*, product_variants(*)")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as Product[];
+      return (data as any[]).map(p => ({
+        ...p,
+        product_variants: (p.product_variants ?? []).map((v: any) => ({
+          ...v,
+          is_available: v.is_available ?? true,
+        })),
+      })) as Product[];
     },
   });
 
-  const toggleActiveMutation = useMutation({
-    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
-      const { error } = await supabase.from("products").update({ is_active }).eq("id", id);
+  const toggleMutation = useMutation({
+    mutationFn: async ({ id, field, value }: { id: string; field: string; value: boolean }) => {
+      const { error } = await supabase.from("products").update({ [field]: value } as any).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: (_, { is_active }) => {
+    onSuccess: (_, { field, value }) => {
       queryClient.invalidateQueries({ queryKey: ["admin-products"] });
-      toast.success(is_active ? "Product activated" : "Product hidden");
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      const labels: Record<string, [string, string]> = {
+        is_active: ["Product activated", "Product hidden"],
+        is_featured: ["Featured enabled", "Featured disabled"],
+        is_preorder: ["Pre-order enabled", "Pre-order disabled"],
+      };
+      const [on, off] = labels[field] ?? ["Updated", "Updated"];
+      toast.success(value ? on : off);
     },
-    onError: () => toast.error("Failed to update product"),
+    onError: () => toast.error("Failed to update"),
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      // Nullify product reference in order_items to avoid FK constraint
       const { error: oiErr } = await supabase.from("order_items").update({ product_id: null }).eq("product_id", id);
       if (oiErr) throw oiErr;
-      // Delete variants first, then product
       const { error: varErr } = await supabase.from("product_variants").delete().eq("product_id", id);
       if (varErr) throw varErr;
       const { error } = await supabase.from("products").delete().eq("id", id);
@@ -106,120 +131,194 @@ const AdminProducts = () => {
     setPanelOpen(true);
   };
 
-  const lowestStock = (product: Product): number => {
-    if (!product.product_variants.length) return 0;
-    return Math.min(...product.product_variants.map((v) => v.stock));
+  const totalStock = (p: Product): number =>
+    p.product_variants.reduce((s, v) => s + v.stock, 0);
+
+  const stockWarnings = (p: Product) => {
+    const warnings: { size: string; stock: number; level: "out" | "low" }[] = [];
+    p.product_variants.forEach((v) => {
+      if (v.stock === 0) warnings.push({ size: v.size, stock: v.stock, level: "out" });
+      else if (v.stock <= 5) warnings.push({ size: v.size, stock: v.stock, level: "low" });
+    });
+    return warnings;
   };
 
-  const totalStock = (product: Product): number =>
-    product.product_variants.reduce((s, v) => s + v.stock, 0);
+  const filtered = products.filter((p) => {
+    const q = search.toLowerCase();
+    if (!q) return true;
+    return p.name.toLowerCase().includes(q) || (p.sku ?? "").toLowerCase().includes(q);
+  });
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-semibold text-gray-900">Products</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-xl font-semibold text-gray-900">Product Management</h1>
         <button
           onClick={handleAdd}
-          className="flex items-center gap-2 bg-gray-900 text-white text-sm px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors"
+          className="flex items-center gap-2 bg-red-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
         >
           <Plus className="w-4 h-4" />
-          Add Product
+          New Product
         </button>
       </div>
 
-      {isLoading ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="bg-white border border-gray-200 rounded-lg p-4 animate-pulse">
-              <div className="aspect-square bg-gray-100 rounded-md mb-3" />
-              <div className="h-4 bg-gray-100 rounded mb-2" />
-              <div className="h-3 bg-gray-100 rounded w-2/3" />
-            </div>
-          ))}
-        </div>
-      ) : products.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-lg p-12 text-center mb-8">
-          <p className="text-sm text-gray-400 mb-3">No products yet</p>
-          <button onClick={handleAdd} className="text-sm text-gray-900 underline">Add your first product</button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
-          {products.map((product) => {
-            const minStock = lowestStock(product);
-            const isLowStock = minStock <= 5;
-            const originalUrl = product.images?.[0];
-            return (
-              <div
-                key={product.id}
-                className={`bg-white border rounded-lg overflow-hidden group ${!product.is_active ? "opacity-60" : ""} ${isLowStock && product.is_active ? "border-amber-200" : "border-gray-200"}`}
-              >
-                <div
-                  className="aspect-square bg-gray-100 relative cursor-pointer overflow-hidden"
-                  onClick={() => handleEdit(product)}
-                >
-                  {originalUrl ? (
-                    <img
-                      src={getImageUrl(originalUrl, 200)}
-                      alt={product.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = originalUrl; }}
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-300 text-xs">No image</div>
-                  )}
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                    <div className="bg-white rounded-full p-2">
-                      <Pencil className="w-3.5 h-3.5 text-gray-700" />
-                    </div>
-                  </div>
-                </div>
+      <div className="relative mb-4">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search by name or SKU..."
+          className="pl-9 h-10 text-sm"
+        />
+      </div>
 
-                <div className="p-3">
-                  <p className="text-sm font-medium text-gray-900 truncate">{product.name}</p>
-                  <div className="flex items-center gap-1.5 mt-1">
-                    {product.category && (
-                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full capitalize ${CATEGORY_COLORS[product.category] ?? "bg-gray-100 text-gray-600"}`}>
-                        {product.category}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm font-semibold text-gray-900 mt-1.5">{formatPrice(product.price)}</p>
+      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden mb-8">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader className="sticky top-0 z-10 bg-white">
+              <TableRow className="border-b border-gray-200">
+                <TableHead className="text-xs font-medium min-w-[200px]">Product</TableHead>
+                <TableHead className="text-xs font-medium">Category</TableHead>
+                <TableHead className="text-xs font-medium">Price</TableHead>
+                <TableHead className="text-xs font-medium min-w-[150px]">Stock</TableHead>
+                <TableHead className="text-xs font-medium text-center">Pre-Order</TableHead>
+                <TableHead className="text-xs font-medium text-center">Featured</TableHead>
+                <TableHead className="text-xs font-medium text-center">Active</TableHead>
+                <TableHead className="text-xs font-medium text-center">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-12 text-sm text-gray-400">Loading products...</TableCell>
+                </TableRow>
+              ) : filtered.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-12 text-sm text-gray-400">
+                    {search ? "No products match your search" : "No products yet"}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filtered.map((product, idx) => {
+                  const warnings = stockWarnings(product);
+                  return (
+                    <TableRow
+                      key={product.id}
+                      className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${idx % 2 === 1 ? "bg-[#F9F9F9]" : "bg-white"}`}
+                    >
+                      {/* Product */}
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded overflow-hidden bg-gray-100 shrink-0">
+                            {product.images?.[0] ? (
+                              <img
+                                src={getImageUrl(product.images[0], 80)}
+                                alt={product.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = product.images![0]; }}
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-gray-300 text-[9px]">No img</div>
+                            )}
+                          </div>
+                          <span className="text-sm font-medium text-gray-900 truncate max-w-[160px]">{product.name}</span>
+                        </div>
+                      </TableCell>
 
-                  <div className="flex items-center justify-between mt-2">
-                    <span className={`text-[10px] ${isLowStock ? "text-amber-600 font-semibold" : "text-gray-500"}`}>
-                      {isLowStock && minStock === 0 ? "Out of stock" : isLowStock ? `Low stock (min: ${minStock})` : `Stock: ${totalStock(product)}`}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteTarget(product);
-                        }}
-                        className="text-gray-300 hover:text-red-500 transition-colors"
-                        title="Delete product"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleActiveMutation.mutate({ id: product.id, is_active: !product.is_active });
-                        }}
-                        className="text-gray-400 hover:text-gray-700 transition-colors"
-                      >
-                        {product.is_active
-                          ? <ToggleRight className="w-5 h-5 text-green-500" />
-                          : <ToggleLeft className="w-5 h-5" />
-                        }
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+                      {/* Category */}
+                      <TableCell>
+                        {product.category ? (
+                          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full capitalize ${CATEGORY_COLORS[product.category] ?? "bg-gray-100 text-gray-600"}`}>
+                            {product.category}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-300">—</span>
+                        )}
+                      </TableCell>
+
+                      {/* Price */}
+                      <TableCell>
+                        {product.offer_price ? (
+                          <div>
+                            <span className="text-sm font-semibold text-gray-900">{formatPrice(product.offer_price)}</span>
+                            <br />
+                            <span className="text-xs text-gray-400 line-through">{formatPrice(product.price)}</span>
+                          </div>
+                        ) : (
+                          <span className="text-sm font-semibold text-gray-900">{formatPrice(product.price)}</span>
+                        )}
+                      </TableCell>
+
+                      {/* Stock */}
+                      <TableCell>
+                        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                          {totalStock(product)}
+                        </span>
+                        {warnings.length > 0 && (
+                          <div className="mt-1 space-y-0.5">
+                            {warnings.map((w) => (
+                              <div key={w.size} className={`text-[10px] ${w.level === "out" ? "text-red-600" : "text-amber-600"}`}>
+                                {w.level === "out" ? "🔴" : "⚠️"} {w.size}: {w.level === "out" ? "Out of stock" : `${w.stock} left`}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </TableCell>
+
+                      {/* Pre-Order */}
+                      <TableCell className="text-center">
+                        <Switch
+                          checked={!!product.is_preorder}
+                          onCheckedChange={(v) => toggleMutation.mutate({ id: product.id, field: "is_preorder", value: v })}
+                          className={product.is_preorder ? "data-[state=checked]:bg-amber-500" : ""}
+                        />
+                      </TableCell>
+
+                      {/* Featured */}
+                      <TableCell className="text-center">
+                        <Switch
+                          checked={!!product.is_featured}
+                          onCheckedChange={(v) => toggleMutation.mutate({ id: product.id, field: "is_featured", value: v })}
+                          className={product.is_featured ? "data-[state=checked]:bg-red-500" : ""}
+                        />
+                      </TableCell>
+
+                      {/* Active */}
+                      <TableCell className="text-center">
+                        <Switch
+                          checked={!!product.is_active}
+                          onCheckedChange={(v) => toggleMutation.mutate({ id: product.id, field: "is_active", value: v })}
+                          className={product.is_active ? "data-[state=checked]:bg-red-500" : ""}
+                        />
+                      </TableCell>
+
+                      {/* Actions */}
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => handleEdit(product)}
+                            className="text-gray-400 hover:text-gray-700 transition-colors"
+                            title="Edit"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => setDeleteTarget(product)}
+                            className="text-gray-400 hover:text-red-500 transition-colors"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
         </div>
-      )}
+      </div>
 
       <StockOverview />
 

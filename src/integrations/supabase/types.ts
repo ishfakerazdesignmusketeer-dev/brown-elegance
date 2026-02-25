@@ -535,18 +535,21 @@ export type Database = {
       product_variants: {
         Row: {
           id: string
+          is_available: boolean | null
           product_id: string
           size: string
           stock: number
         }
         Insert: {
           id?: string
+          is_available?: boolean | null
           product_id: string
           size: string
           stock?: number
         }
         Update: {
           id?: string
+          is_available?: boolean | null
           product_id?: string
           size?: string
           stock?: number
@@ -570,9 +573,16 @@ export type Database = {
           id: string
           images: string[] | null
           is_active: boolean | null
+          is_featured: boolean | null
+          is_preorder: boolean | null
+          meta_description: string | null
+          meta_title: string | null
           name: string
+          offer_price: number | null
           price: number
+          sku: string | null
           slug: string
+          weight: number | null
         }
         Insert: {
           category?: string | null
@@ -582,9 +592,16 @@ export type Database = {
           id?: string
           images?: string[] | null
           is_active?: boolean | null
+          is_featured?: boolean | null
+          is_preorder?: boolean | null
+          meta_description?: string | null
+          meta_title?: string | null
           name: string
+          offer_price?: number | null
           price: number
+          sku?: string | null
           slug: string
+          weight?: number | null
         }
         Update: {
           category?: string | null
@@ -594,9 +611,16 @@ export type Database = {
           id?: string
           images?: string[] | null
           is_active?: boolean | null
+          is_featured?: boolean | null
+          is_preorder?: boolean | null
+          meta_description?: string | null
+          meta_title?: string | null
           name?: string
+          offer_price?: number | null
           price?: number
+          sku?: string | null
           slug?: string
+          weight?: number | null
         }
         Relationships: [
           {
