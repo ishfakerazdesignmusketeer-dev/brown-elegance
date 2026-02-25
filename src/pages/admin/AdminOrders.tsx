@@ -18,6 +18,8 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import InvoicePrint from "@/components/admin/InvoicePrint";
 import { cn } from "@/lib/utils";
+import CreateOrderPanel from "@/components/admin/CreateOrderPanel";
+import { Plus } from "lucide-react";
 
 const PAGE_SIZE = 20;
 
@@ -89,6 +91,7 @@ const AdminOrders = () => {
   const [bulkAction, setBulkAction] = useState<string>("processing");
   const [printOrder, setPrintOrder] = useState<Order | null>(null);
   const [inlineStatusOpen, setInlineStatusOpen] = useState<string | null>(null);
+  const [showCreatePanel, setShowCreatePanel] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => { setDebouncedSearch(search); setPage(1); }, 400);
@@ -243,7 +246,14 @@ const AdminOrders = () => {
     <div>
       {printOrder && <InvoicePrint order={printOrder} />}
 
-      <h1 className="text-xl font-semibold text-foreground mb-6">Orders</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-xl font-semibold text-foreground">Orders</h1>
+        <Button size="sm" onClick={() => setShowCreatePanel(true)}>
+          <Plus className="w-4 h-4 mr-1" /> Add Order
+        </Button>
+      </div>
+
+      <CreateOrderPanel open={showCreatePanel} onClose={() => setShowCreatePanel(false)} />
 
       {/* Status Tabs */}
       <div className="flex flex-wrap border-b border-border mb-4">
