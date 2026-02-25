@@ -81,6 +81,7 @@ const ProductPanel = ({ open, onClose, product }: ProductPanelProps) => {
   const [isActive, setIsActive] = useState(true);
   const [isFeatured, setIsFeatured] = useState(false);
   const [isPreorder, setIsPreorder] = useState(false);
+  const [isStudioExclusive, setIsStudioExclusive] = useState(false);
   const [sku, setSku] = useState("");
   const [weight, setWeight] = useState("");
   const [metaTitle, setMetaTitle] = useState("");
@@ -124,6 +125,7 @@ const ProductPanel = ({ open, onClose, product }: ProductPanelProps) => {
       setIsActive(product.is_active ?? true);
       setIsFeatured(product.is_featured ?? false);
       setIsPreorder(product.is_preorder ?? false);
+      setIsStudioExclusive((product as any).is_studio_exclusive ?? false);
       setSku(product.sku ?? "");
       setWeight(product.weight ? String(product.weight) : "");
       setMetaTitle(product.meta_title ?? "");
@@ -140,7 +142,7 @@ const ProductPanel = ({ open, onClose, product }: ProductPanelProps) => {
     } else {
       setName(""); setSlug(""); setCategoryId(""); setCategory("everyday");
       setPrice(""); setOfferPrice(""); setDescription(""); setImages([]);
-      setIsActive(true); setIsFeatured(false); setIsPreorder(false);
+      setIsActive(true); setIsFeatured(false); setIsPreorder(false); setIsStudioExclusive(false);
       setSku(""); setWeight(""); setMetaTitle(""); setMetaDescription("");
       const s: Record<string, number> = {};
       const a: Record<string, boolean> = {};
@@ -205,6 +207,7 @@ const ProductPanel = ({ open, onClose, product }: ProductPanelProps) => {
         is_active: isActive,
         is_featured: isFeatured,
         is_preorder: isPreorder,
+        is_studio_exclusive: isStudioExclusive,
         sku: sku.trim() || null,
         weight: weight ? parseInt(weight) : null,
         meta_title: metaTitle.trim() || null,
@@ -422,6 +425,26 @@ const ProductPanel = ({ open, onClose, product }: ProductPanelProps) => {
                 className={isPreorder ? "data-[state=checked]:bg-amber-500" : ""}
               />
             </div>
+          </div>
+
+          {/* ── Studio Exclusive ── */}
+          <div className="border border-gray-200 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex-1 mr-4">
+                <p className="text-sm font-medium text-gray-900 flex items-center gap-1.5">🏛️ Experience Studio Exclusive</p>
+                <p className="text-xs text-gray-500 mt-0.5">This product is only available at our physical studio. Customers can view but cannot order online.</p>
+              </div>
+              <Switch
+                checked={isStudioExclusive}
+                onCheckedChange={setIsStudioExclusive}
+                className={isStudioExclusive ? "data-[state=checked]:bg-indigo-600" : ""}
+              />
+            </div>
+            {isStudioExclusive && (
+              <div className="mt-3 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                <p className="text-[11px] text-amber-700">⚠️ When enabled: Add to Cart, Pre-Order buttons are hidden. Product is view-only on storefront.</p>
+              </div>
+            )}
           </div>
 
           {/* ── Additional Details ── */}

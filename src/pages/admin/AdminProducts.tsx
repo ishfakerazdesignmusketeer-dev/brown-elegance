@@ -46,6 +46,7 @@ interface Product {
   is_active: boolean | null;
   is_featured: boolean | null;
   is_preorder: boolean | null;
+  is_studio_exclusive: boolean | null;
   meta_title: string | null;
   meta_description: string | null;
   created_at: string | null;
@@ -96,6 +97,7 @@ const AdminProducts = () => {
         is_active: ["Product activated", "Product hidden"],
         is_featured: ["Featured enabled", "Featured disabled"],
         is_preorder: ["Pre-order enabled", "Pre-order disabled"],
+        is_studio_exclusive: ["Studio exclusive enabled", "Studio exclusive disabled"],
       };
       const [on, off] = labels[field] ?? ["Updated", "Updated"];
       toast.success(value ? on : off);
@@ -182,6 +184,7 @@ const AdminProducts = () => {
                 <TableHead className="text-xs font-medium">Price</TableHead>
                 <TableHead className="text-xs font-medium min-w-[150px]">Stock</TableHead>
                 <TableHead className="text-xs font-medium text-center">Pre-Order</TableHead>
+                <TableHead className="text-xs font-medium text-center">Studio</TableHead>
                 <TableHead className="text-xs font-medium text-center">Featured</TableHead>
                 <TableHead className="text-xs font-medium text-center">Active</TableHead>
                 <TableHead className="text-xs font-medium text-center">Actions</TableHead>
@@ -190,11 +193,11 @@ const AdminProducts = () => {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-12 text-sm text-gray-400">Loading products...</TableCell>
+                  <TableCell colSpan={9} className="text-center py-12 text-sm text-gray-400">Loading products...</TableCell>
                 </TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-12 text-sm text-gray-400">
+                   <TableCell colSpan={9} className="text-center py-12 text-sm text-gray-400">
                     {search ? "No products match your search" : "No products yet"}
                   </TableCell>
                 </TableRow>
@@ -271,6 +274,15 @@ const AdminProducts = () => {
                           checked={!!product.is_preorder}
                           onCheckedChange={(v) => toggleMutation.mutate({ id: product.id, field: "is_preorder", value: v })}
                           className={product.is_preorder ? "data-[state=checked]:bg-amber-500" : ""}
+                        />
+                      </TableCell>
+
+                      {/* Studio */}
+                      <TableCell className="text-center">
+                        <Switch
+                          checked={!!product.is_studio_exclusive}
+                          onCheckedChange={(v) => toggleMutation.mutate({ id: product.id, field: "is_studio_exclusive", value: v })}
+                          className={product.is_studio_exclusive ? "data-[state=checked]:bg-indigo-600" : ""}
                         />
                       </TableCell>
 

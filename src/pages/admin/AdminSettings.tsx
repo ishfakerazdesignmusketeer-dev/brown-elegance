@@ -23,6 +23,11 @@ const SETTING_META: Record<string, { label: string; type?: string; placeholder?:
   size_chart_url: { label: "Size Chart Image URL", placeholder: "https://... image URL" },
   bkash_number: { label: "bKash Number", placeholder: "01XXXXXXXXX" },
   nagad_number: { label: "Nagad Number", placeholder: "01XXXXXXXXX" },
+  studio_name: { label: "Studio Name", placeholder: "Brown House Experience Studio" },
+  studio_address: { label: "Studio Address", placeholder: "Full address here" },
+  studio_city: { label: "City", placeholder: "Dhaka" },
+  studio_map_url: { label: "Google Maps URL", placeholder: "https://maps.google.com/..." },
+  studio_hours: { label: "Opening Hours", placeholder: "Sat–Thu: 11am–8pm" },
 };
 
 const AdminSettings = () => {
@@ -63,6 +68,7 @@ const AdminSettings = () => {
   };
 
   const orderedKeys = ["store_name", "store_email", "store_url", "admin_email", "whatsapp_number", "bkash_number", "nagad_number", "size_chart_url", "delivery_charge", "admin_password"];
+  const studioKeys = ["studio_name", "studio_address", "studio_city", "studio_map_url", "studio_hours"];
 
   return (
     <div>
@@ -119,6 +125,51 @@ const AdminSettings = () => {
               );
             })}
 
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="flex items-center gap-2 bg-gray-900 text-white text-sm px-5 py-2.5 rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 mt-2"
+            >
+              <Save className="w-4 h-4" />
+              {saving ? "Saving..." : "Save All"}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Experience Studio Information */}
+      <div className="bg-white border border-gray-200 rounded-lg p-6 max-w-lg mt-8">
+        <h2 className="text-base font-semibold text-gray-900 mb-1">🏛️ Experience Studio Information</h2>
+        <p className="text-xs text-gray-500 mb-5">Studio details shown on studio-exclusive product pages.</p>
+        {isLoading ? (
+          <div className="space-y-5">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="animate-pulse">
+                <div className="h-3 bg-gray-100 rounded w-1/3 mb-2" />
+                <div className="h-9 bg-gray-100 rounded" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {studioKeys.map((key) => {
+              const meta = SETTING_META[key];
+              if (!meta) return null;
+              return (
+                <div key={key}>
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
+                    {meta.label}
+                  </label>
+                  <Input
+                    type="text"
+                    value={values[key] ?? ""}
+                    onChange={(e) => setValues((prev) => ({ ...prev, [key]: e.target.value }))}
+                    placeholder={meta.placeholder}
+                    className="h-9 text-sm"
+                  />
+                </div>
+              );
+            })}
             <button
               onClick={handleSave}
               disabled={saving}
