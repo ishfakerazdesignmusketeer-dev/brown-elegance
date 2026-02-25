@@ -6,21 +6,25 @@ import { formatPrice } from "@/lib/format";
 import { getImageUrl } from "@/lib/image";
 import { Minus, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 interface ProductForModal {
   id: string;
   name: string;
   slug: string;
   price: number;
+  offer_price?: number | null;
+  is_preorder?: boolean | null;
   images: string[] | null;
 }
 
 interface Variant {
   size: string;
   stock: number;
+  is_available: boolean;
 }
 
-const SIZES_ORDER = ["S", "M", "L", "XL"];
+const SIZES_ORDER = ["S", "M", "L", "XL", "XXL"];
 
 interface AddToCartModalProps {
   product: ProductForModal | null;
@@ -38,10 +42,10 @@ const AddToCartModal = ({ product, open, onClose }: AddToCartModalProps) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("product_variants")
-        .select("size, stock")
+        .select("size, stock, is_available")
         .eq("product_id", product!.id);
       if (error) throw error;
-      return data as Variant[];
+      return data as unknown as Variant[];
     },
     enabled: !!product?.id && open,
   });
@@ -53,6 +57,10 @@ const AddToCartModal = ({ product, open, onClose }: AddToCartModalProps) => {
   const selectedVariant = sortedVariants.find((v) => v.size === selectedSize);
   const maxQty = selectedVariant?.stock ?? 0;
 
+  const isPreorder = !!product?.is_preorder;
+  const hasOfferPrice = product?.offer_price != null && product.offer_price < product.price;
+  const displayPrice = hasOfferPrice ? product!.offer_price! : product?.price ?? 0;
+
   useEffect(() => {
     if (!open) {
       setSelectedSize(null);
@@ -60,10 +68,21 @@ const AddToCartModal = ({ product, open, onClose }: AddToCartModalProps) => {
     }
   }, [open]);
 
+  const isSizeDisabled = (v: Variant) => v.stock === 0 || !(v.is_available ?? true);
+
   const handleAdd = () => {
     if (!product || !selectedSize) return;
+    const variant = sortedVariants.find(v => v.size === selectedSize);
+    if (!variant || variant.stock === 0) {
+      toast.error("This size is out of stock");
+      return;
+    }
+    if (variant.stock < quantity) {
+      toast.error(`Only ${variant.stock} left in size ${selectedSize}`);
+      return;
+    }
     addItem(
-      { id: product.id, name: product.name, slug: product.slug, image: product.images?.[0] ?? "", price: product.price },
+      { id: product.id, name: product.name, slug: product.slug, image: product.images?.[0] ?? "", price: displayPrice },
       selectedSize,
       quantity
     );
@@ -104,7 +123,14 @@ const AddToCartModal = ({ product, open, onClose }: AddToCartModalProps) => {
             </div>
             <div>
               <h3 className="font-heading text-lg text-foreground leading-tight">{product.name}</h3>
-              <p className="font-body text-sm text-muted-foreground mt-1">{formatPrice(product.price)} BDT</p>
+              {hasOfferPrice ? (
+                <div className="mt-1">
+                  <span className="font-body text-sm font-bold text-foreground">{formatPrice(product.offer_price!)} BDT</span>
+                  <span className="font-body text-xs text-muted-foreground line-through ml-2">{formatPrice(product.price)}</span>
+                </div>
+              ) : (
+                <p className="font-body text-sm text-muted-foreground mt-1">{formatPrice(product.price)} BDT</p>
+              )}
             </div>
           </div>
 
@@ -115,30 +141,36 @@ const AddToCartModal = ({ product, open, onClose }: AddToCartModalProps) => {
             </span>
             <div className="flex flex-wrap gap-2">
               {sortedVariants.length > 0 ? sortedVariants.map((variant) => {
-                const outOfStock = variant.stock === 0;
+                const disabled = isSizeDisabled(variant);
                 const isSelected = selectedSize === variant.size;
+                const isLowStock = !disabled && variant.stock > 0 && variant.stock <= 5;
                 return (
                   <div key={variant.size} className="flex flex-col items-center gap-1">
-                    <button
-                      disabled={outOfStock}
-                      onClick={() => { setSelectedSize(variant.size); setQuantity(1); }}
-                      className={`w-14 h-12 font-body text-sm border transition-all rounded-md ${
-                        outOfStock
-                          ? "border-border text-muted-foreground line-through cursor-not-allowed opacity-40"
-                          : isSelected
-                          ? "border-foreground bg-foreground text-background"
-                          : "border-border text-foreground hover:border-foreground"
-                      }`}
-                    >
-                      {variant.size}
-                    </button>
-                    {!outOfStock && variant.stock > 5 && (
+                    <div className="relative">
+                      <button
+                        disabled={disabled}
+                        onClick={() => { setSelectedSize(variant.size); setQuantity(1); }}
+                        className={`w-14 h-12 font-body text-sm border transition-all rounded-md ${
+                          disabled
+                            ? "border-border text-muted-foreground line-through cursor-not-allowed opacity-40"
+                            : isSelected
+                            ? "border-foreground bg-foreground text-background"
+                            : "border-border text-foreground hover:border-foreground"
+                        }`}
+                      >
+                        {variant.size}
+                      </button>
+                      {isLowStock && (
+                        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-amber-400 rounded-full border border-white" />
+                      )}
+                    </div>
+                    {!disabled && variant.stock > 5 && (
                       <span className="font-body text-[10px] text-muted-foreground">{variant.stock} left</span>
                     )}
-                    {!outOfStock && variant.stock <= 5 && (
-                      <span className="font-body text-[10px] text-destructive font-semibold">Low stock</span>
+                    {isLowStock && (
+                      <span className="font-body text-[10px] text-amber-600 font-semibold">Only {variant.stock} left!</span>
                     )}
-                    {outOfStock && (
+                    {disabled && (
                       <span className="font-body text-[10px] text-muted-foreground/50">Out</span>
                     )}
                   </div>
@@ -175,9 +207,13 @@ const AddToCartModal = ({ product, open, onClose }: AddToCartModalProps) => {
           <Button
             onClick={handleAdd}
             disabled={!selectedSize || maxQty === 0}
-            className="w-full bg-foreground text-background hover:bg-foreground/90 font-body text-[12px] uppercase tracking-[1.5px] py-7 rounded-none disabled:opacity-50"
+            className={`w-full font-body text-[12px] uppercase tracking-[1.5px] py-7 rounded-none disabled:opacity-50 ${
+              isPreorder
+                ? "bg-amber-500 text-white hover:bg-amber-600"
+                : "bg-foreground text-background hover:bg-foreground/90"
+            }`}
           >
-            {!selectedSize ? "Select a Size" : "Add to Cart"}
+            {!selectedSize ? "Select a Size" : isPreorder ? "Pre-Order Now" : "Add to Cart"}
           </Button>
         </div>
       </div>

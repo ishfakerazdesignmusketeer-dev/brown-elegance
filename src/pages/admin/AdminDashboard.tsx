@@ -104,7 +104,19 @@ const AdminDashboard = () => {
       const { count } = await supabase
         .from("product_variants")
         .select("*", { count: "exact", head: true })
-        .lte("stock", 5);
+        .lte("stock", 5)
+        .gt("stock", 0);
+      return count ?? 0;
+    },
+  });
+
+  const { data: outOfStockCount = 0 } = useQuery({
+    queryKey: ["admin-out-of-stock"],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("product_variants")
+        .select("*", { count: "exact", head: true })
+        .eq("stock", 0);
       return count ?? 0;
     },
   });
@@ -192,16 +204,30 @@ const AdminDashboard = () => {
           </div>
         </Link>
         <StatCard label="Total Customers" value={isLoading ? "—" : customerCount} />
-        <div className={`bg-white border rounded-lg p-5 ${lowStockCount > 0 ? "border-red-200" : "border-gray-200"}`}>
-          <p className="text-xs text-gray-500 mb-1 uppercase tracking-wide">Low Stock Alert</p>
-          <div className="flex items-center gap-2">
-            {lowStockCount > 0 && <AlertTriangle className="w-4 h-4 text-red-500" />}
-            <p className={`text-2xl font-semibold ${lowStockCount > 0 ? "text-red-600" : "text-gray-900"}`}>
-              {isLoading ? "—" : lowStockCount}
-            </p>
+        <Link to="/admin/products" className="block">
+          <div className={`bg-white border rounded-lg p-5 hover:border-amber-400 transition-colors ${lowStockCount > 0 ? "border-amber-200" : "border-gray-200"}`}>
+            <p className="text-xs text-gray-500 mb-1 uppercase tracking-wide">Low Stock Sizes</p>
+            <div className="flex items-center gap-2">
+              {lowStockCount > 0 && <AlertTriangle className="w-4 h-4 text-amber-500" />}
+              <p className={`text-2xl font-semibold ${lowStockCount > 0 ? "text-amber-600" : "text-gray-900"}`}>
+                {isLoading ? "—" : lowStockCount}
+              </p>
+            </div>
+            {lowStockCount > 0 && <p className="text-xs text-amber-400 mt-1">variants 1-5 units</p>}
           </div>
-          {lowStockCount > 0 && <p className="text-xs text-red-400 mt-1">variants ≤ 5 units</p>}
-        </div>
+        </Link>
+        <Link to="/admin/products" className="block">
+          <div className={`bg-white border rounded-lg p-5 hover:border-red-400 transition-colors ${outOfStockCount > 0 ? "border-red-200" : "border-gray-200"}`}>
+            <p className="text-xs text-gray-500 mb-1 uppercase tracking-wide">Out of Stock Sizes</p>
+            <div className="flex items-center gap-2">
+              {outOfStockCount > 0 && <AlertTriangle className="w-4 h-4 text-red-500" />}
+              <p className={`text-2xl font-semibold ${outOfStockCount > 0 ? "text-red-600" : "text-gray-900"}`}>
+                {isLoading ? "—" : outOfStockCount}
+              </p>
+            </div>
+            {outOfStockCount > 0 && <p className="text-xs text-red-400 mt-1">variants at 0 units</p>}
+          </div>
+        </Link>
       </div>
 
       {/* Charts row */}

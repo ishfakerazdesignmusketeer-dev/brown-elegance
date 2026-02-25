@@ -7,7 +7,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useCart } from "@/contexts/CartContext";
 import { formatPrice } from "@/lib/format";
 import { getImageUrl } from "@/lib/image";
-import { Minus, Plus } from "lucide-react";
+import { Minus, Plus, Clock } from "lucide-react";
+import { toast } from "sonner";
 import Navigation from "@/components/layout/Navigation";
 import AnnouncementBar from "@/components/layout/AnnouncementBar";
 import Footer from "@/components/layout/Footer";
@@ -16,6 +17,7 @@ import YouMayAlsoLike from "@/components/product/YouMayAlsoLike";
 interface Variant {
   size: string;
   stock: number;
+  is_available: boolean;
 }
 
 interface Product {
@@ -24,10 +26,12 @@ interface Product {
   slug: string;
   description: string | null;
   price: number;
+  offer_price: number | null;
   images: string[] | null;
   category: string | null;
   category_id: string | null;
   is_active: boolean;
+  is_preorder: boolean | null;
   product_variants: Variant[];
 }
 
@@ -36,7 +40,7 @@ interface Category {
   slug: string;
 }
 
-const SIZES_ORDER = ["S", "M", "L", "XL"];
+const SIZES_ORDER = ["S", "M", "L", "XL", "XXL"];
 
 const ProductDetail = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -73,12 +77,12 @@ const ProductDetail = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("*, product_variants(size, stock)")
+        .select("*, product_variants(size, stock, is_available)")
         .eq("slug", slug!)
         .eq("is_active", true)
         .single();
       if (error) throw error;
-      return data as Product;
+      return data as unknown as Product;
     },
     enabled: !!slug,
   });
@@ -129,6 +133,9 @@ const ProductDetail = () => {
     .filter(Boolean) as Variant[];
 
   const allOutOfStock = sortedVariants.every((v) => v.stock === 0);
+  const isPreorder = !!product.is_preorder;
+  const hasOfferPrice = product.offer_price != null && product.offer_price < product.price;
+  const displayPrice = hasOfferPrice ? product.offer_price! : product.price;
   const selectedVariant = sortedVariants.find((v) => v.size === selectedSize);
   const maxQty = selectedVariant?.stock ?? 0;
 
@@ -136,12 +143,23 @@ const ProductDetail = () => {
 
   const handleAddToCart = () => {
     if (!selectedSize) return;
+    const variant = sortedVariants.find(v => v.size === selectedSize);
+    if (!variant || variant.stock === 0) {
+      toast.error("This size is out of stock");
+      return;
+    }
+    if (variant.stock < quantity) {
+      toast.error(`Only ${variant.stock} left in size ${selectedSize}`);
+      return;
+    }
     addItem(
-      { id: product.id, name: product.name, slug: product.slug, image: images[0], price: product.price },
+      { id: product.id, name: product.name, slug: product.slug, image: images[0], price: displayPrice },
       selectedSize,
       quantity
     );
   };
+
+  const isSizeDisabled = (v: Variant) => v.stock === 0 || !(v.is_available ?? true);
 
   return (
     <div className="min-h-screen bg-cream">
@@ -170,7 +188,7 @@ const ProductDetail = () => {
               <img
                 src={getImageUrl(images[mainImage], 1200)}
                 alt={product.name}
-className="w-full h-auto block"
+                className="w-full h-auto block"
                 loading="eager"
                 decoding="async"
                 width={1200}
@@ -192,7 +210,7 @@ className="w-full h-auto block"
                     <img
                       src={getImageUrl(img, 200)}
                       alt={`View ${i + 1}`}
-className="w-full h-full object-cover object-center"
+                      className="w-full h-full object-cover object-center"
                       loading="lazy"
                       decoding="async"
                       width={200}
@@ -207,9 +225,15 @@ className="w-full h-full object-cover object-center"
 
           {/* Right: Product Info */}
           <div className="flex flex-col">
-            {allOutOfStock && (
-              <span className="inline-block bg-espresso text-cream font-body text-[10px] uppercase tracking-[1.5px] px-3 py-1.5 mb-4 w-fit">
+            {/* Badges */}
+            {isPreorder && (
+              <span className="inline-block bg-amber-500 text-white font-body text-[10px] uppercase tracking-[1.5px] px-3 py-1.5 mb-4 w-fit">
                 Pre-Order
+              </span>
+            )}
+            {!isPreorder && allOutOfStock && (
+              <span className="inline-block bg-red-600 text-white font-body text-[10px] uppercase tracking-[1.5px] px-3 py-1.5 mb-4 w-fit">
+                Sold Out
               </span>
             )}
 
@@ -217,9 +241,23 @@ className="w-full h-full object-cover object-center"
               {product.name}
             </h1>
 
-            <p className="font-body text-2xl text-foreground mb-6">
-              {formatPrice(product.price)} <span className="text-sm text-muted-foreground">BDT</span>
-            </p>
+            {/* Price */}
+            <div className="mb-6">
+              {hasOfferPrice ? (
+                <div className="flex items-baseline gap-3">
+                  <p className="font-body text-2xl font-bold text-foreground">
+                    {formatPrice(product.offer_price!)} <span className="text-sm text-muted-foreground">BDT</span>
+                  </p>
+                  <p className="font-body text-lg text-muted-foreground line-through">
+                    {formatPrice(product.price)}
+                  </p>
+                </div>
+              ) : (
+                <p className="font-body text-2xl text-foreground">
+                  {formatPrice(product.price)} <span className="text-sm text-muted-foreground">BDT</span>
+                </p>
+              )}
+            </div>
 
             {product.description && (
               <p className="font-body text-sm text-muted-foreground leading-relaxed mb-8">
@@ -246,30 +284,37 @@ className="w-full h-full object-cover object-center"
               </div>
               <div className="flex flex-wrap gap-3">
                 {sortedVariants.map((variant) => {
-                  const outOfStock = variant.stock === 0;
+                  const disabled = isSizeDisabled(variant);
                   const isSelected = selectedSize === variant.size;
+                  const isLowStock = !disabled && variant.stock > 0 && variant.stock <= 5;
                   return (
                     <div key={variant.size} className="flex flex-col items-center gap-1">
-                      <button
-                        disabled={outOfStock}
-                        onClick={() => { setSelectedSize(variant.size); setQuantity(1); }}
-                        className={`w-12 h-12 font-body text-sm border transition-all ${
-                          outOfStock
-                            ? "border-border text-muted-foreground line-through cursor-not-allowed opacity-40"
-                            : isSelected
-                            ? "border-foreground bg-foreground text-background"
-                            : "border-border text-foreground hover:border-foreground"
-                        }`}
-                      >
-                        {variant.size}
-                      </button>
-                      {!outOfStock && variant.stock > 5 && (
+                      <div className="relative">
+                        <button
+                          disabled={disabled}
+                          onClick={() => { setSelectedSize(variant.size); setQuantity(1); }}
+                          className={`w-12 h-12 font-body text-sm border transition-all ${
+                            disabled
+                              ? "border-border text-muted-foreground line-through cursor-not-allowed opacity-40"
+                              : isSelected
+                              ? "border-foreground bg-foreground text-background"
+                              : "border-border text-foreground hover:border-foreground"
+                          }`}
+                          title={isLowStock ? `Only ${variant.stock} left!` : undefined}
+                        >
+                          {variant.size}
+                        </button>
+                        {isLowStock && (
+                          <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-amber-400 rounded-full border border-white" />
+                        )}
+                      </div>
+                      {!disabled && variant.stock > 5 && (
                         <span className="font-body text-[10px] text-muted-foreground">{variant.stock} left</span>
                       )}
-                      {!outOfStock && variant.stock <= 5 && (
-                        <span className="font-body text-[10px] text-destructive font-semibold">Low stock</span>
+                      {isLowStock && (
+                        <span className="font-body text-[10px] text-amber-600 font-semibold">Only {variant.stock} left!</span>
                       )}
-                      {outOfStock && (
+                      {disabled && (
                         <span className="font-body text-[10px] text-muted-foreground/50">Out</span>
                       )}
                     </div>
@@ -302,13 +347,32 @@ className="w-full h-full object-cover object-center"
               </div>
             )}
 
+            {/* Add to Cart / Pre-Order Button */}
             <Button
               onClick={handleAddToCart}
               disabled={!selectedSize || maxQty === 0}
-              className="w-full bg-foreground text-background hover:bg-foreground/90 font-body text-[12px] uppercase tracking-[1.5px] py-7 rounded-none disabled:opacity-50"
+              className={`w-full font-body text-[12px] uppercase tracking-[1.5px] py-7 rounded-none disabled:opacity-50 ${
+                isPreorder
+                  ? "bg-amber-500 text-white hover:bg-amber-600"
+                  : "bg-foreground text-background hover:bg-foreground/90"
+              }`}
             >
-              {!selectedSize ? "Select a Size" : allOutOfStock ? "Out of Stock" : "Add to Cart"}
+              {!selectedSize
+                ? "Select a Size"
+                : !isPreorder && allOutOfStock
+                ? "Out of Stock"
+                : isPreorder
+                ? "Pre-Order Now"
+                : "Add to Cart"}
             </Button>
+
+            {/* Pre-order notice */}
+            {isPreorder && (
+              <div className="flex items-center gap-2 mt-4 border border-amber-300 rounded-md px-4 py-3 bg-amber-50">
+                <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+                <p className="font-body text-xs text-amber-700">Order in your door step by 7 days</p>
+              </div>
+            )}
 
             <p className="font-body text-xs text-muted-foreground text-center mt-4">
               Cash on Delivery · Free exchange within 7 days
