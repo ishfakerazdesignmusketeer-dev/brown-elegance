@@ -1,7 +1,7 @@
-import { useEffect } from "react";
+import { useState } from "react";
 import { useNavigate, Link, useLocation, Outlet } from "react-router-dom";
 import { LayoutDashboard, ShoppingBag, Grid3X3, Settings, LogOut, Menu, Users, Tag, ShoppingCart, Truck, CreditCard, Image, Layers, Link as LinkIcon, Film } from "lucide-react";
-import { useState } from "react";
+// useState imported above
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useQuery } from "@tanstack/react-query";
@@ -38,9 +38,12 @@ const SidebarContent = ({
   const location = useLocation();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    sessionStorage.removeItem("brown_admin_auth");
-    navigate("/admin");
+  const { signOut, user: authUser } = useAuth();
+  const adminEmail = authUser?.email || "";
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate("/");
   };
 
   const getBadgeCount = (badge?: string) => {
@@ -54,6 +57,14 @@ const SidebarContent = ({
     <div className="flex flex-col h-full">
       <div className="px-6 py-5 border-b border-gray-200">
         <p className="text-sm font-semibold text-gray-900 uppercase tracking-widest">Brown House Admin</p>
+        {adminEmail && (
+          <div className="flex items-center gap-2 mt-2">
+            <div className="w-6 h-6 rounded-full bg-gray-900 text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0">
+              {adminEmail[0]?.toUpperCase()}
+            </div>
+            <p className="text-[11px] text-gray-500 truncate">{adminEmail}</p>
+          </div>
+        )}
       </div>
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
@@ -97,16 +108,7 @@ const SidebarContent = ({
 const AdminLayout = () => {
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { isAdmin } = useAuth();
-
-  useEffect(() => {
-    // Auto-grant admin session if logged in as admin
-    if (isAdmin) {
-      sessionStorage.setItem("brown_admin_auth", "true");
-    }
-    const auth = sessionStorage.getItem("brown_admin_auth");
-    if (!auth) navigate("/admin");
-  }, [navigate, isAdmin]);
+  const { user } = useAuth();
 
   const { data: pendingCount = 0 } = useQuery({
     queryKey: ["admin-pending-count"],

@@ -78,7 +78,6 @@ const Navigation = () => {
   };
 
   const handleAdminClick = () => {
-    sessionStorage.setItem("brown_admin_auth", "true");
     setUserDropdown(false);
     navigate("/admin/dashboard");
   };

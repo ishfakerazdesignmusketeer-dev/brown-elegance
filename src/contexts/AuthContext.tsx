@@ -17,46 +17,40 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [adminEmail, setAdminEmail] = useState("");
 
-  // Load admin email from settings
-  useEffect(() => {
-    supabase
-      .from("admin_settings")
-      .select("value")
-      .eq("key", "admin_email")
-      .single()
-      .then(({ data }) => {
-        if (data?.value) setAdminEmail(data.value);
-      });
-  }, []);
+  const checkAdmin = async (userId: string) => {
+    const { data } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .eq("role", "admin")
+      .maybeSingle();
+    setIsAdmin(!!data);
+  };
 
   useEffect(() => {
-    // Listen for auth changes FIRST
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      if (session?.user) {
+        checkAdmin(session.user.id);
+      } else {
+        setIsAdmin(false);
+      }
       setIsLoading(false);
     });
 
-    // Then get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
+      if (session?.user) {
+        checkAdmin(session.user.id);
+      }
       setIsLoading(false);
     });
 
     return () => subscription.unsubscribe();
   }, []);
-
-  // Check admin status
-  useEffect(() => {
-    if (user && adminEmail) {
-      setIsAdmin(user.email === adminEmail);
-    } else {
-      setIsAdmin(false);
-    }
-  }, [user, adminEmail]);
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
