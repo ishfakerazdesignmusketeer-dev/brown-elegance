@@ -11,8 +11,8 @@ import ScrollToTop from "@/components/ScrollToTop";
 import { useDynamicFavicon } from "@/hooks/use-dynamic-favicon";
 import { lazy, Suspense } from "react";
 import Index from "./pages/Index";
-import AdminLogin from "./pages/admin/AdminLogin";
 import AdminLayout from "./components/admin/AdminLayout";
+import AdminRoute from "./components/admin/AdminRoute";
 
 const NotFound = lazy(() => import("./pages/NotFound"));
 const ProductDetail = lazy(() => import("./pages/ProductDetail"));
@@ -74,9 +74,9 @@ const App = () => (
               <Route path="/reset-password" element={<Suspense fallback={<AdminFallback />}><ResetPassword /></Suspense>} />
 
               {/* Admin routes */}
-              <Route path="/admin" element={<Navigate to="/admin/login" replace />} />
-              <Route path="/admin/login" element={<AdminLogin />} />
-              <Route path="/admin" element={<AdminLayout />}>
+              <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+              <Route path="/admin" element={<AdminRoute />}>
+                <Route element={<AdminLayout />}>
                 <Route path="dashboard" element={<Suspense fallback={<AdminFallback />}><AdminDashboard /></Suspense>} />
                 <Route path="orders" element={<Suspense fallback={<AdminFallback />}><AdminOrders /></Suspense>} />
                 <Route path="products" element={<Suspense fallback={<AdminFallback />}><AdminProducts /></Suspense>} />
@@ -90,6 +90,7 @@ const App = () => (
                 <Route path="categories" element={<Suspense fallback={<AdminFallback />}><AdminCategories /></Suspense>} />
                 <Route path="footer" element={<Suspense fallback={<AdminFallback />}><AdminFooter /></Suspense>} />
                 <Route path="reels" element={<Suspense fallback={<AdminFallback />}><AdminReels /></Suspense>} />
+                </Route>
               </Route>
 
               <Route path="*" element={<Suspense fallback={<AdminFallback />}><NotFound /></Suspense>} />
