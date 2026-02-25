@@ -130,7 +130,7 @@ const ProductGrid = () => {
                         {product.is_studio_exclusive ? (
                           <Button
                             variant="secondary"
-                            className="bg-indigo-600 text-white hover:bg-indigo-700 font-body text-[12px] uppercase tracking-[1px] px-6 py-2.5 rounded-none"
+                            className="bg-foreground text-background hover:bg-foreground/90 font-body text-[12px] uppercase tracking-[1px] px-6 py-2.5 rounded-none"
                           >
                             View at Studio →
                           </Button>
@@ -150,7 +150,7 @@ const ProductGrid = () => {
                       </div>
                       {/* Mobile bottom bar */}
                       {product.is_studio_exclusive ? (
-                        <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-1.5 bg-indigo-600/90 backdrop-blur-sm text-white font-body text-[10px] uppercase tracking-[1px] py-1.5 lg:hidden">
+                        <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-1.5 bg-foreground/90 backdrop-blur-sm text-background font-body text-[10px] uppercase tracking-[1px] py-1.5 lg:hidden">
                           View at Studio →
                         </div>
                       ) : (
