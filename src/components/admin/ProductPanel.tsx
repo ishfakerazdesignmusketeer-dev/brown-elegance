@@ -180,6 +180,9 @@ const ProductPanel = ({ open, onClose, product }: ProductPanelProps) => {
       queryClient.invalidateQueries({ queryKey: ["admin-products"] });
       queryClient.invalidateQueries({ queryKey: ["admin-stock-overview"] });
       queryClient.invalidateQueries({ queryKey: ["admin-low-stock"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["product-detail"] });
+      queryClient.invalidateQueries({ queryKey: ["related-products"] });
       toast.success(product ? "Product updated" : "Product created");
       onClose();
     } catch (err) {
