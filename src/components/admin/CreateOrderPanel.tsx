@@ -206,6 +206,10 @@ const CreateOrderPanel = ({ open, onClose }: CreateOrderPanelProps) => {
     onSuccess: (order) => {
       queryClient.invalidateQueries({ queryKey: ["admin-orders-list"] });
       queryClient.invalidateQueries({ queryKey: ["admin-order-counts"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-all-order-items"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-customer-count"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-low-stock"] });
       toast.success(`Order ${order.order_number} created successfully`);
       resetForm();
       onClose();

@@ -20,23 +20,21 @@ import { toast } from "sonner";
 
 const STATUS_COLORS_HEX: Record<string, string> = {
   pending: "#FCD34D",
-  confirmed: "#60A5FA",
   processing: "#A78BFA",
-  shipped: "#818CF8",
-  delivered: "#34D399",
+  completed: "#34D399",
   cancelled: "#F87171",
+  refunded: "#C084FC",
 };
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-amber-100 text-amber-800",
-  confirmed: "bg-blue-100 text-blue-800",
   processing: "bg-purple-100 text-purple-800",
-  shipped: "bg-indigo-100 text-indigo-800",
-  delivered: "bg-green-100 text-green-800",
+  completed: "bg-green-100 text-green-800",
   cancelled: "bg-red-100 text-red-800",
+  refunded: "bg-purple-100 text-purple-800",
 };
 
-const STATUS_OPTIONS = ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled"] as const;
+const STATUS_OPTIONS = ["pending", "processing", "completed", "cancelled", "refunded"] as const;
 
 interface Order {
   id: string;
@@ -126,15 +124,13 @@ const AdminDashboard = () => {
   const today = new Date().toDateString();
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
 
-  const completedOrders = orders.filter((o) =>
-    ["confirmed", "processing", "shipped", "delivered"].includes(o.status)
-  );
+  const completedOrders = orders.filter((o) => o.status === "completed");
   const totalRevenue = completedOrders.reduce((s, o) => s + o.total, 0);
   const todayRevenue = orders
-    .filter((o) => new Date(o.created_at).toDateString() === today && ["confirmed", "processing", "shipped", "delivered"].includes(o.status))
+    .filter((o) => new Date(o.created_at).toDateString() === today && o.status === "completed")
     .reduce((s, o) => s + o.total, 0);
   const monthRevenue = orders
-    .filter((o) => o.created_at >= monthStart && ["confirmed", "processing", "shipped", "delivered"].includes(o.status))
+    .filter((o) => o.created_at >= monthStart && o.status === "completed")
     .reduce((s, o) => s + o.total, 0);
   const avgOrderValue = completedOrders.length > 0 ? Math.round(totalRevenue / completedOrders.length) : 0;
   const pendingCount = orders.filter((o) => o.status === "pending").length;
@@ -144,7 +140,7 @@ const AdminDashboard = () => {
     const date = subDays(new Date(), 29 - i);
     const dateStr = startOfDay(date).toDateString();
     const rev = orders
-      .filter((o) => new Date(o.created_at).toDateString() === dateStr && ["confirmed", "processing", "shipped", "delivered"].includes(o.status))
+      .filter((o) => new Date(o.created_at).toDateString() === dateStr && o.status === "completed")
       .reduce((s, o) => s + o.total, 0);
     return { date: format(date, "MMM d"), revenue: rev };
   });
