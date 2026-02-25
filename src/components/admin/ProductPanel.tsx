@@ -32,6 +32,7 @@ interface Product {
   is_active: boolean | null;
   is_featured: boolean | null;
   is_preorder: boolean | null;
+  is_studio_exclusive: boolean | null;
   meta_title: string | null;
   meta_description: string | null;
   product_variants: Variant[];
@@ -125,7 +126,7 @@ const ProductPanel = ({ open, onClose, product }: ProductPanelProps) => {
       setIsActive(product.is_active ?? true);
       setIsFeatured(product.is_featured ?? false);
       setIsPreorder(product.is_preorder ?? false);
-      setIsStudioExclusive((product as any).is_studio_exclusive ?? false);
+      setIsStudioExclusive(product.is_studio_exclusive ?? false);
       setSku(product.sku ?? "");
       setWeight(product.weight ? String(product.weight) : "");
       setMetaTitle(product.meta_title ?? "");
