@@ -377,7 +377,7 @@ const AdminOrders = () => {
               <TableHead className="text-xs font-medium">Order</TableHead>
               <TableHead className="text-xs font-medium">Date</TableHead>
               <TableHead className="text-xs font-medium">Status</TableHead>
-              <TableHead className="text-xs font-medium">Items</TableHead>
+              <TableHead className="text-xs font-medium hidden md:table-cell min-w-[200px]">Products</TableHead>
               <TableHead className="text-xs font-medium">Total</TableHead>
               <TableHead className="text-xs font-medium">Source</TableHead>
               <TableHead className="text-xs font-medium">Actions</TableHead>
@@ -445,8 +445,19 @@ const AdminOrders = () => {
                       </PopoverContent>
                     </Popover>
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {order.order_items?.length ?? 0} items
+                  <TableCell className="hidden md:table-cell">
+                    <div className="space-y-0.5">
+                      {order.order_items?.slice(0, 2).map((item) => (
+                        <div key={item.id} className="text-sm flex items-center gap-1 flex-wrap">
+                          <span className="text-foreground">{item.product_name}</span>
+                          <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded font-medium">{item.size}</span>
+                          <span className="text-xs text-accent-foreground font-medium">×{item.quantity}</span>
+                        </div>
+                      ))}
+                      {(order.order_items?.length ?? 0) > 2 && (
+                        <div className="text-xs text-muted-foreground italic">+{order.order_items!.length - 2} more</div>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-sm font-medium">{formatPrice(order.total)}</TableCell>
                   <TableCell>
