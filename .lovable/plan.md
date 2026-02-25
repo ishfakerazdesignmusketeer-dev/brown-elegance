@@ -1,61 +1,140 @@
 
 
-# Fix Admin Authentication System
+# Rebuild Admin Orders -- WooCommerce Style
 
 ## Overview
-Replace the old password-gate admin login (`/admin/login` + `sessionStorage`) with proper Supabase Auth-based admin protection. Admin access will work through the regular user login flow -- sign in with the admin email, and admin routes become accessible.
+Complete rebuild of the `/admin/orders` page into a WooCommerce-inspired order management system with a list view, detail view, order notes, pagination, date filtering, and bulk actions.
 
-## Changes
+## Database Changes
 
-### 1. Delete `src/pages/admin/AdminLogin.tsx`
-Remove the standalone password login page entirely.
+### New Table: `order_notes`
+Stores admin notes and status change history per order.
 
-### 2. Update `src/App.tsx` -- Route Cleanup
-- Remove the `AdminLogin` import and `/admin/login` route
-- Change `/admin` redirect from `/admin/login` to `/admin/dashboard`
-- Wrap the `AdminLayout` route in a new `AdminRoute` guard component that checks `useAuth().isAdmin`
-
-The admin routes block will look like:
 ```text
-/admin         --> redirect to /admin/dashboard
-/admin/*       --> wrapped in AdminRoute (checks isAdmin)
-  /dashboard
-  /orders
-  /products
-  ... etc
+order_notes
+  id          uuid (PK)
+  order_id    uuid (FK -> orders.id ON DELETE CASCADE)
+  note        text (NOT NULL)
+  created_at  timestamptz (default now())
+  created_by  text (default 'admin')
+```
+RLS: anon and authenticated full access (matches existing pattern).
+
+### New Column on `orders`
+- `source` text DEFAULT 'Website' -- tracks where the order came from (Website, Messenger, Instagram, Phone, Walk-in)
+
+`payment_method` and `payment_status` already exist on the orders table, so no changes needed for those.
+
+## File Structure
+
+### Files to Create
+1. **`src/pages/admin/AdminOrders.tsx`** -- Complete rewrite (list view)
+2. **`src/pages/admin/AdminOrderDetail.tsx`** -- New detail page (two-column layout)
+
+### Files to Edit
+3. **`src/App.tsx`** -- Add route for `/admin/orders/:id`
+4. **`src/components/admin/InvoicePrint.tsx`** -- Minor: accept `source` prop
+
+## Detailed Component Design
+
+### 1. Orders List Page (`AdminOrders.tsx`)
+
+**Header**: "Orders" title (no Add Order button for now -- orders come from the storefront)
+
+**Status Filter Tabs**: Horizontal tabs with live counts from the database
+- All | Pending | Processing | Completed | Cancelled | Refunded
+- Each tab shows `(count)` fetched via a single query grouping by status
+- Active tab has bottom border highlight
+
+**Toolbar Row**:
+- Select-all checkbox
+- Bulk action dropdown (Change to Processing / Completed / Cancelled / Delete) + Apply button
+- Date filter dropdown: All dates / This month / Last month / Custom range (date pickers)
+- Search input: searches order_number, customer_name, customer_phone via `.or()` + `.ilike()`
+- Results count text: "X items -- Page X of Y"
+
+**Table Columns**: Checkbox | Order | Date | Status | Items | Total | Source | Actions
+
+- **Order**: `#BRN-XXXXX Customer Name` as blue clickable link to detail page
+- **Date**: Relative time ("2 hours ago") with full date in tooltip
+- **Status**: Colored badge pill. Clicking opens inline dropdown to change status directly
+  - Pending = yellow, Processing = blue, Completed = green, Cancelled = red, Refunded = purple
+- **Items**: "X items" count
+- **Total**: Formatted price
+- **Source**: Small colored tag (Website/Messenger/Instagram/Phone/Walk-in)
+- **Actions**: Eye (view detail), Printer (print invoice), Trash (delete with confirm)
+
+**Pagination**: 20 per page using `.range(from, to)` with `{ count: 'exact' }`. Navigation shows page input and prev/next buttons.
+
+### 2. Order Detail Page (`AdminOrderDetail.tsx`)
+
+Route: `/admin/orders/:id`
+
+**Layout**: Two columns (left ~65%, right ~35%)
+
+**Left Column**:
+
+*Order Items Table*:
+- Columns: Product | Size | Qty | Price | Total
+- Summary at bottom: Subtotal, Delivery, Discount (with coupon code), bold Total
+
+*Order Notes Timeline*:
+- Fetched from `order_notes` table, sorted newest first
+- Each note shows timestamp + text + "by admin"
+- Add note textarea + "Add Note" button at bottom
+- When status changes, an automatic note is added: "Status changed to [status]"
+
+**Right Column** (stacked cards):
+
+*Order Status Card*: Dropdown to change status + "Update" button
+
+*Order Actions Card*: Print Invoice button, WhatsApp button (existing logic), Delete Order (with alert dialog confirm)
+
+*Customer Details Card*: Name, phone, address, city (read-only display)
+
+*Payment Card*: Payment method display, payment status badge
+
+*Order Meta Card*: Order number, source tag, full created date
+
+*Courier Section*: Reuse existing `CourierSection` component (moved to its own file or kept inline)
+
+### 3. Route Addition (`App.tsx`)
+Add: `<Route path="orders/:id" element={<AdminOrderDetail />} />`
+
+## Technical Details
+
+**Status counts query** (single query for all tabs):
+```text
+For each status, run a head-only count query.
+Cache with queryKey ["admin-order-counts"].
 ```
 
-### 3. Create `src/components/admin/AdminRoute.tsx`
-A simple guard component:
-- Uses `useAuth()` to get `user`, `isAdmin`, `isLoading`
-- Shows a loading spinner while auth is loading
-- Redirects to `/` if not logged in or not admin
-- Renders children (Outlet) if authorized
+**Pagination query pattern**:
+```text
+PAGE_SIZE = 20
+from = (page - 1) * PAGE_SIZE
+to = from + PAGE_SIZE - 1
 
-### 4. Update `src/components/admin/AdminLayout.tsx`
-- Remove all `sessionStorage` checks and references
-- Remove the `useEffect` that checks `brown_admin_auth`
-- Update the sidebar logout button to call `signOut()` from `useAuth()` and navigate to `/`
-- Add admin email display in sidebar header (small avatar circle with first letter + email)
+supabase.from('orders')
+  .select('*, order_items(*)', { count: 'exact' })
+  .order('created_at', { ascending: false })
+  .range(from, to)
+  // + status filter, search filter, date filter as needed
+```
 
-### 5. Update `src/components/layout/Navigation.tsx`
-- Remove `sessionStorage.setItem("brown_admin_auth", "true")` from `handleAdminClick`
-- Simply navigate to `/admin/dashboard` directly
+**Date filter logic**:
+- This month: `.gte('created_at', startOfMonth(new Date()))`
+- Last month: `.gte('created_at', startOfMonth(subMonths(new Date(), 1))).lt('created_at', startOfMonth(new Date()))`
+- Custom: date picker popover with from/to dates
 
-### 6. Delete the Edge Function `supabase/functions/verify-admin-password/index.ts`
-No longer needed since we're not using password-gate authentication.
+**Delete order**: Soft approach -- just uses `supabase.from('orders').delete().eq('id', id)` with an AlertDialog confirmation. The `order_notes` table has `ON DELETE CASCADE` so notes clean up automatically.
 
-### 7. Add Better Error Logging in `ProductPanel.tsx`
-The save mutation already shows errors in toast. Will ensure the actual error message from the database is displayed so issues are visible.
+**Auto-note on status change**: When the status update mutation succeeds, insert a row into `order_notes` with text like "Status changed to Processing".
 
-## Security Note
-The existing RLS policies already allow `anon` role full access to admin tables (products, product_variants, etc.), so authenticated requests will also work. No RLS migration is needed -- the current policies permit both anon and authenticated access. The admin protection is handled at the application routing level via `AdminRoute`.
-
-## Files Changed
-1. **Delete**: `src/pages/admin/AdminLogin.tsx`
-2. **Delete**: `supabase/functions/verify-admin-password/index.ts`
-3. **Create**: `src/components/admin/AdminRoute.tsx`
-4. **Edit**: `src/App.tsx`
-5. **Edit**: `src/components/admin/AdminLayout.tsx`
-6. **Edit**: `src/components/layout/Navigation.tsx`
+## Design
+- Clean white background, consistent with existing admin panel styling
+- Table has subtle hover highlight (`hover:bg-gray-50`)
+- Status badges use colored pills matching the spec colors
+- Mobile: table scrolls horizontally, detail page stacks to single column
+- All existing admin sidebar and layout remain untouched
 
