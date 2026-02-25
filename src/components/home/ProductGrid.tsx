@@ -22,6 +22,7 @@ interface Product {
   price: number;
   offer_price: number | null;
   is_preorder: boolean | null;
+  is_studio_exclusive: boolean | null;
   images: string[] | null;
   is_active: boolean;
   product_variants: ProductVariant[];
@@ -37,7 +38,7 @@ const ProductGrid = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("id, name, slug, price, offer_price, is_preorder, images, is_active, product_variants(stock)")
+        .select("id, name, slug, price, offer_price, is_preorder, is_studio_exclusive, images, is_active, product_variants(stock)")
         .eq("is_active", true)
         .order("created_at");
       if (error) throw error;
@@ -66,8 +67,9 @@ const ProductGrid = () => {
   const allSoldOut = (p: Product) => p.product_variants.length > 0 && p.product_variants.every(v => v.stock === 0);
   const hasSale = (p: Product) => p.offer_price != null && p.offer_price < p.price;
 
-  // Badge: Pre-Order > Sold Out > SALE
+  // Badge: Studio Exclusive > Pre-Order > Sold Out > SALE
   const getBadge = (p: Product): { text: string; className: string; position: string } | null => {
+    if (p.is_studio_exclusive) return { text: "Studio Exclusive", className: "bg-indigo-600 text-white", position: "top-2 left-2" };
     if (p.is_preorder) return { text: "Pre-Order", className: "bg-amber-500 text-white", position: "top-2 left-2" };
     if (allSoldOut(p)) return { text: "Sold Out", className: "bg-red-600 text-white", position: "top-2 left-2" };
     if (hasSale(p)) return { text: "SALE", className: "bg-red-600 text-white", position: "top-2 right-2" };
@@ -104,7 +106,7 @@ const ProductGrid = () => {
                 const badge = getBadge(product);
                 const showOfferPrice = hasSale(product);
                 return (
-                  <div key={product.id} className={`group ${isSoldOut && !product.is_preorder ? "opacity-75" : ""}`}>
+                  <div key={product.id} className={`group ${isSoldOut && !product.is_preorder && !product.is_studio_exclusive ? "opacity-75" : ""}`}>
                     <Link to={`/product/${product.slug}`} className="block relative overflow-hidden bg-[#F8F5E9] mb-5" style={{aspectRatio: '4/5', contain: 'layout style'}}>
                       <img
                         src={getImageUrl(originalUrl, 600)}
@@ -125,31 +127,46 @@ const ProductGrid = () => {
                       )}
                       {/* Desktop overlay */}
                       <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/20 transition-colors duration-300 hidden lg:flex items-end justify-center pb-6 opacity-0 group-hover:opacity-100">
-                        <Button
-                          variant="secondary"
-                          disabled={isSoldOut && !product.is_preorder}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            handleQuickAdd(product);
-                          }}
-                          className="bg-cream text-foreground hover:bg-cream/90 font-body text-[12px] uppercase tracking-[1px] px-6 py-2.5 rounded-none disabled:opacity-50"
-                        >
-                          {product.is_preorder ? "Pre-Order" : "Add to Cart"}
-                        </Button>
+                        {product.is_studio_exclusive ? (
+                          <Button
+                            variant="secondary"
+                            className="bg-indigo-600 text-white hover:bg-indigo-700 font-body text-[12px] uppercase tracking-[1px] px-6 py-2.5 rounded-none"
+                          >
+                            View at Studio →
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="secondary"
+                            disabled={isSoldOut && !product.is_preorder}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleQuickAdd(product);
+                            }}
+                            className="bg-cream text-foreground hover:bg-cream/90 font-body text-[12px] uppercase tracking-[1px] px-6 py-2.5 rounded-none disabled:opacity-50"
+                          >
+                            {product.is_preorder ? "Pre-Order" : "Add to Cart"}
+                          </Button>
+                        )}
                       </div>
                       {/* Mobile bottom bar */}
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          if (isSoldOut && !product.is_preorder) return;
-                          handleQuickAdd(product);
-                        }}
-                        disabled={isSoldOut && !product.is_preorder}
-                        className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-1.5 bg-cream/90 backdrop-blur-sm text-foreground font-body text-[10px] uppercase tracking-[1px] py-1.5 lg:hidden disabled:opacity-50"
-                      >
-                        <ShoppingBag className="w-3 h-3" />
-                        {product.is_preorder ? "Pre-Order" : "Add to Cart"}
-                      </button>
+                      {product.is_studio_exclusive ? (
+                        <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-1.5 bg-indigo-600/90 backdrop-blur-sm text-white font-body text-[10px] uppercase tracking-[1px] py-1.5 lg:hidden">
+                          View at Studio →
+                        </div>
+                      ) : (
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            if (isSoldOut && !product.is_preorder) return;
+                            handleQuickAdd(product);
+                          }}
+                          disabled={isSoldOut && !product.is_preorder}
+                          className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-1.5 bg-cream/90 backdrop-blur-sm text-foreground font-body text-[10px] uppercase tracking-[1px] py-1.5 lg:hidden disabled:opacity-50"
+                        >
+                          <ShoppingBag className="w-3 h-3" />
+                          {product.is_preorder ? "Pre-Order" : "Add to Cart"}
+                        </button>
+                      )}
                     </Link>
                     <div className="text-center">
                       <Link to={`/product/${product.slug}`}>

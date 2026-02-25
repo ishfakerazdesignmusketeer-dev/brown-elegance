@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import Navigation from "@/components/layout/Navigation";
 import AnnouncementBar from "@/components/layout/AnnouncementBar";
 import { Loader2, Tag, X } from "lucide-react";
+import { toast } from "sonner";
 
 const DELIVERY_CHARGE = 80;
 
@@ -166,6 +167,20 @@ const Checkout = () => {
     setError(null);
 
     try {
+      // 0. Check for studio exclusive items
+      const productIds = items.map((item) => item.id);
+      const { data: studioCheck } = await supabase
+        .from("products")
+        .select("id, name, is_studio_exclusive")
+        .in("id", productIds)
+        .eq("is_studio_exclusive", true);
+      if (studioCheck && studioCheck.length > 0) {
+        const names = studioCheck.map((p) => p.name).join(", ");
+        toast.error(`Studio Exclusive items cannot be ordered online: ${names}. Please visit our Experience Studio.`);
+        setIsSubmitting(false);
+        return;
+      }
+
       // 1. Insert order
       const { data: order, error: orderError } = await supabase
         .from("orders")

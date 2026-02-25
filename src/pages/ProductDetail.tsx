@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useCart } from "@/contexts/CartContext";
 import { formatPrice } from "@/lib/format";
 import { getImageUrl } from "@/lib/image";
-import { Minus, Plus, Clock } from "lucide-react";
+import { Minus, Plus, Clock, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import Navigation from "@/components/layout/Navigation";
 import AnnouncementBar from "@/components/layout/AnnouncementBar";
@@ -32,6 +32,7 @@ interface Product {
   category_id: string | null;
   is_active: boolean;
   is_preorder: boolean | null;
+  is_studio_exclusive: boolean | null;
   product_variants: Variant[];
 }
 
@@ -85,6 +86,23 @@ const ProductDetail = () => {
       return data as unknown as Product;
     },
     enabled: !!slug,
+  });
+
+  const isStudioExclusive = !!product?.is_studio_exclusive;
+
+  const { data: studioSettings } = useQuery({
+    queryKey: ["studio-settings"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("admin_settings")
+        .select("key, value")
+        .in("key", ["studio_name", "studio_address", "studio_city", "studio_hours", "studio_map_url"]);
+      const map: Record<string, string> = {};
+      (data ?? []).forEach((r: any) => { if (r.value) map[r.key] = r.value; });
+      return map;
+    },
+    enabled: isStudioExclusive,
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: category } = useQuery({
@@ -226,12 +244,17 @@ const ProductDetail = () => {
           {/* Right: Product Info */}
           <div className="flex flex-col">
             {/* Badges */}
-            {isPreorder && (
+            {isStudioExclusive && (
+              <span className="inline-block bg-indigo-600 text-white font-body text-[10px] uppercase tracking-[1.5px] px-3 py-1.5 mb-4 w-fit">
+                Studio Exclusive
+              </span>
+            )}
+            {!isStudioExclusive && isPreorder && (
               <span className="inline-block bg-amber-500 text-white font-body text-[10px] uppercase tracking-[1.5px] px-3 py-1.5 mb-4 w-fit">
                 Pre-Order
               </span>
             )}
-            {!isPreorder && allOutOfStock && (
+            {!isStudioExclusive && !isPreorder && allOutOfStock && (
               <span className="inline-block bg-red-600 text-white font-body text-[10px] uppercase tracking-[1.5px] px-3 py-1.5 mb-4 w-fit">
                 Sold Out
               </span>
@@ -265,118 +288,169 @@ const ProductDetail = () => {
               </p>
             )}
 
-            {/* Size Selector */}
-            <div className="mb-6">
-              <div className="flex items-center gap-3 mb-3">
-                <span className="font-body text-xs uppercase tracking-[1.5px] text-foreground">Size</span>
-                {sizeChartUrl && (
-                  <button
-                    onClick={() => setSizeChartOpen(true)}
-                    className="flex items-center gap-1 text-xs uppercase tracking-widest text-foreground/60 hover:text-foreground underline underline-offset-4 transition-colors duration-200"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M21 21H3V3"/>
-                      <path d="M21 3L3 21"/>
-                    </svg>
-                    Size Chart
-                  </button>
+            {isStudioExclusive ? (
+              /* ── Studio Exclusive Block ── */
+              <div className="border-l-4 border-indigo-600 bg-[#F5F3FF] rounded-r-lg p-6">
+                <p className="font-body text-[10px] uppercase tracking-[2px] text-indigo-700 font-bold mb-3">
+                  🏛️ Experience Studio Exclusive
+                </p>
+                <p className="font-body text-sm text-gray-700 leading-relaxed">
+                  This piece is exclusively available at our {studioSettings?.studio_name || "Experience Studio"} in limited quantity. Visit us in person to explore and purchase this product.
+                </p>
+                {(studioSettings?.studio_address || studioSettings?.studio_hours) && (
+                  <>
+                    <hr className="border-indigo-200 my-4" />
+                    {studioSettings?.studio_address && (
+                      <p className="font-body text-xs text-gray-600 mb-1">
+                        📍 {studioSettings.studio_address}{studioSettings?.studio_city ? `, ${studioSettings.studio_city}` : ""}
+                      </p>
+                    )}
+                    {studioSettings?.studio_hours && (
+                      <p className="font-body text-xs text-gray-600">
+                        🕐 {studioSettings.studio_hours}
+                      </p>
+                    )}
+                  </>
                 )}
-              </div>
-              <div className="flex flex-wrap gap-3">
-                {sortedVariants.map((variant) => {
-                  const disabled = isSizeDisabled(variant);
-                  const isSelected = selectedSize === variant.size;
-                  const isLowStock = !disabled && variant.stock > 0 && variant.stock <= 5;
-                  return (
-                    <div key={variant.size} className="flex flex-col items-center gap-1">
-                      <div className="relative">
-                        <button
-                          disabled={disabled}
-                          onClick={() => { setSelectedSize(variant.size); setQuantity(1); }}
-                          className={`w-12 h-12 font-body text-sm border transition-all ${
-                            disabled
-                              ? "border-border text-muted-foreground line-through cursor-not-allowed opacity-40"
-                              : isSelected
-                              ? "border-foreground bg-foreground text-background"
-                              : "border-border text-foreground hover:border-foreground"
-                          }`}
-                          title={isLowStock ? `Only ${variant.stock} left!` : undefined}
-                        >
-                          {variant.size}
-                        </button>
-                        {isLowStock && (
-                          <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-amber-400 rounded-full border border-white" />
-                        )}
-                      </div>
-                      {!disabled && variant.stock > 5 && (
-                        <span className="font-body text-[10px] text-muted-foreground">{variant.stock} left</span>
-                      )}
-                      {isLowStock && (
-                        <span className="font-body text-[10px] text-amber-600 font-semibold">Only {variant.stock} left!</span>
-                      )}
-                      {disabled && (
-                        <span className="font-body text-[10px] text-muted-foreground/50">Out</span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Quantity */}
-            {selectedSize && maxQty > 0 && (
-              <div className="mb-8">
-                <span className="font-body text-xs uppercase tracking-[1.5px] text-foreground block mb-3">Quantity</span>
-                <div className="flex items-center border border-border w-fit">
-                  <button
-                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                    className="w-10 h-10 flex items-center justify-center text-foreground hover:bg-muted transition-colors"
-                    aria-label="Decrease quantity"
-                  >
-                    <Minus className="w-4 h-4" />
-                  </button>
-                  <span className="w-12 text-center font-body text-sm text-foreground">{quantity}</span>
-                  <button
-                    onClick={() => setQuantity((q) => Math.min(maxQty, q + 1))}
-                    className="w-10 h-10 flex items-center justify-center text-foreground hover:bg-muted transition-colors"
-                    aria-label="Increase quantity"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
+                <div className="mt-4">
+                  {studioSettings?.studio_map_url ? (
+                    <a
+                      href={studioSettings.studio_map_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 border border-indigo-300 text-indigo-700 bg-white hover:bg-indigo-50 font-body text-xs uppercase tracking-[1px] px-4 py-2.5 rounded-md transition-colors"
+                    >
+                      <MapPin className="w-3.5 h-3.5" />
+                      View on Google Maps
+                    </a>
+                  ) : (
+                    <button
+                      disabled
+                      title="Location coming soon"
+                      className="inline-flex items-center gap-2 border border-gray-200 text-gray-400 bg-white font-body text-xs uppercase tracking-[1px] px-4 py-2.5 rounded-md cursor-not-allowed"
+                    >
+                      <MapPin className="w-3.5 h-3.5" />
+                      View on Google Maps
+                    </button>
+                  )}
                 </div>
               </div>
+            ) : (
+              <>
+                {/* Size Selector */}
+                <div className="mb-6">
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className="font-body text-xs uppercase tracking-[1.5px] text-foreground">Size</span>
+                    {sizeChartUrl && (
+                      <button
+                        onClick={() => setSizeChartOpen(true)}
+                        className="flex items-center gap-1 text-xs uppercase tracking-widest text-foreground/60 hover:text-foreground underline underline-offset-4 transition-colors duration-200"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M21 21H3V3"/>
+                          <path d="M21 3L3 21"/>
+                        </svg>
+                        Size Chart
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    {sortedVariants.map((variant) => {
+                      const disabled = isSizeDisabled(variant);
+                      const isSelected = selectedSize === variant.size;
+                      const isLowStock = !disabled && variant.stock > 0 && variant.stock <= 5;
+                      return (
+                        <div key={variant.size} className="flex flex-col items-center gap-1">
+                          <div className="relative">
+                            <button
+                              disabled={disabled}
+                              onClick={() => { setSelectedSize(variant.size); setQuantity(1); }}
+                              className={`w-12 h-12 font-body text-sm border transition-all ${
+                                disabled
+                                  ? "border-border text-muted-foreground line-through cursor-not-allowed opacity-40"
+                                  : isSelected
+                                  ? "border-foreground bg-foreground text-background"
+                                  : "border-border text-foreground hover:border-foreground"
+                              }`}
+                              title={isLowStock ? `Only ${variant.stock} left!` : undefined}
+                            >
+                              {variant.size}
+                            </button>
+                            {isLowStock && (
+                              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-amber-400 rounded-full border border-white" />
+                            )}
+                          </div>
+                          {!disabled && variant.stock > 5 && (
+                            <span className="font-body text-[10px] text-muted-foreground">{variant.stock} left</span>
+                          )}
+                          {isLowStock && (
+                            <span className="font-body text-[10px] text-amber-600 font-semibold">Only {variant.stock} left!</span>
+                          )}
+                          {disabled && (
+                            <span className="font-body text-[10px] text-muted-foreground/50">Out</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Quantity */}
+                {selectedSize && maxQty > 0 && (
+                  <div className="mb-8">
+                    <span className="font-body text-xs uppercase tracking-[1.5px] text-foreground block mb-3">Quantity</span>
+                    <div className="flex items-center border border-border w-fit">
+                      <button
+                        onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                        className="w-10 h-10 flex items-center justify-center text-foreground hover:bg-muted transition-colors"
+                        aria-label="Decrease quantity"
+                      >
+                        <Minus className="w-4 h-4" />
+                      </button>
+                      <span className="w-12 text-center font-body text-sm text-foreground">{quantity}</span>
+                      <button
+                        onClick={() => setQuantity((q) => Math.min(maxQty, q + 1))}
+                        className="w-10 h-10 flex items-center justify-center text-foreground hover:bg-muted transition-colors"
+                        aria-label="Increase quantity"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Add to Cart / Pre-Order Button */}
+                <Button
+                  onClick={handleAddToCart}
+                  disabled={!selectedSize || maxQty === 0}
+                  className={`w-full font-body text-[12px] uppercase tracking-[1.5px] py-7 rounded-none disabled:opacity-50 ${
+                    isPreorder
+                      ? "bg-amber-500 text-white hover:bg-amber-600"
+                      : "bg-foreground text-background hover:bg-foreground/90"
+                  }`}
+                >
+                  {!selectedSize
+                    ? "Select a Size"
+                    : !isPreorder && allOutOfStock
+                    ? "Out of Stock"
+                    : isPreorder
+                    ? "Pre-Order Now"
+                    : "Add to Cart"}
+                </Button>
+
+                {/* Pre-order notice */}
+                {isPreorder && (
+                  <div className="flex items-center gap-2 mt-4 border border-amber-300 rounded-md px-4 py-3 bg-amber-50">
+                    <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+                    <p className="font-body text-xs text-amber-700">Order in your door step by 7 days</p>
+                  </div>
+                )}
+
+                <p className="font-body text-xs text-muted-foreground text-center mt-4">
+                  Cash on Delivery · Free exchange within 7 days
+                </p>
+              </>
             )}
-
-            {/* Add to Cart / Pre-Order Button */}
-            <Button
-              onClick={handleAddToCart}
-              disabled={!selectedSize || maxQty === 0}
-              className={`w-full font-body text-[12px] uppercase tracking-[1.5px] py-7 rounded-none disabled:opacity-50 ${
-                isPreorder
-                  ? "bg-amber-500 text-white hover:bg-amber-600"
-                  : "bg-foreground text-background hover:bg-foreground/90"
-              }`}
-            >
-              {!selectedSize
-                ? "Select a Size"
-                : !isPreorder && allOutOfStock
-                ? "Out of Stock"
-                : isPreorder
-                ? "Pre-Order Now"
-                : "Add to Cart"}
-            </Button>
-
-            {/* Pre-order notice */}
-            {isPreorder && (
-              <div className="flex items-center gap-2 mt-4 border border-amber-300 rounded-md px-4 py-3 bg-amber-50">
-                <Clock className="w-4 h-4 text-amber-600 shrink-0" />
-                <p className="font-body text-xs text-amber-700">Order in your door step by 7 days</p>
-              </div>
-            )}
-
-            <p className="font-body text-xs text-muted-foreground text-center mt-4">
-              Cash on Delivery · Free exchange within 7 days
-            </p>
           </div>
         </div>
       </main>

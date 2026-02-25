@@ -15,6 +15,7 @@ interface ProductForModal {
   price: number;
   offer_price?: number | null;
   is_preorder?: boolean | null;
+  is_studio_exclusive?: boolean | null;
   images: string[] | null;
 }
 
@@ -92,6 +93,7 @@ const AddToCartModal = ({ product, open, onClose }: AddToCartModalProps) => {
   if (!open || !product) return null;
 
   const image = product.images?.[0] ?? "/placeholder.svg";
+  const isStudioExclusive = !!product.is_studio_exclusive;
 
   return (
     <>
@@ -134,86 +136,101 @@ const AddToCartModal = ({ product, open, onClose }: AddToCartModalProps) => {
             </div>
           </div>
 
-          {/* Size selection */}
-          <div className="mb-6">
-            <span className="font-body text-xs uppercase tracking-[1.5px] text-foreground block mb-3">
-              Select Size <span className="text-destructive">*</span>
-            </span>
-            <div className="flex flex-wrap gap-2">
-              {sortedVariants.length > 0 ? sortedVariants.map((variant) => {
-                const disabled = isSizeDisabled(variant);
-                const isSelected = selectedSize === variant.size;
-                const isLowStock = !disabled && variant.stock > 0 && variant.stock <= 5;
-                return (
-                  <div key={variant.size} className="flex flex-col items-center gap-1">
-                    <div className="relative">
-                      <button
-                        disabled={disabled}
-                        onClick={() => { setSelectedSize(variant.size); setQuantity(1); }}
-                        className={`w-14 h-12 font-body text-sm border transition-all rounded-md ${
-                          disabled
-                            ? "border-border text-muted-foreground line-through cursor-not-allowed opacity-40"
-                            : isSelected
-                            ? "border-foreground bg-foreground text-background"
-                            : "border-border text-foreground hover:border-foreground"
-                        }`}
-                      >
-                        {variant.size}
-                      </button>
-                      {isLowStock && (
-                        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-amber-400 rounded-full border border-white" />
-                      )}
-                    </div>
-                    {!disabled && variant.stock > 5 && (
-                      <span className="font-body text-[10px] text-muted-foreground">{variant.stock} left</span>
-                    )}
-                    {isLowStock && (
-                      <span className="font-body text-[10px] text-amber-600 font-semibold">Only {variant.stock} left!</span>
-                    )}
-                    {disabled && (
-                      <span className="font-body text-[10px] text-muted-foreground/50">Out</span>
-                    )}
-                  </div>
-                );
-              }) : (
-                <p className="font-body text-sm text-muted-foreground">Loading sizes...</p>
-              )}
+          {isStudioExclusive ? (
+            <div className="border-l-4 border-indigo-600 bg-[#F5F3FF] rounded-r-lg p-4 mb-6">
+              <p className="font-body text-[10px] uppercase tracking-[2px] text-indigo-700 font-bold mb-2">
+                🏛️ Studio Exclusive
+              </p>
+              <p className="font-body text-xs text-gray-600">
+                This product is only available at our physical studio and cannot be ordered online.
+              </p>
             </div>
-          </div>
-
-          {/* Quantity */}
-          {selectedSize && maxQty > 0 && (
-            <div className="mb-6">
-              <span className="font-body text-xs uppercase tracking-[1.5px] text-foreground block mb-3">Quantity</span>
-              <div className="flex items-center border border-border w-fit rounded-md">
-                <button
-                  onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                  className="w-10 h-10 flex items-center justify-center text-foreground hover:bg-muted transition-colors"
-                >
-                  <Minus className="w-4 h-4" />
-                </button>
-                <span className="w-12 text-center font-body text-sm text-foreground">{quantity}</span>
-                <button
-                  onClick={() => setQuantity((q) => Math.min(maxQty, q + 1))}
-                  className="w-10 h-10 flex items-center justify-center text-foreground hover:bg-muted transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
+          ) : (
+            <>
+              {/* Size selection */}
+              <div className="mb-6">
+                <span className="font-body text-xs uppercase tracking-[1.5px] text-foreground block mb-3">
+                  Select Size <span className="text-destructive">*</span>
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {sortedVariants.length > 0 ? sortedVariants.map((variant) => {
+                    const disabled = isSizeDisabled(variant);
+                    const isSelected = selectedSize === variant.size;
+                    const isLowStock = !disabled && variant.stock > 0 && variant.stock <= 5;
+                    return (
+                      <div key={variant.size} className="flex flex-col items-center gap-1">
+                        <div className="relative">
+                          <button
+                            disabled={disabled}
+                            onClick={() => { setSelectedSize(variant.size); setQuantity(1); }}
+                            className={`w-14 h-12 font-body text-sm border transition-all rounded-md ${
+                              disabled
+                                ? "border-border text-muted-foreground line-through cursor-not-allowed opacity-40"
+                                : isSelected
+                                ? "border-foreground bg-foreground text-background"
+                                : "border-border text-foreground hover:border-foreground"
+                            }`}
+                          >
+                            {variant.size}
+                          </button>
+                          {isLowStock && (
+                            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-amber-400 rounded-full border border-white" />
+                          )}
+                        </div>
+                        {!disabled && variant.stock > 5 && (
+                          <span className="font-body text-[10px] text-muted-foreground">{variant.stock} left</span>
+                        )}
+                        {isLowStock && (
+                          <span className="font-body text-[10px] text-amber-600 font-semibold">Only {variant.stock} left!</span>
+                        )}
+                        {disabled && (
+                          <span className="font-body text-[10px] text-muted-foreground/50">Out</span>
+                        )}
+                      </div>
+                    );
+                  }) : (
+                    <p className="font-body text-sm text-muted-foreground">Loading sizes...</p>
+                  )}
+                </div>
               </div>
-            </div>
+
+              {/* Quantity */}
+              {selectedSize && maxQty > 0 && (
+                <div className="mb-6">
+                  <span className="font-body text-xs uppercase tracking-[1.5px] text-foreground block mb-3">Quantity</span>
+                  <div className="flex items-center border border-border w-fit rounded-md">
+                    <button
+                      onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                      className="w-10 h-10 flex items-center justify-center text-foreground hover:bg-muted transition-colors"
+                    >
+                      <Minus className="w-4 h-4" />
+                    </button>
+                    <span className="w-12 text-center font-body text-sm text-foreground">{quantity}</span>
+                    <button
+                      onClick={() => setQuantity((q) => Math.min(maxQty, q + 1))}
+                      className="w-10 h-10 flex items-center justify-center text-foreground hover:bg-muted transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           {/* Add button */}
           <Button
-            onClick={handleAdd}
-            disabled={!selectedSize || maxQty === 0}
+            onClick={isStudioExclusive ? onClose : handleAdd}
+            disabled={isStudioExclusive ? false : (!selectedSize || maxQty === 0)}
             className={`w-full font-body text-[12px] uppercase tracking-[1.5px] py-7 rounded-none disabled:opacity-50 ${
-              isPreorder
+              isStudioExclusive
+                ? "bg-indigo-600 text-white hover:bg-indigo-700"
+                : isPreorder
                 ? "bg-amber-500 text-white hover:bg-amber-600"
                 : "bg-foreground text-background hover:bg-foreground/90"
             }`}
           >
-            {!selectedSize ? "Select a Size" : isPreorder ? "Pre-Order Now" : "Add to Cart"}
+            {isStudioExclusive ? "Visit Studio" : !selectedSize ? "Select a Size" : isPreorder ? "Pre-Order Now" : "Add to Cart"}
           </Button>
         </div>
       </div>

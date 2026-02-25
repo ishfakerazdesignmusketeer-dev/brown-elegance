@@ -575,6 +575,7 @@ export type Database = {
           is_active: boolean | null
           is_featured: boolean | null
           is_preorder: boolean | null
+          is_studio_exclusive: boolean | null
           meta_description: string | null
           meta_title: string | null
           name: string
@@ -594,6 +595,7 @@ export type Database = {
           is_active?: boolean | null
           is_featured?: boolean | null
           is_preorder?: boolean | null
+          is_studio_exclusive?: boolean | null
           meta_description?: string | null
           meta_title?: string | null
           name: string
@@ -613,6 +615,7 @@ export type Database = {
           is_active?: boolean | null
           is_featured?: boolean | null
           is_preorder?: boolean | null
+          is_studio_exclusive?: boolean | null
           meta_description?: string | null
           meta_title?: string | null
           name?: string

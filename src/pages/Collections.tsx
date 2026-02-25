@@ -25,6 +25,7 @@ interface Product {
   price: number;
   offer_price: number | null;
   is_preorder: boolean | null;
+  is_studio_exclusive: boolean | null;
   images: string[] | null;
   product_variants: ProductVariant[];
 }
@@ -57,7 +58,7 @@ const Collections = () => {
     queryFn: async () => {
       let query = supabase
         .from("products")
-        .select("id, name, slug, price, offer_price, is_preorder, images, product_variants(stock)")
+        .select("id, name, slug, price, offer_price, is_preorder, is_studio_exclusive, images, product_variants(stock)")
         .eq("is_active", true)
         .order("created_at");
       if (!isAllCollections && category?.id) {
@@ -87,6 +88,7 @@ const Collections = () => {
   const hasSale = (p: Product) => p.offer_price != null && p.offer_price < p.price;
 
   const getBadge = (p: Product): { text: string; className: string; position: string } | null => {
+    if (p.is_studio_exclusive) return { text: "Studio Exclusive", className: "bg-indigo-600 text-white", position: "top-2 left-2" };
     if (p.is_preorder) return { text: "Pre-Order", className: "bg-amber-500 text-white", position: "top-2 left-2" };
     if (allSoldOut(p)) return { text: "Sold Out", className: "bg-red-600 text-white", position: "top-2 left-2" };
     if (hasSale(p)) return { text: "SALE", className: "bg-red-600 text-white", position: "top-2 right-2" };
@@ -157,7 +159,7 @@ const Collections = () => {
               const badge = getBadge(product);
               const showOfferPrice = hasSale(product);
               return (
-                <div key={product.id} className={`group ${isSoldOut && !product.is_preorder ? "opacity-75" : ""}`}>
+                <div key={product.id} className={`group ${isSoldOut && !product.is_preorder && !product.is_studio_exclusive ? "opacity-75" : ""}`}>
                   <Link to={`/product/${product.slug}`} className="block relative aspect-[3/4] overflow-hidden bg-[#F8F5E9] mb-5">
                     <img
                       src={getImageUrl(originalUrl, 600)}
@@ -177,28 +179,43 @@ const Collections = () => {
                     )}
                     {/* Desktop overlay */}
                     <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/20 transition-colors duration-300 hidden lg:flex items-end justify-center pb-6 opacity-0 group-hover:opacity-100">
-                      <Button
-                        variant="secondary"
-                        disabled={isSoldOut && !product.is_preorder}
-                        onClick={(e) => { e.preventDefault(); handleQuickAdd(product); }}
-                        className="bg-cream text-foreground hover:bg-cream/90 font-body text-[12px] uppercase tracking-[1px] px-6 py-2.5 rounded-none disabled:opacity-50"
-                      >
-                        {product.is_preorder ? "Pre-Order" : "Add to Cart"}
-                      </Button>
+                      {product.is_studio_exclusive ? (
+                        <Button
+                          variant="secondary"
+                          className="bg-indigo-600 text-white hover:bg-indigo-700 font-body text-[12px] uppercase tracking-[1px] px-6 py-2.5 rounded-none"
+                        >
+                          View at Studio →
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="secondary"
+                          disabled={isSoldOut && !product.is_preorder}
+                          onClick={(e) => { e.preventDefault(); handleQuickAdd(product); }}
+                          className="bg-cream text-foreground hover:bg-cream/90 font-body text-[12px] uppercase tracking-[1px] px-6 py-2.5 rounded-none disabled:opacity-50"
+                        >
+                          {product.is_preorder ? "Pre-Order" : "Add to Cart"}
+                        </Button>
+                      )}
                     </div>
                     {/* Mobile bottom bar */}
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        if (isSoldOut && !product.is_preorder) return;
-                        handleQuickAdd(product);
-                      }}
-                      disabled={isSoldOut && !product.is_preorder}
-                      className="absolute bottom-1 left-1/2 -translate-x-1/2 w-3/4 flex items-center justify-center gap-1.5 bg-cream/90 backdrop-blur-sm text-foreground font-body text-[9px] uppercase tracking-[1px] py-1 rounded-sm lg:hidden disabled:opacity-50"
-                    >
-                      <ShoppingBag className="w-2.5 h-2.5" />
-                      {product.is_preorder ? "Pre-Order" : "Add to Cart"}
-                    </button>
+                    {product.is_studio_exclusive ? (
+                      <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-3/4 flex items-center justify-center gap-1.5 bg-indigo-600/90 backdrop-blur-sm text-white font-body text-[9px] uppercase tracking-[1px] py-1 rounded-sm lg:hidden">
+                        View at Studio →
+                      </div>
+                    ) : (
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (isSoldOut && !product.is_preorder) return;
+                          handleQuickAdd(product);
+                        }}
+                        disabled={isSoldOut && !product.is_preorder}
+                        className="absolute bottom-1 left-1/2 -translate-x-1/2 w-3/4 flex items-center justify-center gap-1.5 bg-cream/90 backdrop-blur-sm text-foreground font-body text-[9px] uppercase tracking-[1px] py-1 rounded-sm lg:hidden disabled:opacity-50"
+                      >
+                        <ShoppingBag className="w-2.5 h-2.5" />
+                        {product.is_preorder ? "Pre-Order" : "Add to Cart"}
+                      </button>
+                    )}
                   </Link>
                   <div className="text-center">
                     <Link to={`/product/${product.slug}`}>
