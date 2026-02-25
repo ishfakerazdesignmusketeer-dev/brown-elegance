@@ -179,6 +179,10 @@ const AdminOrders = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-orders-list"] });
       queryClient.invalidateQueries({ queryKey: ["admin-order-counts"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-all-order-items"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-customer-count"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-low-stock"] });
       toast.success("Status updated");
       setInlineStatusOpen(null);
     },
@@ -202,6 +206,10 @@ const AdminOrders = () => {
     onSuccess: (_, { ids, action }) => {
       queryClient.invalidateQueries({ queryKey: ["admin-orders-list"] });
       queryClient.invalidateQueries({ queryKey: ["admin-order-counts"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-all-order-items"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-customer-count"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-low-stock"] });
       setSelectedIds(new Set());
       toast.success(action === "delete" ? `${ids.length} orders deleted` : `${ids.length} orders → ${action}`);
     },
@@ -217,6 +225,10 @@ const AdminOrders = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-orders-list"] });
       queryClient.invalidateQueries({ queryKey: ["admin-order-counts"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-all-order-items"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-customer-count"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-low-stock"] });
       toast.success("Order deleted");
     },
     onError: (err: any) => toast.error("Delete failed: " + err.message),

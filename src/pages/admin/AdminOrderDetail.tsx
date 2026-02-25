@@ -117,6 +117,9 @@ const AdminOrderDetail = () => {
       queryClient.invalidateQueries({ queryKey: ["order-notes", id] });
       queryClient.invalidateQueries({ queryKey: ["admin-orders-list"] });
       queryClient.invalidateQueries({ queryKey: ["admin-order-counts"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-all-order-items"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-low-stock"] });
       toast.success("Status updated");
     },
     onError: (err: any) => toast.error(err.message),
@@ -143,6 +146,12 @@ const AdminOrderDetail = () => {
       if (error) throw error;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-orders-list"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-order-counts"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-all-order-items"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-customer-count"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-low-stock"] });
       toast.success("Order deleted");
       navigate("/admin/orders");
     },
