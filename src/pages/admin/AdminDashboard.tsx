@@ -195,7 +195,7 @@ const AdminDashboard = () => {
       </div>
 
       {/* Stat Row 2 */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
         <StatCard label="Total Orders" value={isLoading ? "—" : orders.length} />
         <Link to="/admin/orders?status=pending" className="block">
           <div className="bg-white border border-amber-200 rounded-lg p-5 hover:border-amber-400 transition-colors cursor-pointer">

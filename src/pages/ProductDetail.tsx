@@ -380,9 +380,6 @@ const ProductDetail = () => {
                               <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-amber-400 rounded-full border border-white" />
                             )}
                           </div>
-                          {!disabled && variant.stock > 5 && (
-                            <span className="font-body text-[10px] text-muted-foreground">{variant.stock} left</span>
-                          )}
                           {isLowStock && (
                             <span className="font-body text-[10px] text-amber-600 font-semibold">Only {variant.stock} left!</span>
                           )}
