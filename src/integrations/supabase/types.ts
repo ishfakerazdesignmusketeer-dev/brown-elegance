@@ -357,6 +357,38 @@ export type Database = {
           },
         ]
       }
+      order_notes: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          note: string
+          order_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          note: string
+          order_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          note?: string
+          order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_notes_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orders: {
         Row: {
           coupon_code: string | null
@@ -375,6 +407,7 @@ export type Database = {
           order_number: string | null
           payment_method: string | null
           payment_status: string | null
+          source: string | null
           status: string | null
           subtotal: number
           total: number
@@ -399,6 +432,7 @@ export type Database = {
           order_number?: string | null
           payment_method?: string | null
           payment_status?: string | null
+          source?: string | null
           status?: string | null
           subtotal: number
           total: number
@@ -423,6 +457,7 @@ export type Database = {
           order_number?: string | null
           payment_method?: string | null
           payment_status?: string | null
+          source?: string | null
           status?: string | null
           subtotal?: number
           total?: number

@@ -25,6 +25,7 @@ const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const AdminOrders = lazy(() => import("./pages/admin/AdminOrders"));
+const AdminOrderDetail = lazy(() => import("./pages/admin/AdminOrderDetail"));
 const AdminProducts = lazy(() => import("./pages/admin/AdminProducts"));
 const AdminCustomers = lazy(() => import("./pages/admin/AdminCustomers"));
 const AdminCoupons = lazy(() => import("./pages/admin/AdminCoupons"));
@@ -79,6 +80,7 @@ const App = () => (
                 <Route element={<AdminLayout />}>
                 <Route path="dashboard" element={<Suspense fallback={<AdminFallback />}><AdminDashboard /></Suspense>} />
                 <Route path="orders" element={<Suspense fallback={<AdminFallback />}><AdminOrders /></Suspense>} />
+                <Route path="orders/:id" element={<Suspense fallback={<AdminFallback />}><AdminOrderDetail /></Suspense>} />
                 <Route path="products" element={<Suspense fallback={<AdminFallback />}><AdminProducts /></Suspense>} />
                 <Route path="customers" element={<Suspense fallback={<AdminFallback />}><AdminCustomers /></Suspense>} />
                 <Route path="coupons" element={<Suspense fallback={<AdminFallback />}><AdminCoupons /></Suspense>} />
