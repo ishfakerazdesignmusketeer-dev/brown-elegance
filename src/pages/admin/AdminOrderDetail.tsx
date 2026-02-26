@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatPrice } from "@/lib/format";
 import { format, formatDistanceToNow } from "date-fns";
-import { ArrowLeft, Printer, Trash2, MessageCircle, Package, Copy } from "lucide-react";
+import { ArrowLeft, Printer, Trash2, MessageCircle, Package, Copy, Truck, RefreshCw, Loader2, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,14 +14,21 @@ import { Input } from "@/components/ui/input";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import InvoicePrint from "@/components/admin/InvoicePrint";
+import PathaoLocationModal from "@/components/admin/PathaoLocationModal";
 import { cn } from "@/lib/utils";
 
-const STATUS_LIST = ["pending", "processing", "completed", "cancelled", "refunded"] as const;
+const STATUS_LIST = ["pending", "processing", "confirmed", "sent_to_courier", "picked_up", "in_transit", "completed", "delivered", "cancelled", "returned", "refunded"] as const;
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800",
   processing: "bg-blue-100 text-blue-800",
+  confirmed: "bg-cyan-100 text-cyan-800",
+  sent_to_courier: "bg-sky-100 text-sky-800",
+  picked_up: "bg-indigo-100 text-indigo-800",
+  in_transit: "bg-purple-100 text-purple-800",
   completed: "bg-green-100 text-green-800",
+  delivered: "bg-emerald-100 text-emerald-800",
   cancelled: "bg-red-100 text-red-800",
+  returned: "bg-orange-100 text-orange-800",
   refunded: "bg-purple-100 text-purple-800",
 };
 
@@ -59,6 +66,9 @@ const AdminOrderDetail = () => {
   const [trackingInput, setTrackingInput] = useState("");
   const [weightInput, setWeightInput] = useState("0.5");
   const [courierNotes, setCourierNotes] = useState("");
+  const [showPathaoModal, setShowPathaoModal] = useState(false);
+  const [refreshingStatus, setRefreshingStatus] = useState(false);
+  const [sendingToPathao, setSendingToPathao] = useState(false);
 
   // Fetch order
   const { data: order, isLoading } = useQuery({
@@ -117,9 +127,6 @@ const AdminOrderDetail = () => {
       queryClient.invalidateQueries({ queryKey: ["order-notes", id] });
       queryClient.invalidateQueries({ queryKey: ["admin-orders-list"] });
       queryClient.invalidateQueries({ queryKey: ["admin-order-counts"] });
-      queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
-      queryClient.invalidateQueries({ queryKey: ["admin-all-order-items"] });
-      queryClient.invalidateQueries({ queryKey: ["admin-low-stock"] });
       toast.success("Status updated");
     },
     onError: (err: any) => toast.error(err.message),
@@ -148,10 +155,6 @@ const AdminOrderDetail = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-orders-list"] });
       queryClient.invalidateQueries({ queryKey: ["admin-order-counts"] });
-      queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
-      queryClient.invalidateQueries({ queryKey: ["admin-all-order-items"] });
-      queryClient.invalidateQueries({ queryKey: ["admin-customer-count"] });
-      queryClient.invalidateQueries({ queryKey: ["admin-low-stock"] });
       toast.success("Order deleted");
       navigate("/admin/orders");
     },
@@ -198,9 +201,57 @@ const AdminOrderDetail = () => {
     }
   };
 
+  const handleSendToPathao = async () => {
+    if (!order) return;
+    if (!order.recipient_city_id || !order.recipient_zone_id) {
+      setShowPathaoModal(true);
+      return;
+    }
+    setSendingToPathao(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("pathao-create-order", {
+        body: { order_id: order.id },
+      });
+      if (error || data?.error) throw new Error(data?.error || "Failed");
+      toast.success(`Sent to Pathao ✓ Consignment: ${data.consignment_id}`);
+      queryClient.invalidateQueries({ queryKey: ["admin-order-detail", id] });
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setSendingToPathao(false);
+    }
+  };
+
+  const handleRefreshPathaoStatus = async () => {
+    if (!order?.pathao_consignment_id) return;
+    setRefreshingStatus(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("pathao-track-order", {
+        body: { order_id: order.id, consignment_id: order.pathao_consignment_id },
+      });
+      if (error || data?.error) throw new Error(data?.error || "Failed");
+      toast.success(`Status: ${data.pathao_status}`);
+      queryClient.invalidateQueries({ queryKey: ["admin-order-detail", id] });
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setRefreshingStatus(false);
+    }
+  };
+
   const handlePrint = () => {
     setPrintOrder(order);
     setTimeout(() => window.print(), 100);
+  };
+
+  const handlePrintLabel = () => {
+    const label = document.getElementById("shipping-label");
+    if (!label) return;
+    label.style.display = "block";
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => { label.style.display = "none"; }, 500);
+    }, 100);
   };
 
   const handleWhatsApp = () => {
@@ -223,6 +274,35 @@ const AdminOrderDetail = () => {
   return (
     <div>
       {printOrder && <InvoicePrint order={printOrder} />}
+      {showPathaoModal && (
+        <PathaoLocationModal
+          open={showPathaoModal}
+          onClose={() => setShowPathaoModal(false)}
+          order={order}
+          onSuccess={() => queryClient.invalidateQueries({ queryKey: ["admin-order-detail", id] })}
+        />
+      )}
+
+      {/* Shipping Label (hidden until print) */}
+      <div id="shipping-label" style={{ display: "none" }} className="print:block print:fixed print:inset-0 print:z-[9999] print:bg-white p-8">
+        <div className="border-2 border-black p-6 max-w-md mx-auto">
+          <h1 className="text-2xl font-bold mb-1">BROWN HOUSE</h1>
+          <p className="text-sm mb-4 font-mono">{order.pathao_consignment_id || ""}</p>
+          <div className="border-t border-black pt-3 mb-3">
+            <p className="text-xs font-bold uppercase mb-1">TO:</p>
+            <p className="text-lg font-bold">{order.customer_name}</p>
+            <p className="text-sm">{order.customer_phone}</p>
+            <p className="text-sm">{order.customer_address}</p>
+            <p className="text-sm">{order.customer_city}</p>
+          </div>
+          <div className="border-t border-black pt-3 grid grid-cols-2 gap-2 text-sm">
+            <div><span className="font-bold">COD:</span> {formatPrice(order.amount_to_collect ?? order.total)}</div>
+            <div><span className="font-bold">Weight:</span> {order.item_weight || 0.5} kg</div>
+            <div><span className="font-bold">Order:</span> {order.order_number}</div>
+            <div><span className="font-bold">Date:</span> {format(new Date(order.created_at), "dd MMM yyyy")}</div>
+          </div>
+        </div>
+      </div>
 
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
@@ -231,18 +311,16 @@ const AdminOrderDetail = () => {
         </Button>
         <div>
           <h1 className="text-xl font-semibold text-foreground">Order #{order.order_number}</h1>
-          <p className="text-xs text-muted-foreground">
-            {format(new Date(order.created_at), "PPpp")}
-          </p>
+          <p className="text-xs text-muted-foreground">{format(new Date(order.created_at), "PPpp")}</p>
         </div>
         <Badge className={cn("ml-2 capitalize", STATUS_COLORS[order.status] || "bg-muted")}>
-          {order.status}
+          {order.status?.replace(/_/g, " ")}
         </Badge>
       </div>
 
       {/* Two column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* Left column - 3/5 */}
+        {/* Left column */}
         <div className="lg:col-span-3 space-y-6">
           {/* Order Items */}
           <Card>
@@ -264,9 +342,7 @@ const AdminOrderDetail = () => {
                   {order.order_items?.map((item: any) => (
                     <tr key={item.id} className="border-b border-border/50">
                       <td className="py-3 text-foreground">{item.product_name}</td>
-                      <td className="py-3 text-center">
-                        <Badge variant="outline" className="text-[10px]">{item.size}</Badge>
-                      </td>
+                      <td className="py-3 text-center"><Badge variant="outline" className="text-[10px]">{item.size}</Badge></td>
                       <td className="py-3 text-center text-muted-foreground">{item.quantity}</td>
                       <td className="py-3 text-right text-muted-foreground">{formatPrice(item.unit_price)}</td>
                       <td className="py-3 text-right font-medium">{formatPrice(item.total_price)}</td>
@@ -274,7 +350,6 @@ const AdminOrderDetail = () => {
                   ))}
                 </tbody>
               </table>
-
               <div className="border-t border-border mt-2 pt-3 space-y-1">
                 <div className="flex justify-between text-sm text-muted-foreground">
                   <span>Subtotal</span><span>{formatPrice(order.subtotal)}</span>
@@ -335,7 +410,7 @@ const AdminOrderDetail = () => {
           </Card>
         </div>
 
-        {/* Right column - 2/5 */}
+        {/* Right column */}
         <div className="lg:col-span-2 space-y-4">
           {/* Status */}
           <Card>
@@ -350,7 +425,7 @@ const AdminOrderDetail = () => {
                   </SelectTrigger>
                   <SelectContent>
                     {STATUS_LIST.map((s) => (
-                      <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>
+                      <SelectItem key={s} value={s} className="capitalize">{s.replace(/_/g, " ")}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -463,7 +538,7 @@ const AdminOrderDetail = () => {
             </CardContent>
           </Card>
 
-          {/* Courier */}
+          {/* Courier / Pathao */}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
@@ -471,7 +546,46 @@ const AdminOrderDetail = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {booking ? (
+              {order.pathao_consignment_id ? (
+                /* After sending to Pathao */
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-sky-100 text-sky-700 text-[10px]">Pathao</Badge>
+                    {order.pathao_status && (
+                      <Badge className="bg-indigo-100 text-indigo-700 text-[10px] capitalize">
+                        {order.pathao_status.replace(/_/g, " ")}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-sm">{order.pathao_consignment_id}</span>
+                    <button onClick={() => { navigator.clipboard.writeText(order.pathao_consignment_id); toast.success("Copied"); }}>
+                      <Copy className="w-3.5 h-3.5 text-muted-foreground hover:text-foreground" />
+                    </button>
+                  </div>
+                  {order.pathao_sent_at && (
+                    <p className="text-xs text-muted-foreground">
+                      Sent: {format(new Date(order.pathao_sent_at), "MMM d, HH:mm")}
+                    </p>
+                  )}
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1 text-xs"
+                      disabled={refreshingStatus}
+                      onClick={handleRefreshPathaoStatus}
+                    >
+                      {refreshingStatus ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                      Refresh Status
+                    </Button>
+                    <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={handlePrintLabel}>
+                      <Printer className="w-3 h-3" /> Print Label
+                    </Button>
+                  </div>
+                </div>
+              ) : booking ? (
+                /* Manual courier booking exists */
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium capitalize">{booking.courier_service}</span>
@@ -500,22 +614,48 @@ const AdminOrderDetail = () => {
                       {BOOKING_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </div>
+                  <div className="border-t border-border pt-3 mt-3">
+                    <Button
+                      size="sm"
+                      className="w-full gap-1"
+                      disabled={sendingToPathao}
+                      onClick={handleSendToPathao}
+                    >
+                      {sendingToPathao ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Truck className="w-3.5 h-3.5" />}
+                      Send to Pathao Courier
+                    </Button>
+                  </div>
                 </div>
               ) : (
+                /* No courier yet */
                 <div className="space-y-3">
-                  <div>
-                    <label className="text-xs text-muted-foreground block mb-1">Tracking Number *</label>
-                    <Input value={trackingInput} onChange={(e) => setTrackingInput(e.target.value)} placeholder="e.g. STF123456" className="h-8 text-xs" />
+                  <Button
+                    size="sm"
+                    className="w-full gap-1 mb-3"
+                    disabled={sendingToPathao}
+                    onClick={handleSendToPathao}
+                  >
+                    {sendingToPathao ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Truck className="w-3.5 h-3.5" />}
+                    Send to Pathao Courier
+                  </Button>
+                  <div className="border-t border-border pt-3">
+                    <p className="text-xs text-muted-foreground mb-2">Or add manual tracking:</p>
+                    <div className="space-y-2">
+                      <div>
+                        <label className="text-xs text-muted-foreground block mb-1">Tracking Number *</label>
+                        <Input value={trackingInput} onChange={(e) => setTrackingInput(e.target.value)} placeholder="e.g. STF123456" className="h-8 text-xs" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground block mb-1">Weight (kg)</label>
+                        <Input type="number" step="0.1" min="0.1" value={weightInput} onChange={(e) => setWeightInput(e.target.value)} className="h-8 text-xs" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground block mb-1">Notes</label>
+                        <Textarea value={courierNotes} onChange={(e) => setCourierNotes(e.target.value)} rows={2} placeholder="Optional..." className="text-xs" />
+                      </div>
+                      <Button size="sm" variant="outline" onClick={saveCourier} className="w-full">Save Manual Tracking</Button>
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground block mb-1">Weight (kg)</label>
-                    <Input type="number" step="0.1" min="0.1" value={weightInput} onChange={(e) => setWeightInput(e.target.value)} className="h-8 text-xs" />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground block mb-1">Notes</label>
-                    <Textarea value={courierNotes} onChange={(e) => setCourierNotes(e.target.value)} rows={2} placeholder="Optional..." className="text-xs" />
-                  </div>
-                  <Button size="sm" onClick={saveCourier} className="w-full">Save Tracking</Button>
                 </div>
               )}
             </CardContent>
