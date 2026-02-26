@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { pathaoGetToken, pathaoGetValidToken, pathaoGetCities } from "@/lib/pathaoApi";
 import { toast } from "sonner";
-import { Eye, EyeOff, Save, Loader2, CheckCircle, XCircle } from "lucide-react";
+import { Eye, EyeOff, Save } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -35,25 +34,12 @@ const SETTING_META: Record<string, { label: string; type?: string; placeholder?:
   delivery_inside_dhaka: { label: "Delivery Charge Inside Dhaka (৳)", type: "number", placeholder: "100" },
   delivery_outside_dhaka: { label: "Delivery Charge Outside Dhaka (৳)", type: "number", placeholder: "130" },
   return_policy_content: { label: "Return Policy Content", placeholder: "Enter your return policy here..." },
-  pathao_client_id: { label: "Client ID", type: "password", placeholder: "Pathao Client ID" },
-  pathao_client_secret: { label: "Client Secret", type: "password", placeholder: "Pathao Client Secret" },
-  pathao_username: { label: "Merchant Email", placeholder: "merchant@example.com" },
-  pathao_password: { label: "Merchant Password", type: "password", placeholder: "••••••••" },
-  pathao_store_id: { label: "Store ID", placeholder: "372992" },
-  pathao_sender_phone: { label: "Sender Phone", placeholder: "01XXXXXXXXX" },
 };
 
 const AdminSettings = () => {
   const [values, setValues] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
-  const [showPathaoPasswords, setShowPathaoPasswords] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [pathaoConnecting, setPathaoConnecting] = useState(false);
-  const [pathaoTesting, setPathaoTesting] = useState(false);
-  const [pathaoStatus, setPathaoStatus] = useState<"idle" | "connected" | "error">("idle");
-  const [pathaoExpiry, setPathaoExpiry] = useState<string | null>(null);
-  const [pathaoTestResult, setPathaoTestResult] = useState<"idle" | "ok" | "error">("idle");
-
   const [initialized, setInitialized] = useState(false);
 
   const { data: settings = [], isLoading } = useQuery({
@@ -66,12 +52,6 @@ const AdminSettings = () => {
         (data as Setting[]).forEach((s) => { initial[s.key] = s.value ?? ""; });
         setValues(initial);
         setInitialized(true);
-        // Check if Pathao is connected
-        const expiry = initial["pathao_token_expires_at"];
-        if (expiry && new Date(expiry).getTime() > Date.now()) {
-          setPathaoStatus("connected");
-          setPathaoExpiry(expiry);
-        }
       }
       return data as Setting[];
     },
@@ -100,70 +80,16 @@ const AdminSettings = () => {
     }
   };
 
-  const handlePathaoConnect = async () => {
-    setPathaoConnecting(true);
-    setPathaoStatus("idle");
-    try {
-      await handleSave();
-      const clientId = values["pathao_client_id"] || "";
-      const clientSecret = values["pathao_client_secret"] || "";
-      const username = values["pathao_username"] || "";
-      const password = values["pathao_password"] || "";
-      if (!clientId || !clientSecret || !username || !password) {
-        throw new Error("Please fill in all Pathao credentials");
-      }
-      const result = await pathaoGetToken(clientId, clientSecret, username, password);
-      const expiresAt = new Date(Date.now() + (result.expires_in || 3600) * 1000).toISOString();
-      const tokenUpdates = [
-        { key: "pathao_access_token", value: result.access_token },
-        { key: "pathao_refresh_token", value: result.refresh_token || "" },
-        { key: "pathao_token_expires_at", value: expiresAt },
-      ];
-      for (const u of tokenUpdates) {
-        await supabase.from("admin_settings").update({ value: u.value }).eq("key", u.key);
-      }
-      setPathaoStatus("connected");
-      setPathaoExpiry(expiresAt);
-      toast.success("Connected to Pathao ✓");
-    } catch (err: any) {
-      setPathaoStatus("error");
-      toast.error(err.message || "Failed to connect to Pathao");
-    } finally {
-      setPathaoConnecting(false);
-    }
-  };
-
-  const handlePathaoTest = async () => {
-    setPathaoTesting(true);
-    setPathaoTestResult("idle");
-    try {
-      const token = await pathaoGetValidToken(supabase);
-      const cities = await pathaoGetCities(token);
-      if (cities.length > 0) {
-        setPathaoTestResult("ok");
-        toast.success(`Connection working ✓ (${cities.length} cities loaded)`);
-      } else {
-        throw new Error("No cities returned");
-      }
-    } catch (err: any) {
-      setPathaoTestResult("error");
-      toast.error(err.message || "Test failed");
-    } finally {
-      setPathaoTesting(false);
-    }
-  };
-
   const orderedKeys = ["store_name", "store_email", "store_url", "admin_email", "whatsapp_number", "instagram_url", "bkash_number", "nagad_number", "size_chart_url", "delivery_charge", "admin_password"];
   const studioKeys = ["studio_name", "studio_address", "studio_city", "studio_map_url", "studio_hours"];
   const deliveryKeys = ["delivery_inside_dhaka", "delivery_outside_dhaka"];
-  const pathaoKeys = ["pathao_client_id", "pathao_client_secret", "pathao_username", "pathao_password", "pathao_store_id", "pathao_sender_phone"];
 
-  const renderField = (key: string, showPw?: boolean) => {
+  const renderField = (key: string) => {
     const meta = SETTING_META[key];
     if (!meta) return null;
     const isPassword = meta.type === "password";
     const isAdminPassword = key === "admin_password";
-    const showVal = isPassword ? (isAdminPassword ? showPassword : (showPw ?? false)) : true;
+    const showVal = isPassword ? (isAdminPassword ? showPassword : false) : true;
     return (
       <div key={key}>
         <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">
@@ -189,9 +115,6 @@ const AdminSettings = () => {
         </div>
         {key === "size_chart_url" && values[key] && (
           <img src={values[key]} alt="Size chart preview" className="mt-2 max-h-32 rounded border border-border object-contain" />
-        )}
-        {key === "pathao_store_id" && (
-          <p className="text-[10px] text-muted-foreground mt-1">Find in Pathao Merchant Panel → Developer API → Store List</p>
         )}
       </div>
     );
@@ -239,68 +162,6 @@ const AdminSettings = () => {
         {!isLoading && (
           <div className="space-y-5">
             {deliveryKeys.map((k) => renderField(k))}
-            {saveButton}
-          </div>
-        )}
-      </div>
-
-      {/* Pathao Courier Integration */}
-      <div className="bg-background border border-border rounded-lg p-6 max-w-lg mt-8">
-        <h2 className="text-base font-semibold text-foreground mb-1">🚚 Pathao Courier Integration</h2>
-        <p className="text-xs text-muted-foreground mb-5">Connect your Pathao Merchant account to send orders directly.</p>
-
-        {pathaoStatus === "connected" && (
-          <div className="flex items-center gap-2 mb-4 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
-            <CheckCircle className="w-4 h-4 text-emerald-600" />
-            <span className="text-sm text-emerald-700 font-medium">Connected</span>
-            {pathaoExpiry && (
-              <span className="text-[10px] text-emerald-600 ml-auto">
-                Token expires: {new Date(pathaoExpiry).toLocaleString()}
-              </span>
-            )}
-          </div>
-        )}
-
-        {pathaoStatus === "error" && (
-          <div className="flex items-center gap-2 mb-4 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-            <XCircle className="w-4 h-4 text-red-600" />
-            <span className="text-sm text-red-700">Connection failed. Check credentials.</span>
-          </div>
-        )}
-
-        {!isLoading && (
-          <div className="space-y-5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Show passwords</span>
-              <button
-                type="button"
-                onClick={() => setShowPathaoPasswords(!showPathaoPasswords)}
-                className="text-xs text-primary hover:underline"
-              >
-                {showPathaoPasswords ? "Hide" : "Show"}
-              </button>
-            </div>
-            {pathaoKeys.map((k) => renderField(k, showPathaoPasswords))}
-
-            <div className="flex gap-2 pt-2">
-              <Button
-                onClick={handlePathaoConnect}
-                disabled={pathaoConnecting}
-                className="gap-1"
-              >
-                {pathaoConnecting && <Loader2 className="w-4 h-4 animate-spin" />}
-                {pathaoConnecting ? "Connecting..." : "Connect to Pathao"}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handlePathaoTest}
-                disabled={pathaoTesting || pathaoStatus !== "connected"}
-                className="gap-1"
-              >
-                {pathaoTesting && <Loader2 className="w-4 h-4 animate-spin" />}
-                {pathaoTestResult === "ok" ? "✓ Working" : "Test Connection"}
-              </Button>
-            </div>
             {saveButton}
           </div>
         )}

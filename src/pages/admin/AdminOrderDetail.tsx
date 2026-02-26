@@ -1,35 +1,27 @@
-import { useState, useEffect } from "react";
-import { pathaoGetValidToken, pathaoCreateOrder, pathaoTrackOrder, PATHAO_STATUS_MAP } from "@/lib/pathaoApi";
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatPrice } from "@/lib/format";
 import { format, formatDistanceToNow } from "date-fns";
-import { ArrowLeft, Printer, Trash2, MessageCircle, Package, Copy, Truck, RefreshCw, Loader2, ExternalLink } from "lucide-react";
+import { ArrowLeft, Printer, Trash2, MessageCircle, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import InvoicePrint from "@/components/admin/InvoicePrint";
-import PathaoLocationModal from "@/components/admin/PathaoLocationModal";
 import { cn } from "@/lib/utils";
 
-const STATUS_LIST = ["pending", "processing", "confirmed", "sent_to_courier", "picked_up", "in_transit", "completed", "delivered", "cancelled", "returned", "refunded"] as const;
+const STATUS_LIST = ["pending", "processing", "confirmed", "completed", "cancelled", "refunded"] as const;
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800",
   processing: "bg-blue-100 text-blue-800",
   confirmed: "bg-cyan-100 text-cyan-800",
-  sent_to_courier: "bg-sky-100 text-sky-800",
-  picked_up: "bg-indigo-100 text-indigo-800",
-  in_transit: "bg-purple-100 text-purple-800",
   completed: "bg-green-100 text-green-800",
-  delivered: "bg-emerald-100 text-emerald-800",
   cancelled: "bg-red-100 text-red-800",
-  returned: "bg-orange-100 text-orange-800",
   refunded: "bg-purple-100 text-purple-800",
 };
 
@@ -47,15 +39,6 @@ const SOURCE_COLORS: Record<string, string> = {
   "Walk-in": "bg-amber-50 text-amber-700",
 };
 
-const BOOKING_STATUS_OPTIONS = ["pending", "booked", "picked", "delivered", "failed"] as const;
-const BOOKING_STATUS_COLORS: Record<string, string> = {
-  pending: "bg-amber-100 text-amber-700",
-  booked: "bg-blue-100 text-blue-700",
-  picked: "bg-purple-100 text-purple-700",
-  delivered: "bg-green-100 text-green-700",
-  failed: "bg-red-100 text-red-700",
-};
-
 const AdminOrderDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -64,14 +47,7 @@ const AdminOrderDetail = () => {
   const [newStatus, setNewStatus] = useState<string>("");
   const [noteText, setNoteText] = useState("");
   const [printOrder, setPrintOrder] = useState<any>(null);
-  const [trackingInput, setTrackingInput] = useState("");
-  const [weightInput, setWeightInput] = useState("0.5");
-  const [courierNotes, setCourierNotes] = useState("");
-  const [showPathaoModal, setShowPathaoModal] = useState(false);
-  const [refreshingStatus, setRefreshingStatus] = useState(false);
-  const [sendingToPathao, setSendingToPathao] = useState(false);
 
-  // Fetch order
   const { data: order, isLoading } = useQuery({
     queryKey: ["admin-order-detail", id],
     queryFn: async () => {
@@ -86,7 +62,6 @@ const AdminOrderDetail = () => {
     enabled: !!id,
   });
 
-  // Fetch notes
   const { data: notes = [] } = useQuery({
     queryKey: ["order-notes", id],
     queryFn: async () => {
@@ -101,22 +76,6 @@ const AdminOrderDetail = () => {
     enabled: !!id,
   });
 
-  // Fetch courier booking
-  const { data: booking } = useQuery({
-    queryKey: ["courier-booking", id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("courier_bookings")
-        .select("*")
-        .eq("order_id", id!)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!id,
-  });
-
-  // Status update
   const statusMutation = useMutation({
     mutationFn: async (status: string) => {
       const { error } = await supabase.from("orders").update({ status }).eq("id", id!);
@@ -133,7 +92,6 @@ const AdminOrderDetail = () => {
     onError: (err: any) => toast.error(err.message),
   });
 
-  // Add note
   const noteMutation = useMutation({
     mutationFn: async (note: string) => {
       const { error } = await supabase.from("order_notes").insert({ order_id: id!, note, created_by: "admin" } as any);
@@ -147,7 +105,6 @@ const AdminOrderDetail = () => {
     onError: (err: any) => toast.error(err.message),
   });
 
-  // Delete order
   const deleteMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from("orders").delete().eq("id", id!);
@@ -162,143 +119,9 @@ const AdminOrderDetail = () => {
     onError: (err: any) => toast.error(err.message),
   });
 
-  // Save courier tracking
-  const saveCourier = async () => {
-    if (!trackingInput.trim()) { toast.error("Enter a tracking number"); return; }
-    try {
-      const { data: newBooking, error } = await supabase
-        .from("courier_bookings")
-        .insert({
-          order_id: id!,
-          courier_service: "manual",
-          tracking_number: trackingInput.trim(),
-          cod_amount: order.total,
-          weight: parseFloat(weightInput) || 0.5,
-          notes: courierNotes || null,
-          consignee_name: order.customer_name,
-          consignee_phone: order.customer_phone,
-          consignee_address: `${order.customer_address}, ${order.customer_city}`,
-          booked_at: new Date().toISOString(),
-          booking_status: "booked",
-        })
-        .select("id")
-        .single();
-      if (error) throw error;
-      await supabase.from("orders").update({ courier_booking_id: newBooking.id }).eq("id", id!);
-      toast.success("Tracking saved");
-      queryClient.invalidateQueries({ queryKey: ["courier-booking", id] });
-    } catch {
-      toast.error("Failed to save tracking");
-    }
-  };
-
-  const updateBookingStatus = async (status: string) => {
-    if (!booking) return;
-    const { error } = await supabase.from("courier_bookings").update({ booking_status: status }).eq("id", booking.id);
-    if (error) toast.error("Failed");
-    else {
-      toast.success("Courier status updated");
-      queryClient.invalidateQueries({ queryKey: ["courier-booking", id] });
-    }
-  };
-
-  const handleSendToPathao = async () => {
-    if (!order) return;
-    if (!order.recipient_city_id || !order.recipient_zone_id) {
-      setShowPathaoModal(true);
-      return;
-    }
-    setSendingToPathao(true);
-    try {
-      const token = await pathaoGetValidToken(supabase);
-      const { data: storeSettings } = await supabase
-        .from("admin_settings")
-        .select("key, value")
-        .in("key", ["pathao_store_id", "pathao_sender_phone"]);
-      const store: Record<string, string> = {};
-      storeSettings?.forEach((r: any) => { store[r.key] = r.value || ""; });
-
-      const totalItems = (order.order_items || []).reduce((sum: number, i: any) => sum + i.quantity, 0);
-      const itemDesc = order.item_description ||
-        (order.order_items || []).map((i: any) => `${i.product_name} (${i.size}) x${i.quantity}`).join(", ");
-
-      const result = await pathaoCreateOrder(token, {
-        store_id: parseInt(store.pathao_store_id || "372992"),
-        merchant_order_id: order.order_number || "",
-        sender_name: "Brown House",
-        sender_phone: store.pathao_sender_phone || "",
-        recipient_name: order.customer_name,
-        recipient_phone: order.customer_phone,
-        recipient_address: order.customer_address,
-        recipient_city: order.recipient_city_id!,
-        recipient_zone: order.recipient_zone_id!,
-        recipient_area: order.recipient_area_id || 0,
-        delivery_type: order.delivery_type || 48,
-        item_type: 2,
-        special_instruction: order.notes || "",
-        item_quantity: totalItems || 1,
-        item_weight: order.item_weight || 0.5,
-        amount_to_collect: order.amount_to_collect ?? order.total,
-        item_description: itemDesc,
-      });
-
-      const consignmentId = result.consignment_id;
-      await supabase.from("orders").update({
-        pathao_consignment_id: String(consignmentId),
-        pathao_status: result.order_status || "Pending",
-        pathao_sent_at: new Date().toISOString(),
-        status: "sent_to_courier",
-      }).eq("id", order.id);
-
-      await supabase.from("order_notes").insert({
-        order_id: order.id,
-        note: `Sent to Pathao Courier. Consignment: ${consignmentId}`,
-        created_by: "system",
-      });
-
-      toast.success(`Sent to Pathao ✓ Consignment: ${consignmentId}`);
-      queryClient.invalidateQueries({ queryKey: ["admin-order-detail", id] });
-      queryClient.invalidateQueries({ queryKey: ["order-notes", id] });
-    } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setSendingToPathao(false);
-    }
-  };
-
-  const handleRefreshPathaoStatus = async () => {
-    if (!order?.pathao_consignment_id) return;
-    setRefreshingStatus(true);
-    try {
-      const token = await pathaoGetValidToken(supabase);
-      const trackData = await pathaoTrackOrder(token, order.pathao_consignment_id);
-      const pathaoStatus = trackData.order_status || "";
-      const brownStatus = PATHAO_STATUS_MAP[pathaoStatus] || null;
-      const updateData: any = { pathao_status: pathaoStatus };
-      if (brownStatus) updateData.status = brownStatus;
-      await supabase.from("orders").update(updateData).eq("id", order.id);
-      toast.success(`Status: ${pathaoStatus}`);
-      queryClient.invalidateQueries({ queryKey: ["admin-order-detail", id] });
-    } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setRefreshingStatus(false);
-    }
-  };
-
   const handlePrint = () => {
     setPrintOrder(order);
     setTimeout(() => window.print(), 100);
-  };
-
-  const handlePrintLabel = () => {
-    const label = document.getElementById("shipping-label");
-    if (!label) return;
-    label.style.display = "block";
-    setTimeout(() => {
-      window.print();
-      setTimeout(() => { label.style.display = "none"; }, 500);
-    }, 100);
   };
 
   const handleWhatsApp = () => {
@@ -321,35 +144,6 @@ const AdminOrderDetail = () => {
   return (
     <div>
       {printOrder && <InvoicePrint order={printOrder} />}
-      {showPathaoModal && (
-        <PathaoLocationModal
-          open={showPathaoModal}
-          onClose={() => setShowPathaoModal(false)}
-          order={order}
-          onSuccess={() => queryClient.invalidateQueries({ queryKey: ["admin-order-detail", id] })}
-        />
-      )}
-
-      {/* Shipping Label (hidden until print) */}
-      <div id="shipping-label" style={{ display: "none" }} className="print:block print:fixed print:inset-0 print:z-[9999] print:bg-white p-8">
-        <div className="border-2 border-black p-6 max-w-md mx-auto">
-          <h1 className="text-2xl font-bold mb-1">BROWN HOUSE</h1>
-          <p className="text-sm mb-4 font-mono">{order.pathao_consignment_id || ""}</p>
-          <div className="border-t border-black pt-3 mb-3">
-            <p className="text-xs font-bold uppercase mb-1">TO:</p>
-            <p className="text-lg font-bold">{order.customer_name}</p>
-            <p className="text-sm">{order.customer_phone}</p>
-            <p className="text-sm">{order.customer_address}</p>
-            <p className="text-sm">{order.customer_city}</p>
-          </div>
-          <div className="border-t border-black pt-3 grid grid-cols-2 gap-2 text-sm">
-            <div><span className="font-bold">COD:</span> {formatPrice(order.amount_to_collect ?? order.total)}</div>
-            <div><span className="font-bold">Weight:</span> {order.item_weight || 0.5} kg</div>
-            <div><span className="font-bold">Order:</span> {order.order_number}</div>
-            <div><span className="font-bold">Date:</span> {format(new Date(order.created_at), "dd MMM yyyy")}</div>
-          </div>
-        </div>
-      </div>
 
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
@@ -580,129 +374,6 @@ const AdminOrderDetail = () => {
                 <div>
                   <span className="text-muted-foreground block text-xs">Delivery Note</span>
                   <p className="text-foreground mt-0.5">{order.delivery_note}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Courier / Pathao */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
-                <Package className="w-3.5 h-3.5" /> Courier
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {order.pathao_consignment_id ? (
-                /* After sending to Pathao */
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Badge className="bg-sky-100 text-sky-700 text-[10px]">Pathao</Badge>
-                    {order.pathao_status && (
-                      <Badge className="bg-indigo-100 text-indigo-700 text-[10px] capitalize">
-                        {order.pathao_status.replace(/_/g, " ")}
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-sm">{order.pathao_consignment_id}</span>
-                    <button onClick={() => { navigator.clipboard.writeText(order.pathao_consignment_id); toast.success("Copied"); }}>
-                      <Copy className="w-3.5 h-3.5 text-muted-foreground hover:text-foreground" />
-                    </button>
-                  </div>
-                  {order.pathao_sent_at && (
-                    <p className="text-xs text-muted-foreground">
-                      Sent: {format(new Date(order.pathao_sent_at), "MMM d, HH:mm")}
-                    </p>
-                  )}
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="gap-1 text-xs"
-                      disabled={refreshingStatus}
-                      onClick={handleRefreshPathaoStatus}
-                    >
-                      {refreshingStatus ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-                      Refresh Status
-                    </Button>
-                    <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={handlePrintLabel}>
-                      <Printer className="w-3 h-3" /> Print Label
-                    </Button>
-                  </div>
-                </div>
-              ) : booking ? (
-                /* Manual courier booking exists */
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium capitalize">{booking.courier_service}</span>
-                    <Badge className={cn("text-[10px] capitalize", BOOKING_STATUS_COLORS[booking.booking_status ?? ""] || "bg-muted")}>
-                      {booking.booking_status}
-                    </Badge>
-                  </div>
-                  {booking.tracking_number && (
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-sm">{booking.tracking_number}</span>
-                      <button onClick={() => { navigator.clipboard.writeText(booking.tracking_number!); toast.success("Copied"); }}>
-                        <Copy className="w-3.5 h-3.5 text-muted-foreground hover:text-foreground" />
-                      </button>
-                    </div>
-                  )}
-                  {booking.booked_at && (
-                    <p className="text-xs text-muted-foreground">Booked: {format(new Date(booking.booked_at), "MMM d, HH:mm")}</p>
-                  )}
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">Status:</span>
-                    <select
-                      value={booking.booking_status ?? "pending"}
-                      onChange={(e) => updateBookingStatus(e.target.value)}
-                      className="text-xs border border-border rounded px-2 py-1"
-                    >
-                      {BOOKING_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                  <div className="border-t border-border pt-3 mt-3">
-                    <Button
-                      size="sm"
-                      className="w-full gap-1"
-                      disabled={sendingToPathao}
-                      onClick={handleSendToPathao}
-                    >
-                      {sendingToPathao ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Truck className="w-3.5 h-3.5" />}
-                      Send to Pathao Courier
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                /* No courier yet */
-                <div className="space-y-3">
-                  <Button
-                    size="sm"
-                    className="w-full gap-1 mb-3"
-                    disabled={sendingToPathao}
-                    onClick={handleSendToPathao}
-                  >
-                    {sendingToPathao ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Truck className="w-3.5 h-3.5" />}
-                    Send to Pathao Courier
-                  </Button>
-                  <div className="border-t border-border pt-3">
-                    <p className="text-xs text-muted-foreground mb-2">Or add manual tracking:</p>
-                    <div className="space-y-2">
-                      <div>
-                        <label className="text-xs text-muted-foreground block mb-1">Tracking Number *</label>
-                        <Input value={trackingInput} onChange={(e) => setTrackingInput(e.target.value)} placeholder="e.g. STF123456" className="h-8 text-xs" />
-                      </div>
-                      <div>
-                        <label className="text-xs text-muted-foreground block mb-1">Weight (kg)</label>
-                        <Input type="number" step="0.1" min="0.1" value={weightInput} onChange={(e) => setWeightInput(e.target.value)} className="h-8 text-xs" />
-                      </div>
-                      <div>
-                        <label className="text-xs text-muted-foreground block mb-1">Notes</label>
-                        <Textarea value={courierNotes} onChange={(e) => setCourierNotes(e.target.value)} rows={2} placeholder="Optional..." className="text-xs" />
-                      </div>
-                      <Button size="sm" variant="outline" onClick={saveCourier} className="w-full">Save Manual Tracking</Button>
-                    </div>
-                  </div>
                 </div>
               )}
             </CardContent>

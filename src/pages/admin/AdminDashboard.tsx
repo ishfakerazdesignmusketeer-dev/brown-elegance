@@ -5,16 +5,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { AlertTriangle } from "lucide-react";
 import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
+  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend,
 } from "recharts";
 import { toast } from "sonner";
 
@@ -22,13 +13,8 @@ const STATUS_COLORS_HEX: Record<string, string> = {
   pending: "#FCD34D",
   processing: "#A78BFA",
   confirmed: "#22D3EE",
-  sent_to_courier: "#38BDF8",
-  picked_up: "#818CF8",
-  in_transit: "#A78BFA",
   completed: "#34D399",
-  delivered: "#10B981",
   cancelled: "#F87171",
-  returned: "#FB923C",
   refunded: "#C084FC",
 };
 
@@ -36,17 +22,12 @@ const STATUS_COLORS: Record<string, string> = {
   pending: "bg-amber-100 text-amber-800",
   processing: "bg-purple-100 text-purple-800",
   confirmed: "bg-cyan-100 text-cyan-800",
-  sent_to_courier: "bg-sky-100 text-sky-800",
-  picked_up: "bg-indigo-100 text-indigo-800",
-  in_transit: "bg-purple-100 text-purple-800",
   completed: "bg-green-100 text-green-800",
-  delivered: "bg-emerald-100 text-emerald-800",
   cancelled: "bg-red-100 text-red-800",
-  returned: "bg-orange-100 text-orange-800",
   refunded: "bg-purple-100 text-purple-800",
 };
 
-const STATUS_OPTIONS = ["pending", "processing", "confirmed", "sent_to_courier", "picked_up", "in_transit", "completed", "delivered", "cancelled", "returned", "refunded"] as const;
+const STATUS_OPTIONS = ["pending", "processing", "confirmed", "completed", "cancelled", "refunded"] as const;
 
 interface Order {
   id: string;
@@ -57,9 +38,6 @@ interface Order {
   subtotal: number;
   created_at: string;
   order_items: { id: string }[];
-  pathao_consignment_id: string | null;
-  pathao_status: string | null;
-  pathao_sent_at: string | null;
 }
 
 interface OrderItem {
@@ -106,9 +84,7 @@ const AdminDashboard = () => {
   const { data: customerCount = 0 } = useQuery({
     queryKey: ["admin-customer-count"],
     queryFn: async () => {
-      const { count } = await supabase
-        .from("customers")
-        .select("*", { count: "exact", head: true });
+      const { count } = await supabase.from("customers").select("*", { count: "exact", head: true });
       return count ?? 0;
     },
   });
@@ -116,11 +92,7 @@ const AdminDashboard = () => {
   const { data: lowStockCount = 0 } = useQuery({
     queryKey: ["admin-low-stock"],
     queryFn: async () => {
-      const { count } = await supabase
-        .from("product_variants")
-        .select("*", { count: "exact", head: true })
-        .lte("stock", 5)
-        .gt("stock", 0);
+      const { count } = await supabase.from("product_variants").select("*", { count: "exact", head: true }).lte("stock", 5).gt("stock", 0);
       return count ?? 0;
     },
   });
@@ -128,10 +100,7 @@ const AdminDashboard = () => {
   const { data: outOfStockCount = 0 } = useQuery({
     queryKey: ["admin-out-of-stock"],
     queryFn: async () => {
-      const { count } = await supabase
-        .from("product_variants")
-        .select("*", { count: "exact", head: true })
-        .eq("stock", 0);
+      const { count } = await supabase.from("product_variants").select("*", { count: "exact", head: true }).eq("stock", 0);
       return count ?? 0;
     },
   });
@@ -153,52 +122,30 @@ const AdminDashboard = () => {
 
   const completedOrders = orders.filter((o) => o.status === "completed");
   const totalRevenue = completedOrders.reduce((s, o) => s + o.total, 0);
-  const todayRevenue = orders
-    .filter((o) => new Date(o.created_at).toDateString() === today && o.status === "completed")
-    .reduce((s, o) => s + o.total, 0);
-  const monthRevenue = orders
-    .filter((o) => o.created_at >= monthStart && o.status === "completed")
-    .reduce((s, o) => s + o.total, 0);
+  const todayRevenue = orders.filter((o) => new Date(o.created_at).toDateString() === today && o.status === "completed").reduce((s, o) => s + o.total, 0);
+  const monthRevenue = orders.filter((o) => o.created_at >= monthStart && o.status === "completed").reduce((s, o) => s + o.total, 0);
   const avgOrderValue = completedOrders.length > 0 ? Math.round(totalRevenue / completedOrders.length) : 0;
   const pendingCount = orders.filter((o) => o.status === "pending").length;
 
-  // Courier stats
-  const pendingDispatch = orders.filter(
-    (o) => ["confirmed", "processing"].includes(o.status) && !o.pathao_consignment_id
-  ).length;
-  const inTransitCount = orders.filter((o) => o.pathao_status === "In_Transit").length;
-  const deliveredToday = orders.filter(
-    (o) => o.pathao_status === "Delivered" && o.pathao_sent_at && new Date(o.pathao_sent_at).toDateString() === today
-  ).length;
-  const returnedCount = orders.filter((o) => o.pathao_status === "Returned").length;
-
-  // Revenue chart data — last 30 days
   const revenueChartData = Array.from({ length: 30 }, (_, i) => {
     const date = subDays(new Date(), 29 - i);
     const dateStr = startOfDay(date).toDateString();
-    const rev = orders
-      .filter((o) => new Date(o.created_at).toDateString() === dateStr && o.status === "completed")
-      .reduce((s, o) => s + o.total, 0);
+    const rev = orders.filter((o) => new Date(o.created_at).toDateString() === dateStr && o.status === "completed").reduce((s, o) => s + o.total, 0);
     return { date: format(date, "MMM d"), revenue: rev };
   });
 
-  // Status breakdown
   const statusBreakdown = STATUS_OPTIONS.map((s) => ({
     name: s,
     value: orders.filter((o) => o.status === s).length,
   })).filter((s) => s.value > 0);
 
-  // Top products
   const productMap: Record<string, { units: number; revenue: number }> = {};
   orderItems.forEach((item) => {
     if (!productMap[item.product_name]) productMap[item.product_name] = { units: 0, revenue: 0 };
     productMap[item.product_name].units += item.quantity;
     productMap[item.product_name].revenue += item.total_price;
   });
-  const topProducts = Object.entries(productMap)
-    .sort((a, b) => b[1].units - a[1].units)
-    .slice(0, 5);
-
+  const topProducts = Object.entries(productMap).sort((a, b) => b[1].units - a[1].units).slice(0, 5);
   const recentOrders = orders.slice(0, 5);
 
   const stats1 = [
@@ -212,14 +159,10 @@ const AdminDashboard = () => {
     <div>
       <h1 className="text-xl font-semibold text-gray-900 mb-6">Dashboard</h1>
 
-      {/* Stat Row 1 */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-        {stats1.map((s) => (
-          <StatCard key={s.label} label={s.label} value={s.value} />
-        ))}
+        {stats1.map((s) => <StatCard key={s.label} label={s.label} value={s.value} />)}
       </div>
 
-      {/* Stat Row 2 */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
         <StatCard label="Total Orders" value={isLoading ? "—" : orders.length} />
         <Link to="/admin/orders?status=pending" className="block">
@@ -234,9 +177,7 @@ const AdminDashboard = () => {
             <p className="text-xs text-gray-500 mb-1 uppercase tracking-wide">Low Stock Sizes</p>
             <div className="flex items-center gap-2">
               {lowStockCount > 0 && <AlertTriangle className="w-4 h-4 text-amber-500" />}
-              <p className={`text-2xl font-semibold ${lowStockCount > 0 ? "text-amber-600" : "text-gray-900"}`}>
-                {isLoading ? "—" : lowStockCount}
-              </p>
+              <p className={`text-2xl font-semibold ${lowStockCount > 0 ? "text-amber-600" : "text-gray-900"}`}>{isLoading ? "—" : lowStockCount}</p>
             </div>
             {lowStockCount > 0 && <p className="text-xs text-amber-400 mt-1">variants 1-5 units</p>}
           </div>
@@ -246,39 +187,15 @@ const AdminDashboard = () => {
             <p className="text-xs text-gray-500 mb-1 uppercase tracking-wide">Out of Stock Sizes</p>
             <div className="flex items-center gap-2">
               {outOfStockCount > 0 && <AlertTriangle className="w-4 h-4 text-red-500" />}
-              <p className={`text-2xl font-semibold ${outOfStockCount > 0 ? "text-red-600" : "text-gray-900"}`}>
-                {isLoading ? "—" : outOfStockCount}
-              </p>
+              <p className={`text-2xl font-semibold ${outOfStockCount > 0 ? "text-red-600" : "text-gray-900"}`}>{isLoading ? "—" : outOfStockCount}</p>
             </div>
             {outOfStockCount > 0 && <p className="text-xs text-red-400 mt-1">variants at 0 units</p>}
           </div>
         </Link>
       </div>
 
-      {/* Courier Overview */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white border border-sky-200 rounded-lg p-5">
-          <p className="text-xs text-gray-500 mb-1 uppercase tracking-wide">Pending Dispatch</p>
-          <p className="text-2xl font-semibold text-sky-600">{isLoading ? "—" : pendingDispatch}</p>
-          <p className="text-xs text-gray-400 mt-1">confirmed, not sent</p>
-        </div>
-        <div className="bg-white border border-purple-200 rounded-lg p-5">
-          <p className="text-xs text-gray-500 mb-1 uppercase tracking-wide">In Transit</p>
-          <p className="text-2xl font-semibold text-purple-600">{isLoading ? "—" : inTransitCount}</p>
-        </div>
-        <div className="bg-white border border-green-200 rounded-lg p-5">
-          <p className="text-xs text-gray-500 mb-1 uppercase tracking-wide">Delivered Today</p>
-          <p className="text-2xl font-semibold text-green-600">{isLoading ? "—" : deliveredToday}</p>
-        </div>
-        <div className="bg-white border border-orange-200 rounded-lg p-5">
-          <p className="text-xs text-gray-500 mb-1 uppercase tracking-wide">Returned</p>
-          <p className="text-2xl font-semibold text-orange-600">{isLoading ? "—" : returnedCount}</p>
-        </div>
-      </div>
-
       {/* Charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {/* Revenue Area Chart */}
         <div className="lg:col-span-2 bg-white border border-gray-200 rounded-lg p-5">
           <h2 className="text-sm font-semibold text-gray-900 mb-4">Revenue — Last 30 Days</h2>
           <ResponsiveContainer width="100%" height={200}>
@@ -291,16 +208,12 @@ const AdminDashboard = () => {
               </defs>
               <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#9CA3AF" }} tickLine={false} axisLine={false} interval={4} />
               <YAxis tick={{ fontSize: 10, fill: "#9CA3AF" }} tickLine={false} axisLine={false} tickFormatter={(v) => `৳${(v / 1000).toFixed(0)}k`} />
-              <Tooltip
-                contentStyle={{ fontSize: 12, border: "1px solid #E5E7EB", borderRadius: 6 }}
-                formatter={(v: number) => [formatPrice(v), "Revenue"]}
-              />
+              <Tooltip contentStyle={{ fontSize: 12, border: "1px solid #E5E7EB", borderRadius: 6 }} formatter={(v: number) => [formatPrice(v), "Revenue"]} />
               <Area type="monotone" dataKey="revenue" stroke="#2E2319" strokeWidth={2} fill="url(#revGrad)" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Status Donut */}
         <div className="bg-white border border-gray-200 rounded-lg p-5">
           <h2 className="text-sm font-semibold text-gray-900 mb-4">Order Status</h2>
           {statusBreakdown.length === 0 ? (
@@ -308,18 +221,8 @@ const AdminDashboard = () => {
           ) : (
             <ResponsiveContainer width="100%" height={200}>
               <PieChart>
-                <Pie
-                  data={statusBreakdown}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={75}
-                  dataKey="value"
-                  paddingAngle={2}
-                >
-                  {statusBreakdown.map((entry) => (
-                    <Cell key={entry.name} fill={STATUS_COLORS_HEX[entry.name] ?? "#9CA3AF"} />
-                  ))}
+                <Pie data={statusBreakdown} cx="50%" cy="50%" innerRadius={50} outerRadius={75} dataKey="value" paddingAngle={2}>
+                  {statusBreakdown.map((entry) => <Cell key={entry.name} fill={STATUS_COLORS_HEX[entry.name] ?? "#9CA3AF"} />)}
                 </Pie>
                 <Legend formatter={(v) => <span style={{ fontSize: 10, color: "#6B7280", textTransform: "capitalize" }}>{v}</span>} />
                 <Tooltip formatter={(v: number, name: string) => [v, name]} contentStyle={{ fontSize: 12 }} />
@@ -331,7 +234,6 @@ const AdminDashboard = () => {
 
       {/* Top Products + Recent Orders */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top Products */}
         <div className="bg-white border border-gray-200 rounded-lg">
           <div className="px-5 py-4 border-b border-gray-200">
             <h2 className="text-sm font-semibold text-gray-900">Top Products</h2>
@@ -340,17 +242,13 @@ const AdminDashboard = () => {
             <thead>
               <tr className="border-b border-gray-100">
                 {["Product", "Units", "Revenue"].map((h) => (
-                  <th key={h} className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">
-                    {h}
-                  </th>
+                  <th key={h} className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {topProducts.length === 0 ? (
-                <tr>
-                  <td colSpan={3} className="px-5 py-6 text-center text-sm text-gray-400">No sales data yet</td>
-                </tr>
+                <tr><td colSpan={3} className="px-5 py-6 text-center text-sm text-gray-400">No sales data yet</td></tr>
               ) : (
                 topProducts.map(([name, data]) => (
                   <tr key={name} className="border-b border-gray-50 hover:bg-gray-50">
@@ -364,7 +262,6 @@ const AdminDashboard = () => {
           </table>
         </div>
 
-        {/* Recent Orders */}
         <div className="bg-white border border-gray-200 rounded-lg">
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
             <h2 className="text-sm font-semibold text-gray-900">Recent Orders</h2>
@@ -395,9 +292,7 @@ const AdminDashboard = () => {
                         onChange={(e) => mutation.mutate({ id: order.id, status: e.target.value })}
                         className={`text-xs font-medium px-2 py-1 rounded border-0 cursor-pointer ${STATUS_COLORS[order.status] ?? "bg-gray-100 text-gray-700"}`}
                       >
-                        {STATUS_OPTIONS.map((s) => (
-                          <option key={s} value={s} className="bg-white text-gray-900">{s}</option>
-                        ))}
+                        {STATUS_OPTIONS.map((s) => <option key={s} value={s} className="bg-white text-gray-900">{s}</option>)}
                       </select>
                     </td>
                   </tr>
