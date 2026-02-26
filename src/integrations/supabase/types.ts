@@ -401,6 +401,7 @@ export type Database = {
           customer_phone: string
           delivery_charge: number | null
           delivery_note: string | null
+          delivery_zone: string | null
           discount_amount: number | null
           id: string
           notes: string | null
@@ -426,6 +427,7 @@ export type Database = {
           customer_phone: string
           delivery_charge?: number | null
           delivery_note?: string | null
+          delivery_zone?: string | null
           discount_amount?: number | null
           id?: string
           notes?: string | null
@@ -451,6 +453,7 @@ export type Database = {
           customer_phone?: string
           delivery_charge?: number | null
           delivery_note?: string | null
+          delivery_zone?: string | null
           discount_amount?: number | null
           id?: string
           notes?: string | null
@@ -573,6 +576,7 @@ export type Database = {
           id: string
           images: string[] | null
           is_active: boolean | null
+          is_coming_soon: boolean | null
           is_featured: boolean | null
           is_preorder: boolean | null
           is_studio_exclusive: boolean | null
@@ -593,6 +597,7 @@ export type Database = {
           id?: string
           images?: string[] | null
           is_active?: boolean | null
+          is_coming_soon?: boolean | null
           is_featured?: boolean | null
           is_preorder?: boolean | null
           is_studio_exclusive?: boolean | null
@@ -613,6 +618,7 @@ export type Database = {
           id?: string
           images?: string[] | null
           is_active?: boolean | null
+          is_coming_soon?: boolean | null
           is_featured?: boolean | null
           is_preorder?: boolean | null
           is_studio_exclusive?: boolean | null
