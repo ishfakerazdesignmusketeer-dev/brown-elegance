@@ -1,4 +1,4 @@
-const PATHAO_BASE = "https://hermes-api.pathao.com/aladdin/api/v1";
+const N8N_BASE = "https://n8n.srv1202488.hstgr.cloud/webhook";
 
 export const PATHAO_STATUS_MAP: Record<string, string> = {
   Pending: "sent_to_courier",
@@ -12,38 +12,35 @@ export const PATHAO_STATUS_MAP: Record<string, string> = {
   Partial_Delivered: "completed",
 };
 
-async function pathaoFetch(url: string, options?: RequestInit) {
-  const res = await fetch(url, options);
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.message || data.error || JSON.stringify(data));
-  }
-  return data;
-}
-
 export async function pathaoGetToken(
   client_id: string,
   client_secret: string,
   username: string,
   password: string
 ) {
-  return pathaoFetch(`${PATHAO_BASE}/issue-token`, {
+  const res = await fetch(`${N8N_BASE}/pathao-auth`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ client_id, client_secret, username, password, grant_type: "password" }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ client_id, client_secret, username, password }),
   });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error || data.message || "Auth failed");
+  return data;
 }
 
-export async function pathaoRefreshToken(
+async function pathaoRefreshToken(
   client_id: string,
   client_secret: string,
   refresh_token: string
 ) {
-  return pathaoFetch(`${PATHAO_BASE}/issue-token`, {
+  const res = await fetch(`${N8N_BASE}/pathao-auth`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ client_id, client_secret, refresh_token, grant_type: "refresh_token" }),
   });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error || data.message || "Token refresh failed");
+  return data;
 }
 
 export async function pathaoGetValidToken(supabase: any): Promise<string> {
@@ -89,37 +86,18 @@ export async function pathaoGetValidToken(supabase: any): Promise<string> {
   return refreshed.access_token;
 }
 
-export async function pathaoGetCities(token: string) {
-  const data = await pathaoFetch(`${PATHAO_BASE}/countries/cities`, {
-    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+async function pathaoQuery(access_token: string, action: string, params: any = {}) {
+  const res = await fetch(`${N8N_BASE}/pathao-query`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ access_token, action, ...params }),
   });
-  return (data.data?.data || data.data || []).map((c: any) => ({
-    city_id: c.city_id,
-    city_name: c.city_name,
-  }));
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error || data.message || "Query failed");
+  return data.data;
 }
 
-export async function pathaoGetZones(token: string, city_id: number) {
-  const data = await pathaoFetch(`${PATHAO_BASE}/cities/${city_id}/zone-list`, {
-    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-  });
-  return (data.data?.data || data.data || []).map((z: any) => ({
-    zone_id: z.zone_id,
-    zone_name: z.zone_name,
-  }));
-}
-
-export async function pathaoGetAreas(token: string, zone_id: number) {
-  const data = await pathaoFetch(`${PATHAO_BASE}/zones/${zone_id}/area-list`, {
-    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-  });
-  return (data.data?.data || data.data || []).map((a: any) => ({
-    area_id: a.area_id,
-    area_name: a.area_name,
-  }));
-}
-
-export async function pathaoCreateOrder(token: string, orderData: {
+export async function pathaoCreateOrder(access_token: string, orderData: {
   store_id: number;
   merchant_order_id: string;
   sender_name: string;
@@ -138,21 +116,24 @@ export async function pathaoCreateOrder(token: string, orderData: {
   amount_to_collect: number;
   item_description: string;
 }) {
-  const data = await pathaoFetch(`${PATHAO_BASE}/orders`, {
+  const res = await fetch(`${N8N_BASE}/pathao-create-order`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify(orderData),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ access_token, ...orderData }),
   });
-  return data.data || data;
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error || data.message || "Order creation failed");
+  return data.data;
 }
 
-export async function pathaoTrackOrder(token: string, consignment_id: string) {
-  const data = await pathaoFetch(`${PATHAO_BASE}/orders/${consignment_id}`, {
-    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-  });
-  return data.data || data;
-}
+export const pathaoGetCities = (token: string) =>
+  pathaoQuery(token, "get_cities");
+
+export const pathaoGetZones = (token: string, city_id: number) =>
+  pathaoQuery(token, "get_zones", { city_id });
+
+export const pathaoGetAreas = (token: string, zone_id: number) =>
+  pathaoQuery(token, "get_areas", { zone_id });
+
+export const pathaoTrackOrder = (token: string, consignment_id: string) =>
+  pathaoQuery(token, "track_order", { consignment_id });
