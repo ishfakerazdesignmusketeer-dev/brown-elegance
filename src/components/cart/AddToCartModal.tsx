@@ -16,6 +16,7 @@ interface ProductForModal {
   offer_price?: number | null;
   is_preorder?: boolean | null;
   is_studio_exclusive?: boolean | null;
+  is_coming_soon?: boolean | null;
   images: string[] | null;
 }
 
@@ -94,6 +95,7 @@ const AddToCartModal = ({ product, open, onClose }: AddToCartModalProps) => {
 
   const image = product.images?.[0] ?? "/placeholder.svg";
   const isStudioExclusive = !!product.is_studio_exclusive;
+  const isComingSoon = !!product.is_coming_soon;
 
   return (
     <>
@@ -136,7 +138,16 @@ const AddToCartModal = ({ product, open, onClose }: AddToCartModalProps) => {
             </div>
           </div>
 
-          {isStudioExclusive ? (
+          {isComingSoon ? (
+            <div className="border-l-4 border-gray-900 bg-gray-50 rounded-r-lg p-4 mb-6">
+              <p className="font-body text-[10px] uppercase tracking-[2px] text-gray-800 font-bold mb-2">
+                🔮 Coming Soon
+              </p>
+              <p className="font-body text-xs text-gray-600">
+                This product is not available yet. Stay tuned for the launch!
+              </p>
+            </div>
+          ) : isStudioExclusive ? (
             <div className="border-l-4 border-indigo-600 bg-[#F5F3FF] rounded-r-lg p-4 mb-6">
               <p className="font-body text-[10px] uppercase tracking-[2px] text-indigo-700 font-bold mb-2">
                 🏛️ Studio Exclusive
@@ -217,17 +228,19 @@ const AddToCartModal = ({ product, open, onClose }: AddToCartModalProps) => {
 
           {/* Add button */}
           <Button
-            onClick={isStudioExclusive ? onClose : handleAdd}
-            disabled={isStudioExclusive ? false : (!selectedSize || maxQty === 0)}
+            onClick={isComingSoon ? onClose : isStudioExclusive ? onClose : handleAdd}
+            disabled={isComingSoon ? false : isStudioExclusive ? false : (!selectedSize || maxQty === 0)}
             className={`w-full font-body text-[12px] uppercase tracking-[1.5px] py-7 rounded-none disabled:opacity-50 ${
-              isStudioExclusive
+              isComingSoon
+                ? "bg-gray-900 text-white hover:bg-gray-700"
+                : isStudioExclusive
                 ? "bg-indigo-600 text-white hover:bg-indigo-700"
                 : isPreorder
                 ? "bg-amber-500 text-white hover:bg-amber-600"
                 : "bg-foreground text-background hover:bg-foreground/90"
             }`}
           >
-            {isStudioExclusive ? "Visit Studio" : !selectedSize ? "Select a Size" : isPreorder ? "Pre-Order Now" : "Add to Cart"}
+            {isComingSoon ? "Coming Soon" : isStudioExclusive ? "Visit Studio" : !selectedSize ? "Select a Size" : isPreorder ? "Pre-Order Now" : "Add to Cart"}
           </Button>
         </div>
       </div>

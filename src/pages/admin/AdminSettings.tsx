@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Eye, EyeOff, Save } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import BrandingSection from "@/components/admin/BrandingSection";
 
 interface Setting {
@@ -28,6 +29,10 @@ const SETTING_META: Record<string, { label: string; type?: string; placeholder?:
   studio_city: { label: "City", placeholder: "Dhaka" },
   studio_map_url: { label: "Google Maps URL", placeholder: "https://maps.google.com/..." },
   studio_hours: { label: "Opening Hours", placeholder: "Sat–Thu: 11am–8pm" },
+  instagram_url: { label: "Instagram URL", placeholder: "https://instagram.com/brownhouse" },
+  delivery_inside_dhaka: { label: "Delivery Charge Inside Dhaka (৳)", type: "number", placeholder: "100" },
+  delivery_outside_dhaka: { label: "Delivery Charge Outside Dhaka (৳)", type: "number", placeholder: "130" },
+  return_policy_content: { label: "Return Policy Content", placeholder: "Enter your return policy here..." },
 };
 
 const AdminSettings = () => {
@@ -50,13 +55,21 @@ const AdminSettings = () => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const updates = settings.map((s) =>
-        supabase
+      // Upsert all values (handles both existing and new keys)
+      const allKeys = new Set([...settings.map(s => s.key), ...Object.keys(values)]);
+      const upserts = Array.from(allKeys).map((key) => {
+        const existing = settings.find(s => s.key === key);
+        if (existing) {
+          return supabase
+            .from("admin_settings")
+            .update({ value: values[key] ?? existing.value })
+            .eq("key", key);
+        }
+        return supabase
           .from("admin_settings")
-          .update({ value: values[s.key] ?? s.value })
-          .eq("key", s.key)
-      );
-      const results = await Promise.all(updates);
+          .insert({ key, value: values[key] ?? "" });
+      });
+      const results = await Promise.all(upserts);
       const error = results.find((r) => r.error)?.error;
       if (error) throw error;
       toast.success("Settings saved");
@@ -67,8 +80,54 @@ const AdminSettings = () => {
     }
   };
 
-  const orderedKeys = ["store_name", "store_email", "store_url", "admin_email", "whatsapp_number", "bkash_number", "nagad_number", "size_chart_url", "delivery_charge", "admin_password"];
+  const orderedKeys = ["store_name", "store_email", "store_url", "admin_email", "whatsapp_number", "instagram_url", "bkash_number", "nagad_number", "size_chart_url", "delivery_charge", "admin_password"];
   const studioKeys = ["studio_name", "studio_address", "studio_city", "studio_map_url", "studio_hours"];
+  const deliveryKeys = ["delivery_inside_dhaka", "delivery_outside_dhaka"];
+
+  const renderField = (key: string) => {
+    const meta = SETTING_META[key];
+    if (!meta) return null;
+    const isPassword = key === "admin_password";
+    return (
+      <div key={key}>
+        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
+          {meta.label}
+        </label>
+        <div className="relative">
+          <Input
+            type={isPassword ? (showPassword ? "text" : "password") : (meta.type ?? "text")}
+            value={values[key] ?? ""}
+            onChange={(e) => setValues((prev) => ({ ...prev, [key]: e.target.value }))}
+            placeholder={meta.placeholder}
+            className="h-9 text-sm pr-10"
+          />
+          {isPassword && (
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          )}
+        </div>
+        {key === "size_chart_url" && values[key] && (
+          <img src={values[key]} alt="Size chart preview" className="mt-2 max-h-32 rounded border border-border object-contain" />
+        )}
+      </div>
+    );
+  };
+
+  const saveButton = (
+    <button
+      onClick={handleSave}
+      disabled={saving}
+      className="flex items-center gap-2 bg-gray-900 text-white text-sm px-5 py-2.5 rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 mt-2"
+    >
+      <Save className="w-4 h-4" />
+      {saving ? "Saving..." : "Save All"}
+    </button>
+  );
 
   return (
     <div>
@@ -91,48 +150,20 @@ const AdminSettings = () => {
           </div>
         ) : (
           <div className="space-y-5">
-            {orderedKeys.map((key) => {
-              const meta = SETTING_META[key];
-              if (!meta) return null;
-              const isPassword = key === "admin_password";
-              return (
-                <div key={key}>
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
-                    {meta.label}
-                  </label>
-                  <div className="relative">
-                    <Input
-                      type={isPassword ? (showPassword ? "text" : "password") : (meta.type ?? "text")}
-                      value={values[key] ?? ""}
-                      onChange={(e) => setValues((prev) => ({ ...prev, [key]: e.target.value }))}
-                      placeholder={meta.placeholder}
-                      className="h-9 text-sm pr-10"
-                    />
-                    {isPassword && (
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    )}
-                  </div>
-                  {key === "size_chart_url" && values[key] && (
-                    <img src={values[key]} alt="Size chart preview" className="mt-2 max-h-32 rounded border border-border object-contain" />
-                  )}
-                </div>
-              );
-            })}
+            {orderedKeys.map(renderField)}
+            {saveButton}
+          </div>
+        )}
+      </div>
 
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="flex items-center gap-2 bg-gray-900 text-white text-sm px-5 py-2.5 rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 mt-2"
-            >
-              <Save className="w-4 h-4" />
-              {saving ? "Saving..." : "Save All"}
-            </button>
+      {/* Delivery Charges */}
+      <div className="bg-white border border-gray-200 rounded-lg p-6 max-w-lg mt-8">
+        <h2 className="text-base font-semibold text-gray-900 mb-1">📦 Delivery Charges</h2>
+        <p className="text-xs text-gray-500 mb-5">Set delivery fees for Inside and Outside Dhaka.</p>
+        {!isLoading && (
+          <div className="space-y-5">
+            {deliveryKeys.map(renderField)}
+            {saveButton}
           </div>
         )}
       </div>
@@ -152,32 +183,34 @@ const AdminSettings = () => {
           </div>
         ) : (
           <div className="space-y-5">
-            {studioKeys.map((key) => {
-              const meta = SETTING_META[key];
-              if (!meta) return null;
-              return (
-                <div key={key}>
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
-                    {meta.label}
-                  </label>
-                  <Input
-                    type="text"
-                    value={values[key] ?? ""}
-                    onChange={(e) => setValues((prev) => ({ ...prev, [key]: e.target.value }))}
-                    placeholder={meta.placeholder}
-                    className="h-9 text-sm"
-                  />
-                </div>
-              );
-            })}
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="flex items-center gap-2 bg-gray-900 text-white text-sm px-5 py-2.5 rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 mt-2"
-            >
-              <Save className="w-4 h-4" />
-              {saving ? "Saving..." : "Save All"}
-            </button>
+            {studioKeys.map(renderField)}
+            {saveButton}
+          </div>
+        )}
+      </div>
+
+      {/* Return Policy */}
+      <div className="bg-white border border-gray-200 rounded-lg p-6 max-w-lg mt-8">
+        <h2 className="text-base font-semibold text-gray-900 mb-1">↩️ Return Policy</h2>
+        <p className="text-xs text-gray-500 mb-5">This content is displayed in the Return Policy modal on product pages.</p>
+        {!isLoading && (
+          <div className="space-y-5">
+            <div>
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
+                Return Policy Content
+              </label>
+              <Textarea
+                value={values["return_policy_content"] ?? ""}
+                onChange={(e) => setValues((prev) => ({ ...prev, return_policy_content: e.target.value }))}
+                placeholder="Enter your return policy here..."
+                rows={8}
+                className="text-sm"
+              />
+              <p className="text-[10px] text-gray-400 mt-1">
+                {(values["return_policy_content"] ?? "").length} characters · Supports line breaks
+              </p>
+            </div>
+            {saveButton}
           </div>
         )}
       </div>

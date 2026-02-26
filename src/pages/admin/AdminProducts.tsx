@@ -47,6 +47,7 @@ interface Product {
   is_featured: boolean | null;
   is_preorder: boolean | null;
   is_studio_exclusive: boolean | null;
+  is_coming_soon: boolean | null;
   meta_title: string | null;
   meta_description: string | null;
   created_at: string | null;
@@ -98,6 +99,7 @@ const AdminProducts = () => {
         is_featured: ["Featured enabled", "Featured disabled"],
         is_preorder: ["Pre-order enabled", "Pre-order disabled"],
         is_studio_exclusive: ["Studio exclusive enabled", "Studio exclusive disabled"],
+        is_coming_soon: ["Coming soon enabled", "Coming soon disabled"],
       };
       const [on, off] = labels[field] ?? ["Updated", "Updated"];
       toast.success(value ? on : off);
@@ -225,6 +227,9 @@ const AdminProducts = () => {
                             )}
                           </div>
                           <span className="text-sm font-medium text-gray-900 truncate max-w-[160px]">{product.name}</span>
+                          {(product as any).is_coming_soon && (
+                            <span className="text-[9px] font-bold bg-gray-900 text-white px-1.5 py-0.5 rounded ml-1.5 shrink-0">CS</span>
+                          )}
                         </div>
                       </TableCell>
 

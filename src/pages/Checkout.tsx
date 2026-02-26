@@ -15,8 +15,6 @@ import AnnouncementBar from "@/components/layout/AnnouncementBar";
 import { Loader2, Tag, X } from "lucide-react";
 import { toast } from "sonner";
 
-const DELIVERY_CHARGE = 80;
-
 const schema = z.object({
   customer_name: z.string().trim().min(2, "Name is required").max(100),
   customer_phone: z
@@ -50,12 +48,14 @@ const Checkout = () => {
   const [couponError, setCouponError] = useState<string | null>(null);
   const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
   const [paymentNumbers, setPaymentNumbers] = useState({ bkash: "01XXXXXXXXX", nagad: "01XXXXXXXXX" });
+  const [deliveryZone, setDeliveryZone] = useState<"inside_dhaka" | "outside_dhaka">("inside_dhaka");
+  const [deliveryPrices, setDeliveryPrices] = useState({ inside: 100, outside: 130 });
 
   useEffect(() => {
     supabase
       .from("admin_settings")
       .select("key, value")
-      .in("key", ["bkash_number", "nagad_number"])
+      .in("key", ["bkash_number", "nagad_number", "delivery_inside_dhaka", "delivery_outside_dhaka"])
       .then(({ data }) => {
         if (data) {
           const map: Record<string, string> = {};
@@ -63,6 +63,10 @@ const Checkout = () => {
           setPaymentNumbers({
             bkash: map["bkash_number"] ?? "01XXXXXXXXX",
             nagad: map["nagad_number"] ?? "01XXXXXXXXX",
+          });
+          setDeliveryPrices({
+            inside: parseInt(map["delivery_inside_dhaka"] ?? "100") || 100,
+            outside: parseInt(map["delivery_outside_dhaka"] ?? "130") || 130,
           });
         }
       });
@@ -93,8 +97,9 @@ const Checkout = () => {
       });
   }, [user, setValue]);
 
+  const deliveryCharge = deliveryZone === "inside_dhaka" ? deliveryPrices.inside : deliveryPrices.outside;
   const discountAmount = appliedCoupon?.discount_amount ?? 0;
-  const total = subtotal + DELIVERY_CHARGE - discountAmount;
+  const total = subtotal + deliveryCharge - discountAmount;
 
   const applyCoupon = async () => {
     if (!couponInput.trim()) return;
@@ -113,25 +118,21 @@ const Checkout = () => {
         return;
       }
 
-      // Validate expiry
       if (data.expires_at && new Date(data.expires_at) < new Date()) {
         setCouponError("This coupon has expired.");
         return;
       }
 
-      // Validate usage limit
       if (data.max_uses !== null && data.used_count >= data.max_uses) {
         setCouponError("This coupon has reached its usage limit.");
         return;
       }
 
-      // Validate min order
       if (subtotal < (data.min_order_amount ?? 0)) {
         setCouponError(`Minimum order of ${formatPrice(data.min_order_amount)} required.`);
         return;
       }
 
-      // Compute discount
       let discAmt = 0;
       if (data.discount_type === "percentage") {
         discAmt = Math.round((subtotal * data.discount_value) / 100);
@@ -191,14 +192,15 @@ const Checkout = () => {
           customer_city: data.customer_city,
           notes: data.notes || null,
           subtotal,
-          delivery_charge: DELIVERY_CHARGE,
+          delivery_charge: deliveryCharge,
+          delivery_zone: deliveryZone,
           discount_amount: discountAmount,
           coupon_code: appliedCoupon?.code ?? null,
           total,
           payment_method: "COD",
           status: "pending",
           user_id: user?.id ?? null,
-        })
+        } as any)
         .select("id, order_number")
         .single();
 
@@ -248,7 +250,8 @@ const Checkout = () => {
           customer_name: data.customer_name,
           items,
           subtotal,
-          delivery_charge: DELIVERY_CHARGE,
+          delivery_charge: deliveryCharge,
+          delivery_zone: deliveryZone,
           discount_amount: discountAmount,
           coupon_code: appliedCoupon?.code,
           total,
@@ -275,6 +278,8 @@ const Checkout = () => {
       </div>
     );
   }
+
+  const deliveryZoneLabel = deliveryZone === "inside_dhaka" ? "Inside Dhaka" : "Outside Dhaka";
 
   return (
     <div className="min-h-screen bg-cream">
@@ -310,7 +315,6 @@ const Checkout = () => {
                   onBlur: (e) => {
                     const phone = e.target.value;
                     if (/^01[3-9]\d{8}$/.test(phone)) {
-                      // Fire-and-forget: update abandoned cart with phone
                       const nameEl = document.querySelector<HTMLInputElement>('input[name="customer_name"]');
                       supabase
                         .from("abandoned_carts")
@@ -355,6 +359,53 @@ const Checkout = () => {
               {errors.customer_city && (
                 <p className="font-body text-xs text-destructive mt-1">{errors.customer_city.message}</p>
               )}
+            </div>
+
+            {/* Delivery Zone Selector */}
+            <div>
+              <label className="font-body text-xs uppercase tracking-[1.5px] text-foreground block mb-2">
+                Delivery Zone *
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDeliveryZone("inside_dhaka")}
+                  className={`border p-3 text-left transition-all ${
+                    deliveryZone === "inside_dhaka"
+                      ? "border-foreground bg-foreground/5"
+                      : "border-border hover:border-foreground/50"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                      deliveryZone === "inside_dhaka" ? "border-foreground" : "border-muted-foreground"
+                    }`}>
+                      {deliveryZone === "inside_dhaka" && <div className="w-2 h-2 rounded-full bg-foreground" />}
+                    </div>
+                    <span className="font-body text-sm font-medium text-foreground">Inside Dhaka</span>
+                  </div>
+                  <p className="font-body text-xs text-muted-foreground ml-6">৳{deliveryPrices.inside}</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeliveryZone("outside_dhaka")}
+                  className={`border p-3 text-left transition-all ${
+                    deliveryZone === "outside_dhaka"
+                      ? "border-foreground bg-foreground/5"
+                      : "border-border hover:border-foreground/50"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                      deliveryZone === "outside_dhaka" ? "border-foreground" : "border-muted-foreground"
+                    }`}>
+                      {deliveryZone === "outside_dhaka" && <div className="w-2 h-2 rounded-full bg-foreground" />}
+                    </div>
+                    <span className="font-body text-sm font-medium text-foreground">Outside Dhaka</span>
+                  </div>
+                  <p className="font-body text-xs text-muted-foreground ml-6">৳{deliveryPrices.outside}</p>
+                </button>
+              </div>
             </div>
 
             <div>
@@ -498,8 +549,8 @@ const Checkout = () => {
                   <span>{formatPrice(subtotal)}</span>
                 </div>
                 <div className="flex justify-between font-body text-sm text-muted-foreground">
-                  <span>Delivery</span>
-                  <span>{formatPrice(DELIVERY_CHARGE)}</span>
+                  <span>Delivery ({deliveryZoneLabel})</span>
+                  <span>{formatPrice(deliveryCharge)}</span>
                 </div>
                 {discountAmount > 0 && (
                   <div className="flex justify-between font-body text-sm text-green-600">

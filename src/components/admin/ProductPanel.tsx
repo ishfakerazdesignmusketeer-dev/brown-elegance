@@ -83,6 +83,7 @@ const ProductPanel = ({ open, onClose, product }: ProductPanelProps) => {
   const [isFeatured, setIsFeatured] = useState(false);
   const [isPreorder, setIsPreorder] = useState(false);
   const [isStudioExclusive, setIsStudioExclusive] = useState(false);
+  const [isComingSoon, setIsComingSoon] = useState(false);
   const [sku, setSku] = useState("");
   const [weight, setWeight] = useState("");
   const [metaTitle, setMetaTitle] = useState("");
@@ -127,6 +128,7 @@ const ProductPanel = ({ open, onClose, product }: ProductPanelProps) => {
       setIsFeatured(product.is_featured ?? false);
       setIsPreorder(product.is_preorder ?? false);
       setIsStudioExclusive(product.is_studio_exclusive ?? false);
+      setIsComingSoon((product as any).is_coming_soon ?? false);
       setSku(product.sku ?? "");
       setWeight(product.weight ? String(product.weight) : "");
       setMetaTitle(product.meta_title ?? "");
@@ -143,7 +145,7 @@ const ProductPanel = ({ open, onClose, product }: ProductPanelProps) => {
     } else {
       setName(""); setSlug(""); setCategoryId(""); setCategory("everyday");
       setPrice(""); setOfferPrice(""); setDescription(""); setImages([]);
-      setIsActive(true); setIsFeatured(false); setIsPreorder(false); setIsStudioExclusive(false);
+      setIsActive(true); setIsFeatured(false); setIsPreorder(false); setIsStudioExclusive(false); setIsComingSoon(false);
       setSku(""); setWeight(""); setMetaTitle(""); setMetaDescription("");
       const s: Record<string, number> = {};
       const a: Record<string, boolean> = {};
@@ -209,6 +211,7 @@ const ProductPanel = ({ open, onClose, product }: ProductPanelProps) => {
         is_featured: isFeatured,
         is_preorder: isPreorder,
         is_studio_exclusive: isStudioExclusive,
+        is_coming_soon: isComingSoon,
         sku: sku.trim() || null,
         weight: weight ? parseInt(weight) : null,
         meta_title: metaTitle.trim() || null,
@@ -444,6 +447,26 @@ const ProductPanel = ({ open, onClose, product }: ProductPanelProps) => {
             {isStudioExclusive && (
               <div className="mt-3 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
                 <p className="text-[11px] text-amber-700">⚠️ When enabled: Add to Cart, Pre-Order buttons are hidden. Product is view-only on storefront.</p>
+              </div>
+            )}
+          </div>
+
+          {/* ── Coming Soon ── */}
+          <div className="border border-gray-200 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex-1 mr-4">
+                <p className="text-sm font-medium text-gray-900 flex items-center gap-1.5">🔮 Coming Soon</p>
+                <p className="text-xs text-gray-500 mt-0.5">Product image will be blurred. Price and details hidden. Teaser only.</p>
+              </div>
+              <Switch
+                checked={isComingSoon}
+                onCheckedChange={setIsComingSoon}
+                className={isComingSoon ? "data-[state=checked]:bg-gray-900" : ""}
+              />
+            </div>
+            {isComingSoon && (
+              <div className="mt-3 bg-gray-50 border border-gray-200 rounded-md px-3 py-2">
+                <p className="text-[11px] text-gray-600">⚠️ When enabled: Image blurred, name hidden as "???", price hidden, no Add to Cart. Product detail shows "Dropping Soon" teaser.</p>
               </div>
             )}
           </div>

@@ -23,6 +23,7 @@ interface Product {
   offer_price: number | null;
   is_preorder: boolean | null;
   is_studio_exclusive: boolean | null;
+  is_coming_soon: boolean | null;
   images: string[] | null;
   is_active: boolean;
   product_variants: ProductVariant[];
@@ -38,7 +39,7 @@ const ProductGrid = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("id, name, slug, price, offer_price, is_preorder, is_studio_exclusive, images, is_active, product_variants(stock)")
+        .select("id, name, slug, price, offer_price, is_preorder, is_studio_exclusive, is_coming_soon, images, is_active, product_variants(stock)")
         .eq("is_active", true)
         .order("created_at");
       if (error) throw error;
@@ -67,9 +68,10 @@ const ProductGrid = () => {
   const allSoldOut = (p: Product) => p.product_variants.length > 0 && p.product_variants.every(v => v.stock === 0);
   const hasSale = (p: Product) => p.offer_price != null && p.offer_price < p.price;
 
-  // Badge: Studio Exclusive > Pre-Order > Sold Out > SALE
+  // Badge: Studio Exclusive > Coming Soon > Pre-Order > Sold Out > SALE
   const getBadge = (p: Product): { text: string; className: string; position: string } | null => {
     if (p.is_studio_exclusive) return { text: "Studio Exclusive", className: "bg-indigo-600 text-white", position: "top-2 left-2" };
+    if (p.is_coming_soon) return { text: "Coming Soon", className: "bg-gray-900 text-white", position: "top-2 left-2" };
     if (p.is_preorder) return { text: "Pre-Order", className: "bg-amber-500 text-white", position: "top-2 left-2" };
     if (allSoldOut(p)) return { text: "Sold Out", className: "bg-red-600 text-white", position: "top-2 left-2" };
     if (hasSale(p)) return { text: "SALE", className: "bg-red-600 text-white", position: "top-2 right-2" };
@@ -105,13 +107,15 @@ const ProductGrid = () => {
                 const isSoldOut = allSoldOut(product);
                 const badge = getBadge(product);
                 const showOfferPrice = hasSale(product);
-                return (
-                  <div key={product.id} className={`group ${isSoldOut && !product.is_preorder && !product.is_studio_exclusive ? "opacity-75" : ""}`}>
-                    <Link to={`/product/${product.slug}`} className="block relative overflow-hidden bg-[#F8F5E9] mb-5" style={{aspectRatio: '4/5', contain: 'layout style'}}>
+                const isComingSoon = !!product.is_coming_soon;
+
+                const cardContent = (
+                  <>
+                    <div className={`block relative overflow-hidden bg-[#F8F5E9] mb-5`} style={{aspectRatio: '4/5', contain: 'layout style'}}>
                       <img
                         src={getImageUrl(originalUrl, 600)}
-                        alt={product.name}
-                        className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
+                        alt={isComingSoon ? "Coming Soon" : product.name}
+                        className={`w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105 ${isComingSoon ? "blur-[8px]" : ""}`}
                         loading="eager"
                         fetchPriority="low"
                         decoding="async"
@@ -119,72 +123,92 @@ const ProductGrid = () => {
                         height={800}
                         onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = originalUrl; }}
                       />
+                      {/* Coming Soon overlay */}
+                      {isComingSoon && (
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                          <span className="font-heading text-xl lg:text-2xl text-white font-bold">Coming Soon</span>
+                        </div>
+                      )}
                       {/* Badge */}
                       {badge && (
                         <span className={`absolute ${badge.position} font-body text-[9px] uppercase tracking-[1px] px-2 py-1 ${badge.className} z-10`}>
                           {badge.text}
                         </span>
                       )}
-                      {/* Desktop overlay */}
-                      <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/20 transition-colors duration-300 hidden lg:flex items-end justify-center pb-6 opacity-0 group-hover:opacity-100">
-                        {product.is_studio_exclusive ? (
-                          <Button
-                            variant="secondary"
-                            className="bg-white text-black font-bold hover:bg-white/90 font-body text-[12px] uppercase tracking-[1px] px-6 py-2.5 rounded-none"
-                          >
+                      {/* Desktop overlay - not for coming soon */}
+                      {!isComingSoon && (
+                        <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/20 transition-colors duration-300 hidden lg:flex items-end justify-center pb-6 opacity-0 group-hover:opacity-100">
+                          {product.is_studio_exclusive ? (
+                            <Button
+                              variant="secondary"
+                              className="bg-white text-black font-bold hover:bg-white/90 font-body text-[12px] uppercase tracking-[1px] px-6 py-2.5 rounded-none"
+                            >
+                              View at Studio →
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="secondary"
+                              disabled={isSoldOut && !product.is_preorder}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                handleQuickAdd(product);
+                              }}
+                              className="bg-white text-black font-bold hover:bg-white/90 font-body text-[12px] uppercase tracking-[1px] px-6 py-2.5 rounded-none disabled:opacity-50"
+                            >
+                              {product.is_preorder ? "Pre-Order" : "Add to Cart"}
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                      {/* Mobile bottom bar - not for coming soon */}
+                      {!isComingSoon && (
+                        product.is_studio_exclusive ? (
+                          <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-1.5 bg-white/90 backdrop-blur-sm text-black font-bold font-body text-[10px] uppercase tracking-[1px] py-1.5 lg:hidden">
                             View at Studio →
-                          </Button>
+                          </div>
                         ) : (
-                          <Button
-                            variant="secondary"
-                            disabled={isSoldOut && !product.is_preorder}
+                          <button
                             onClick={(e) => {
                               e.preventDefault();
+                              if (isSoldOut && !product.is_preorder) return;
                               handleQuickAdd(product);
                             }}
-                            className="bg-white text-black font-bold hover:bg-white/90 font-body text-[12px] uppercase tracking-[1px] px-6 py-2.5 rounded-none disabled:opacity-50"
+                            disabled={isSoldOut && !product.is_preorder}
+                            className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-1.5 bg-white/90 backdrop-blur-sm text-black font-bold font-body text-[10px] uppercase tracking-[1px] py-1.5 lg:hidden disabled:opacity-50"
                           >
+                            <ShoppingBag className="w-3 h-3" />
                             {product.is_preorder ? "Pre-Order" : "Add to Cart"}
-                          </Button>
-                        )}
-                      </div>
-                      {/* Mobile bottom bar */}
-                      {product.is_studio_exclusive ? (
-                        <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-1.5 bg-white/90 backdrop-blur-sm text-black font-bold font-body text-[10px] uppercase tracking-[1px] py-1.5 lg:hidden">
-                          View at Studio →
-                        </div>
-                      ) : (
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            if (isSoldOut && !product.is_preorder) return;
-                            handleQuickAdd(product);
-                          }}
-                          disabled={isSoldOut && !product.is_preorder}
-                          className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-1.5 bg-white/90 backdrop-blur-sm text-black font-bold font-body text-[10px] uppercase tracking-[1px] py-1.5 lg:hidden disabled:opacity-50"
-                        >
-                          <ShoppingBag className="w-3 h-3" />
-                          {product.is_preorder ? "Pre-Order" : "Add to Cart"}
-                        </button>
-                      )}
-                    </Link>
-                    <div className="text-center">
-                      <Link to={`/product/${product.slug}`}>
-                        <h3 className="font-heading text-lg text-foreground group-hover:opacity-70 transition-opacity">
-                          {product.name}
-                        </h3>
-                      </Link>
-                      {showOfferPrice ? (
-                        <div className="mt-1">
-                          <span className="font-body text-sm font-bold text-foreground">{formatPrice(product.offer_price!)} BDT</span>
-                          <span className="font-body text-xs text-muted-foreground line-through ml-2">{formatPrice(product.price)}</span>
-                        </div>
-                      ) : (
-                        <p className="font-body text-sm text-muted-foreground mt-1">
-                          {formatPrice(product.price)} BDT
-                        </p>
+                          </button>
+                        )
                       )}
                     </div>
+                    <div className="text-center">
+                      <h3 className="font-heading text-lg text-foreground group-hover:opacity-70 transition-opacity">
+                        {isComingSoon ? "???" : product.name}
+                      </h3>
+                      {!isComingSoon && (
+                        showOfferPrice ? (
+                          <div className="mt-1">
+                            <span className="font-body text-sm font-bold text-foreground">{formatPrice(product.offer_price!)} BDT</span>
+                            <span className="font-body text-xs text-muted-foreground line-through ml-2">{formatPrice(product.price)}</span>
+                          </div>
+                        ) : (
+                          <p className="font-body text-sm text-muted-foreground mt-1">
+                            {formatPrice(product.price)} BDT
+                          </p>
+                        )
+                      )}
+                    </div>
+                  </>
+                );
+
+                return (
+                  <div key={product.id} className={`group ${isSoldOut && !product.is_preorder && !product.is_studio_exclusive && !isComingSoon ? "opacity-75" : ""}`}>
+                    {isComingSoon ? (
+                      <div className="cursor-default">{cardContent}</div>
+                    ) : (
+                      <Link to={`/product/${product.slug}`}>{cardContent}</Link>
+                    )}
                   </div>
                 );
               })}
