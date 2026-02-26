@@ -15,7 +15,6 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Read credentials from admin_settings
     const { data: settings } = await supabase
       .from("admin_settings")
       .select("key, value")
@@ -30,22 +29,58 @@ Deno.serve(async (req) => {
       });
     }
 
-    const response = await fetch("https://api-hermes.pathao.com/aladdin/api/v1/issue-token", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({
-        client_id: creds.pathao_client_id,
-        client_secret: creds.pathao_client_secret,
-        username: creds.pathao_username,
-        password: creds.pathao_password,
-        grant_type: "password",
-      }),
-    });
+    const tokenUrl = "https://hermes-api.pathao.com/aladdin/api/v1/issue-token";
+    const requestBody = {
+      client_id: creds.pathao_client_id,
+      client_secret: creds.pathao_client_secret,
+      username: creds.pathao_username,
+      password: creds.pathao_password,
+      grant_type: "password",
+    };
 
-    const result = await response.json();
+    console.log("Sending to Pathao:", { url: tokenUrl, body: { ...requestBody, password: "***", client_secret: "***" } });
 
-    if (!response.ok || !result.access_token) {
-      return new Response(JSON.stringify({ error: result.message || "Authentication failed", details: result }), {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    let response: Response;
+    try {
+      response = await fetch(tokenUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal,
+      });
+    } catch (fetchErr: any) {
+      clearTimeout(timeoutId);
+      const msg = fetchErr.name === "AbortError" ? "Request timed out after 10s" : String(fetchErr);
+      console.error("Pathao fetch error:", msg);
+      return new Response(JSON.stringify({ error: msg }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    clearTimeout(timeoutId);
+
+    const rawText = await response.text();
+    console.log("Pathao raw response:", rawText);
+
+    if (!response.ok) {
+      return new Response(JSON.stringify({ error: rawText, status: response.status }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    let result: any;
+    try {
+      result = JSON.parse(rawText);
+    } catch {
+      return new Response(JSON.stringify({ error: "Pathao returned non-JSON: " + rawText.substring(0, 500) }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!result.access_token) {
+      return new Response(JSON.stringify({ error: result.message || "No access_token in response", details: result }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -66,6 +101,7 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
+    console.error("pathao-auth error:", err);
     return new Response(JSON.stringify({ error: String(err) }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
