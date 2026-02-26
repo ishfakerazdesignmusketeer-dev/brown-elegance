@@ -31,7 +31,6 @@ const AdminCustomers = lazy(() => import("./pages/admin/AdminCustomers"));
 const AdminCoupons = lazy(() => import("./pages/admin/AdminCoupons"));
 const AdminSettings = lazy(() => import("./pages/admin/AdminSettings"));
 const AdminAbandonedCarts = lazy(() => import("./pages/admin/AdminAbandonedCarts"));
-const AdminCourier = lazy(() => import("./pages/admin/AdminCourier"));
 const AdminPayments = lazy(() => import("./pages/admin/AdminPayments"));
 const AdminHeroSlides = lazy(() => import("./pages/admin/AdminHeroSlides"));
 const AdminCategories = lazy(() => import("./pages/admin/AdminCategories"));
@@ -86,7 +85,6 @@ const App = () => (
                 <Route path="coupons" element={<Suspense fallback={<AdminFallback />}><AdminCoupons /></Suspense>} />
                 <Route path="settings" element={<Suspense fallback={<AdminFallback />}><AdminSettings /></Suspense>} />
                 <Route path="abandoned-carts" element={<Suspense fallback={<AdminFallback />}><AdminAbandonedCarts /></Suspense>} />
-                <Route path="courier" element={<Suspense fallback={<AdminFallback />}><AdminCourier /></Suspense>} />
                 <Route path="payments" element={<Suspense fallback={<AdminFallback />}><AdminPayments /></Suspense>} />
                 <Route path="hero-slides" element={<Suspense fallback={<AdminFallback />}><AdminHeroSlides /></Suspense>} />
                 <Route path="categories" element={<Suspense fallback={<AdminFallback />}><AdminCategories /></Suspense>} />

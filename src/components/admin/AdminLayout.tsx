@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link, useLocation, Outlet } from "react-router-dom";
-import { LayoutDashboard, ShoppingBag, Grid3X3, Settings, LogOut, Menu, Users, Tag, ShoppingCart, Truck, CreditCard, Image, Layers, Link as LinkIcon, Film } from "lucide-react";
-// useState imported above
+import { LayoutDashboard, ShoppingBag, Grid3X3, Settings, LogOut, Menu, Users, Tag, ShoppingCart, CreditCard, Image, Layers, Link as LinkIcon, Film } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useQuery } from "@tanstack/react-query";
@@ -18,7 +17,6 @@ const navItems = [
   { label: "Categories", icon: Layers, href: "/admin/categories" },
   { label: "Customers", icon: Users, href: "/admin/customers" },
   { label: "Coupons", icon: Tag, href: "/admin/coupons" },
-  { label: "Courier", icon: Truck, href: "/admin/courier", badge: "courier" },
   { label: "Payments", icon: CreditCard, href: "/admin/payments" },
   { label: "Footer", icon: LinkIcon, href: "/admin/footer" },
   { label: "Settings", icon: Settings, href: "/admin/settings" },
@@ -27,17 +25,14 @@ const navItems = [
 const SidebarContent = ({
   pendingCount,
   abandonedCount,
-  courierTodayCount,
   onClose,
 }: {
   pendingCount: number;
   abandonedCount: number;
-  courierTodayCount: number;
   onClose?: () => void;
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
-
   const { signOut, user: authUser } = useAuth();
   const adminEmail = authUser?.email || "";
 
@@ -49,7 +44,6 @@ const SidebarContent = ({
   const getBadgeCount = (badge?: string) => {
     if (badge === "pending") return pendingCount;
     if (badge === "abandoned") return abandonedCount;
-    if (badge === "courier") return courierTodayCount;
     return 0;
   };
 
@@ -76,9 +70,7 @@ const SidebarContent = ({
               to={item.href}
               onClick={onClose}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors ${
-                isActive
-                  ? "bg-gray-900 text-white"
-                  : "text-gray-600 hover:bg-gray-100"
+                isActive ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-100"
               }`}
             >
               <item.icon className="w-4 h-4 flex-shrink-0" />
@@ -113,10 +105,7 @@ const AdminLayout = () => {
   const { data: pendingCount = 0 } = useQuery({
     queryKey: ["admin-pending-count"],
     queryFn: async () => {
-      const { count } = await supabase
-        .from("orders")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "pending");
+      const { count } = await supabase.from("orders").select("*", { count: "exact", head: true }).eq("status", "pending");
       return count ?? 0;
     },
     refetchInterval: 60000,
@@ -125,26 +114,7 @@ const AdminLayout = () => {
   const { data: abandonedCount = 0 } = useQuery({
     queryKey: ["admin-abandoned-count"],
     queryFn: async () => {
-      const { count } = await supabase
-        .from("abandoned_carts")
-        .select("*", { count: "exact", head: true })
-        .eq("converted", false)
-        .eq("recovery_sent", false)
-        .not("customer_phone", "is", null);
-      return count ?? 0;
-    },
-    refetchInterval: 60000,
-  });
-
-  const { data: courierTodayCount = 0 } = useQuery({
-    queryKey: ["admin-courier-today"],
-    queryFn: async () => {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const { count } = await supabase
-        .from("courier_bookings")
-        .select("*", { count: "exact", head: true })
-        .gte("created_at", today.toISOString());
+      const { count } = await supabase.from("abandoned_carts").select("*", { count: "exact", head: true }).eq("converted", false).eq("recovery_sent", false).not("customer_phone", "is", null);
       return count ?? 0;
     },
     refetchInterval: 60000,
@@ -152,34 +122,24 @@ const AdminLayout = () => {
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
-      {/* Desktop Sidebar */}
       <aside className="hidden lg:flex flex-col w-56 bg-white border-r border-gray-200 flex-shrink-0">
-        <SidebarContent pendingCount={pendingCount} abandonedCount={abandonedCount} courierTodayCount={courierTodayCount} />
+        <SidebarContent pendingCount={pendingCount} abandonedCount={abandonedCount} />
       </aside>
 
-      {/* Mobile Sidebar */}
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent side="left" className="w-56 p-0 bg-white">
           <SheetTitle className="sr-only">Admin Navigation</SheetTitle>
-          <SidebarContent pendingCount={pendingCount} abandonedCount={abandonedCount} courierTodayCount={courierTodayCount} onClose={() => setMobileOpen(false)} />
+          <SidebarContent pendingCount={pendingCount} abandonedCount={abandonedCount} onClose={() => setMobileOpen(false)} />
         </SheetContent>
       </Sheet>
 
-      {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Top bar */}
         <header className="h-14 bg-white border-b border-gray-200 flex items-center px-6 gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="lg:hidden"
-            onClick={() => setMobileOpen(true)}
-          >
+          <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobileOpen(true)}>
             <Menu className="w-5 h-5" />
           </Button>
           <p className="text-sm font-semibold text-gray-900 lg:hidden uppercase tracking-widest">Brown House Admin</p>
         </header>
-
         <main className="flex-1 overflow-y-auto p-6">
           <Outlet />
         </main>

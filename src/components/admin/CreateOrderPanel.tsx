@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatPrice } from "@/lib/format";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -41,35 +41,49 @@ interface CreateOrderPanelProps {
   onClose: () => void;
 }
 
-const SOURCES = ["Messenger", "Instagram", "Phone", "Walk-in", "Website"];
-const PAYMENT_METHODS = ["COD", "bKash", "Nagad"];
+const SOURCES = [
+  { label: "💬 Messenger", value: "Messenger" },
+  { label: "📸 Instagram", value: "Instagram" },
+  { label: "📞 Phone", value: "Phone" },
+  { label: "🚶 Walk-in", value: "Walk-in" },
+  { label: "🌐 Website", value: "Website" },
+];
+
+const PAYMENT_METHODS = [
+  { label: "💵 COD", value: "COD" },
+  { label: "📱 bKash", value: "bKash" },
+  { label: "📱 Nagad", value: "Nagad" },
+];
+
+const DISTRICTS = [
+  "Dhaka", "Chattogram", "Sylhet", "Rajshahi", "Khulna", "Barishal", "Rangpur", "Mymensingh",
+  "Comilla", "Gazipur", "Narayanganj", "Tongi", "Bogra", "Cox's Bazar", "Jessore", "Dinajpur",
+  "Brahmanbaria", "Savar", "Tangail", "Narsingdi", "Faridpur", "Manikganj", "Munshiganj",
+  "Narail", "Kushtia", "Madaripur", "Gopalganj", "Shariatpur", "Kishoreganj", "Habiganj",
+  "Moulvibazar", "Sunamganj", "Netrokona", "Jamalpur", "Sherpur",
+];
 
 const CreateOrderPanel = ({ open, onClose }: CreateOrderPanelProps) => {
   const queryClient = useQueryClient();
 
-  // Form state
   const [source, setSource] = useState("Phone");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
-  const [city, setCity] = useState("");
+  const [district, setDistrict] = useState("");
   const [notes, setNotes] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("COD");
   const [paymentStatus, setPaymentStatus] = useState("unpaid");
   const [delivery, setDelivery] = useState(80);
   const [discount, setDiscount] = useState(0);
 
-  // Product selection state
   const [productSearch, setProductSearch] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedSize, setSelectedSize] = useState("");
   const [qty, setQty] = useState(1);
   const [items, setItems] = useState<OrderLineItem[]>([]);
-
-  // Validation
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Fetch products
   const { data: products = [] } = useQuery({
     queryKey: ["admin-products-for-order"],
     queryFn: async () => {
@@ -96,7 +110,6 @@ const CreateOrderPanel = ({ open, onClose }: CreateOrderPanelProps) => {
 
   const addItem = () => {
     if (!selectedProduct || !selectedSize || qty < 1) return;
-    // Check if same product+size already in list
     const existing = items.findIndex(
       (i) => i.productId === selectedProduct.id && i.size === selectedSize
     );
@@ -122,27 +135,13 @@ const CreateOrderPanel = ({ open, onClose }: CreateOrderPanelProps) => {
     setProductSearch("");
   };
 
-  const removeItem = (index: number) => {
-    setItems(items.filter((_, i) => i !== index));
-  };
+  const removeItem = (index: number) => setItems(items.filter((_, i) => i !== index));
 
   const resetForm = () => {
-    setSource("Phone");
-    setName("");
-    setPhone("");
-    setAddress("");
-    setCity("");
-    setNotes("");
-    setPaymentMethod("COD");
-    setPaymentStatus("unpaid");
-    setDelivery(80);
-    setDiscount(0);
-    setItems([]);
-    setSelectedProduct(null);
-    setSelectedSize("");
-    setQty(1);
-    setProductSearch("");
-    setErrors({});
+    setSource("Phone"); setName(""); setPhone(""); setAddress(""); setDistrict("");
+    setNotes(""); setPaymentMethod("COD"); setPaymentStatus("unpaid"); setDelivery(80);
+    setDiscount(0); setItems([]); setSelectedProduct(null); setSelectedSize("");
+    setQty(1); setProductSearch(""); setErrors({});
   };
 
   const validate = (): boolean => {
@@ -157,14 +156,13 @@ const CreateOrderPanel = ({ open, onClose }: CreateOrderPanelProps) => {
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      // Insert order
       const { data: order, error: orderError } = await supabase
         .from("orders")
         .insert({
           customer_name: name.trim(),
           customer_phone: phone.trim(),
           customer_address: address.trim(),
-          customer_city: city.trim() || "N/A",
+          customer_city: district.trim() || "N/A",
           notes: notes.trim() || null,
           source,
           status: "pending",
@@ -177,10 +175,8 @@ const CreateOrderPanel = ({ open, onClose }: CreateOrderPanelProps) => {
         })
         .select("id, order_number")
         .single();
-
       if (orderError) throw orderError;
 
-      // Insert order items
       const orderItems = items.map((item) => ({
         order_id: order.id,
         product_id: item.productId,
@@ -190,11 +186,9 @@ const CreateOrderPanel = ({ open, onClose }: CreateOrderPanelProps) => {
         unit_price: item.unitPrice,
         total_price: item.unitPrice * item.quantity,
       }));
-
       const { error: itemsError } = await supabase.from("order_items").insert(orderItems);
       if (itemsError) throw itemsError;
 
-      // Add creation note
       await supabase.from("order_notes").insert({
         order_id: order.id,
         note: `Order created manually via ${source}`,
@@ -223,60 +217,85 @@ const CreateOrderPanel = ({ open, onClose }: CreateOrderPanelProps) => {
   };
 
   return (
-    <Sheet open={open} onOpenChange={(v) => { if (!v) { resetForm(); onClose(); } }}>
-      <SheetContent side="right" className="w-full sm:max-w-lg p-0 flex flex-col">
-        <SheetHeader className="px-6 pt-6 pb-4 border-b border-border">
-          <SheetTitle>Create Order</SheetTitle>
-        </SheetHeader>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) { resetForm(); onClose(); } }}>
+      <DialogContent className="max-w-[720px] w-[95vw] p-0 gap-0 max-h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="px-6 pt-6 pb-4 border-b border-border flex-shrink-0">
+          <DialogTitle className="text-lg font-semibold">Create New Order</DialogTitle>
+          <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+            Fill in customer and order details below
+          </DialogDescription>
+        </div>
 
-        <ScrollArea className="flex-1 px-6">
-          <div className="space-y-6 py-4">
-            {/* Section 1: Source */}
-            <div className="space-y-2">
-              <Label>Order Source</Label>
-              <Select value={source} onValueChange={setSource}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {SOURCES.map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        {/* Body */}
+        <ScrollArea className="flex-1 overflow-y-auto">
+          <div className="px-6 py-5 space-y-6">
+            {/* Section 1: Order Source */}
+            <div>
+              <Label className="text-xs text-muted-foreground">Where is this order from?</Label>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {SOURCES.map((s) => (
+                  <button
+                    key={s.value}
+                    onClick={() => setSource(s.value)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-full text-xs font-medium border transition-colors",
+                      source === s.value
+                        ? "bg-foreground text-background border-foreground"
+                        : "bg-background text-foreground border-border hover:border-foreground/50"
+                    )}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
             </div>
+
+            <div className="border-t border-border" />
 
             {/* Section 2: Customer Info */}
             <div className="space-y-3">
-              <h3 className="text-sm font-medium text-foreground">Customer Info</h3>
-              <div>
-                <Label className="text-xs">Full Name *</Label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Customer name" className="mt-1" />
-                {errors.name && <p className="text-xs text-destructive mt-1">{errors.name}</p>}
-              </div>
-              <div>
-                <Label className="text-xs">Phone *</Label>
-                <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="01XXXXXXXXX" className="mt-1" />
-                {errors.phone && <p className="text-xs text-destructive mt-1">{errors.phone}</p>}
+              <h3 className="text-sm font-semibold text-foreground">Customer Info</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Full Name *</Label>
+                  <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Customer name" className="mt-1" />
+                  {errors.name && <p className="text-xs text-destructive mt-1">{errors.name}</p>}
+                </div>
+                <div>
+                  <Label className="text-xs">Phone Number *</Label>
+                  <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="01XXXXXXXXX" className="mt-1" />
+                  {errors.phone && <p className="text-xs text-destructive mt-1">{errors.phone}</p>}
+                </div>
               </div>
               <div>
                 <Label className="text-xs">Address *</Label>
-                <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Full address" className="mt-1" />
+                <Textarea value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Full address" rows={2} className="mt-1" />
                 {errors.address && <p className="text-xs text-destructive mt-1">{errors.address}</p>}
               </div>
-              <div>
-                <Label className="text-xs">City / District</Label>
-                <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Dhaka" className="mt-1" />
-              </div>
-              <div>
-                <Label className="text-xs">Order Notes</Label>
-                <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes..." rows={2} className="mt-1" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">District</Label>
+                  <Select value={district} onValueChange={setDistrict}>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="Select district" /></SelectTrigger>
+                    <SelectContent>
+                      {DISTRICTS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Order Notes</Label>
+                  <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any special instructions..." rows={2} className="mt-1" />
+                </div>
               </div>
             </div>
 
-            {/* Section 3: Add Products */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-medium text-foreground">Products</h3>
+            <div className="border-t border-border" />
 
-              {/* Product search */}
+            {/* Section 3: Products */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-foreground">Add Products to Order</h3>
+
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                 <Input
@@ -291,7 +310,6 @@ const CreateOrderPanel = ({ open, onClose }: CreateOrderPanelProps) => {
                 />
               </div>
 
-              {/* Product dropdown results */}
               {productSearch && !selectedProduct && filteredProducts.length > 0 && (
                 <div className="border border-border rounded-md max-h-40 overflow-y-auto bg-background">
                   {filteredProducts.slice(0, 10).map((p) => (
@@ -303,16 +321,18 @@ const CreateOrderPanel = ({ open, onClose }: CreateOrderPanelProps) => {
                         setSelectedSize("");
                         setQty(1);
                       }}
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex justify-between"
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-3"
                     >
-                      <span>{p.name}</span>
+                      {p.images?.[0] && (
+                        <img src={p.images[0]} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
+                      )}
+                      <span className="flex-1">{p.name}</span>
                       <span className="text-muted-foreground">{formatPrice(p.price)}</span>
                     </button>
                   ))}
                 </div>
               )}
 
-              {/* Size selection */}
               {selectedProduct && (
                 <div className="space-y-2 p-3 bg-muted/50 rounded-md">
                   <p className="text-xs font-medium">{selectedProduct.name} — {formatPrice(selectedProduct.price)}</p>
@@ -321,10 +341,7 @@ const CreateOrderPanel = ({ open, onClose }: CreateOrderPanelProps) => {
                       <button
                         key={v.id}
                         disabled={v.stock === 0}
-                        onClick={() => {
-                          setSelectedSize(v.size);
-                          setQty(1);
-                        }}
+                        onClick={() => { setSelectedSize(v.size); setQty(1); }}
                         className={cn(
                           "px-3 py-1.5 text-xs rounded-md border transition-colors",
                           v.stock === 0
@@ -338,36 +355,20 @@ const CreateOrderPanel = ({ open, onClose }: CreateOrderPanelProps) => {
                       </button>
                     ))}
                   </div>
-
                   {selectedSize && (
                     <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => setQty(Math.max(1, qty - 1))}
-                      >
+                      <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setQty(Math.max(1, qty - 1))}>
                         <Minus className="w-3 h-3" />
                       </Button>
                       <Input
-                        type="number"
-                        min={1}
-                        max={maxQty}
-                        value={qty}
+                        type="number" min={1} max={maxQty} value={qty}
                         onChange={(e) => setQty(Math.min(maxQty, Math.max(1, parseInt(e.target.value) || 1)))}
                         className="w-16 h-8 text-center text-sm"
                       />
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => setQty(Math.min(maxQty, qty + 1))}
-                      >
+                      <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setQty(Math.min(maxQty, qty + 1))}>
                         <Plus className="w-3 h-3" />
                       </Button>
-                      <Button size="sm" className="h-8 ml-2" onClick={addItem}>
-                        Add to Order
-                      </Button>
+                      <Button size="sm" className="h-8 ml-2" onClick={addItem}>Add to Order</Button>
                     </div>
                   )}
                 </div>
@@ -375,97 +376,103 @@ const CreateOrderPanel = ({ open, onClose }: CreateOrderPanelProps) => {
 
               {errors.items && <p className="text-xs text-destructive">{errors.items}</p>}
 
-              {/* Items list */}
               {items.length > 0 && (
-                <div className="border border-border rounded-md overflow-hidden">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="bg-muted/50">
-                        <th className="text-left px-3 py-2 font-medium">Product</th>
-                        <th className="px-2 py-2 font-medium">Size</th>
-                        <th className="px-2 py-2 font-medium">Qty</th>
-                        <th className="px-2 py-2 font-medium text-right">Price</th>
-                        <th className="px-2 py-2 font-medium text-right">Total</th>
-                        <th className="w-8"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {items.map((item, i) => (
-                        <tr key={i} className="border-t border-border">
-                          <td className="px-3 py-2">{item.productName}</td>
-                          <td className="px-2 py-2 text-center">{item.size}</td>
-                          <td className="px-2 py-2 text-center">{item.quantity}</td>
-                          <td className="px-2 py-2 text-right">{formatPrice(item.unitPrice)}</td>
-                          <td className="px-2 py-2 text-right">{formatPrice(item.unitPrice * item.quantity)}</td>
-                          <td className="px-2 py-2">
-                            <button onClick={() => removeItem(i)} className="text-destructive hover:text-destructive/80">
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </td>
+                <>
+                  <div className="border border-border rounded-md overflow-hidden">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="bg-muted/50">
+                          <th className="text-left px-3 py-2 font-medium">Product</th>
+                          <th className="px-2 py-2 font-medium">Size</th>
+                          <th className="px-2 py-2 font-medium">Qty</th>
+                          <th className="px-2 py-2 font-medium text-right">Total</th>
+                          <th className="w-8"></th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                      </thead>
+                      <tbody>
+                        {items.map((item, i) => (
+                          <tr key={i} className="border-t border-border">
+                            <td className="px-3 py-2">{item.productName}</td>
+                            <td className="px-2 py-2 text-center">{item.size}</td>
+                            <td className="px-2 py-2 text-center">{item.quantity}</td>
+                            <td className="px-2 py-2 text-right">{formatPrice(item.unitPrice * item.quantity)}</td>
+                            <td className="px-2 py-2">
+                              <button onClick={() => removeItem(i)} className="text-destructive hover:text-destructive/80">
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
 
-              {/* Totals */}
-              {items.length > 0 && (
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Subtotal</span>
-                    <span>{formatPrice(subtotal)}</span>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Subtotal</span>
+                      <span>{formatPrice(subtotal)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Delivery</span>
+                      <Input type="number" value={delivery} onChange={(e) => setDelivery(parseInt(e.target.value) || 0)} className="w-24 h-7 text-right text-xs" />
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Discount</span>
+                      <Input type="number" value={discount} onChange={(e) => setDiscount(parseInt(e.target.value) || 0)} className="w-24 h-7 text-right text-xs" />
+                    </div>
+                    <div className="flex justify-between font-semibold border-t border-border pt-2">
+                      <span>Total</span>
+                      <span>{formatPrice(total > 0 ? total : 0)}</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Delivery</span>
-                    <Input
-                      type="number"
-                      value={delivery}
-                      onChange={(e) => setDelivery(parseInt(e.target.value) || 0)}
-                      className="w-24 h-7 text-right text-xs"
-                    />
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Discount</span>
-                    <Input
-                      type="number"
-                      value={discount}
-                      onChange={(e) => setDiscount(parseInt(e.target.value) || 0)}
-                      className="w-24 h-7 text-right text-xs"
-                    />
-                  </div>
-                  <div className="flex justify-between font-semibold border-t border-border pt-2">
-                    <span>Total</span>
-                    <span>{formatPrice(total > 0 ? total : 0)}</span>
-                  </div>
-                </div>
+                </>
               )}
             </div>
 
+            <div className="border-t border-border" />
+
             {/* Section 4: Payment */}
             <div className="space-y-3">
-              <h3 className="text-sm font-medium text-foreground">Payment</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs">Payment Method</Label>
-                  <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {PAYMENT_METHODS.map((m) => (
-                        <SelectItem key={m} value={m}>{m}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              <h3 className="text-sm font-semibold text-foreground">Payment</h3>
+              <div>
+                <Label className="text-xs text-muted-foreground">Payment Method</Label>
+                <div className="flex flex-wrap gap-2 mt-1.5">
+                  {PAYMENT_METHODS.map((m) => (
+                    <button
+                      key={m.value}
+                      onClick={() => setPaymentMethod(m.value)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-full text-xs font-medium border transition-colors",
+                        paymentMethod === m.value
+                          ? "bg-foreground text-background border-foreground"
+                          : "bg-background text-foreground border-border hover:border-foreground/50"
+                      )}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
                 </div>
-                <div>
-                  <Label className="text-xs">Payment Status</Label>
-                  <Select value={paymentStatus} onValueChange={setPaymentStatus}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="unpaid">Unpaid</SelectItem>
-                      <SelectItem value="paid">Paid</SelectItem>
-                    </SelectContent>
-                  </Select>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Payment Status</Label>
+                <div className="flex gap-2 mt-1.5">
+                  {[
+                    { label: "⏳ Unpaid", value: "unpaid" },
+                    { label: "✅ Paid", value: "paid" },
+                  ].map((s) => (
+                    <button
+                      key={s.value}
+                      onClick={() => setPaymentStatus(s.value)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-full text-xs font-medium border transition-colors",
+                        paymentStatus === s.value
+                          ? "bg-foreground text-background border-foreground"
+                          : "bg-background text-foreground border-border hover:border-foreground/50"
+                      )}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
@@ -473,17 +480,19 @@ const CreateOrderPanel = ({ open, onClose }: CreateOrderPanelProps) => {
         </ScrollArea>
 
         {/* Footer */}
-        <div className="border-t border-border px-6 py-4">
-          <Button
-            className="w-full"
-            onClick={handleSubmit}
-            disabled={createMutation.isPending}
-          >
-            {createMutation.isPending ? "Creating..." : "Create Order"}
-          </Button>
+        <div className="border-t border-border px-6 py-4 flex items-center justify-between flex-shrink-0">
+          <div className="text-sm font-semibold">
+            Total: {formatPrice(total > 0 ? total : 0)}
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => { resetForm(); onClose(); }}>Cancel</Button>
+            <Button onClick={handleSubmit} disabled={createMutation.isPending}>
+              {createMutation.isPending ? "Creating..." : "Create Order →"}
+            </Button>
+          </div>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 };
 
