@@ -391,7 +391,6 @@ export type Database = {
       }
       orders: {
         Row: {
-          amount_to_collect: number | null
           coupon_code: string | null
           courier_booking_id: string | null
           created_at: string | null
@@ -402,22 +401,13 @@ export type Database = {
           customer_phone: string
           delivery_charge: number | null
           delivery_note: string | null
-          delivery_type: number | null
           delivery_zone: string | null
           discount_amount: number | null
           id: string
-          item_description: string | null
-          item_weight: number | null
           notes: string | null
           order_number: string | null
-          pathao_consignment_id: string | null
-          pathao_sent_at: string | null
-          pathao_status: string | null
           payment_method: string | null
           payment_status: string | null
-          recipient_area_id: number | null
-          recipient_city_id: number | null
-          recipient_zone_id: number | null
           source: string | null
           status: string | null
           subtotal: number
@@ -427,7 +417,6 @@ export type Database = {
           whatsapp_sent: boolean | null
         }
         Insert: {
-          amount_to_collect?: number | null
           coupon_code?: string | null
           courier_booking_id?: string | null
           created_at?: string | null
@@ -438,22 +427,13 @@ export type Database = {
           customer_phone: string
           delivery_charge?: number | null
           delivery_note?: string | null
-          delivery_type?: number | null
           delivery_zone?: string | null
           discount_amount?: number | null
           id?: string
-          item_description?: string | null
-          item_weight?: number | null
           notes?: string | null
           order_number?: string | null
-          pathao_consignment_id?: string | null
-          pathao_sent_at?: string | null
-          pathao_status?: string | null
           payment_method?: string | null
           payment_status?: string | null
-          recipient_area_id?: number | null
-          recipient_city_id?: number | null
-          recipient_zone_id?: number | null
           source?: string | null
           status?: string | null
           subtotal: number
@@ -463,7 +443,6 @@ export type Database = {
           whatsapp_sent?: boolean | null
         }
         Update: {
-          amount_to_collect?: number | null
           coupon_code?: string | null
           courier_booking_id?: string | null
           created_at?: string | null
@@ -474,22 +453,13 @@ export type Database = {
           customer_phone?: string
           delivery_charge?: number | null
           delivery_note?: string | null
-          delivery_type?: number | null
           delivery_zone?: string | null
           discount_amount?: number | null
           id?: string
-          item_description?: string | null
-          item_weight?: number | null
           notes?: string | null
           order_number?: string | null
-          pathao_consignment_id?: string | null
-          pathao_sent_at?: string | null
-          pathao_status?: string | null
           payment_method?: string | null
           payment_status?: string | null
-          recipient_area_id?: number | null
-          recipient_city_id?: number | null
-          recipient_zone_id?: number | null
           source?: string | null
           status?: string | null
           subtotal?: number
