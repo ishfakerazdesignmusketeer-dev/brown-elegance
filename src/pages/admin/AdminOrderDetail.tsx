@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { pathaoGetValidToken, pathaoCreateOrder, pathaoTrackOrder, PATHAO_STATUS_MAP } from "@/lib/pathaoApi";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -209,12 +210,55 @@ const AdminOrderDetail = () => {
     }
     setSendingToPathao(true);
     try {
-      const { data, error } = await supabase.functions.invoke("pathao-create-order", {
-        body: { order_id: order.id },
+      const token = await pathaoGetValidToken(supabase);
+      const { data: storeSettings } = await supabase
+        .from("admin_settings")
+        .select("key, value")
+        .in("key", ["pathao_store_id", "pathao_sender_phone"]);
+      const store: Record<string, string> = {};
+      storeSettings?.forEach((r: any) => { store[r.key] = r.value || ""; });
+
+      const totalItems = (order.order_items || []).reduce((sum: number, i: any) => sum + i.quantity, 0);
+      const itemDesc = order.item_description ||
+        (order.order_items || []).map((i: any) => `${i.product_name} (${i.size}) x${i.quantity}`).join(", ");
+
+      const result = await pathaoCreateOrder(token, {
+        store_id: parseInt(store.pathao_store_id || "372992"),
+        merchant_order_id: order.order_number || "",
+        sender_name: "Brown House",
+        sender_phone: store.pathao_sender_phone || "",
+        recipient_name: order.customer_name,
+        recipient_phone: order.customer_phone,
+        recipient_address: order.customer_address,
+        recipient_city: order.recipient_city_id!,
+        recipient_zone: order.recipient_zone_id!,
+        recipient_area: order.recipient_area_id || 0,
+        delivery_type: order.delivery_type || 48,
+        item_type: 2,
+        special_instruction: order.notes || "",
+        item_quantity: totalItems || 1,
+        item_weight: order.item_weight || 0.5,
+        amount_to_collect: order.amount_to_collect ?? order.total,
+        item_description: itemDesc,
       });
-      if (error || data?.error) throw new Error(data?.error || "Failed");
-      toast.success(`Sent to Pathao ✓ Consignment: ${data.consignment_id}`);
+
+      const consignmentId = result.consignment_id;
+      await supabase.from("orders").update({
+        pathao_consignment_id: String(consignmentId),
+        pathao_status: result.order_status || "Pending",
+        pathao_sent_at: new Date().toISOString(),
+        status: "sent_to_courier",
+      }).eq("id", order.id);
+
+      await supabase.from("order_notes").insert({
+        order_id: order.id,
+        note: `Sent to Pathao Courier. Consignment: ${consignmentId}`,
+        created_by: "system",
+      });
+
+      toast.success(`Sent to Pathao ✓ Consignment: ${consignmentId}`);
       queryClient.invalidateQueries({ queryKey: ["admin-order-detail", id] });
+      queryClient.invalidateQueries({ queryKey: ["order-notes", id] });
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -226,11 +270,14 @@ const AdminOrderDetail = () => {
     if (!order?.pathao_consignment_id) return;
     setRefreshingStatus(true);
     try {
-      const { data, error } = await supabase.functions.invoke("pathao-track-order", {
-        body: { order_id: order.id, consignment_id: order.pathao_consignment_id },
-      });
-      if (error || data?.error) throw new Error(data?.error || "Failed");
-      toast.success(`Status: ${data.pathao_status}`);
+      const token = await pathaoGetValidToken(supabase);
+      const trackData = await pathaoTrackOrder(token, order.pathao_consignment_id);
+      const pathaoStatus = trackData.order_status || "";
+      const brownStatus = PATHAO_STATUS_MAP[pathaoStatus] || null;
+      const updateData: any = { pathao_status: pathaoStatus };
+      if (brownStatus) updateData.status = brownStatus;
+      await supabase.from("orders").update(updateData).eq("id", order.id);
+      toast.success(`Status: ${pathaoStatus}`);
       queryClient.invalidateQueries({ queryKey: ["admin-order-detail", id] });
     } catch (err: any) {
       toast.error(err.message);

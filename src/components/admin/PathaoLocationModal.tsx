@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { pathaoGetValidToken, pathaoGetCities, pathaoGetZones, pathaoGetAreas, pathaoCreateOrder } from "@/lib/pathaoApi";
 
 interface PathaoCity { city_id: number; city_name: string; }
 interface PathaoZone { zone_id: number; zone_name: string; }
@@ -59,34 +60,43 @@ export default function PathaoLocationModal({ open, onClose, order, onSuccess }:
     const cached = getCachedCities();
     if (cached) { setCities(cached); return; }
     setLoadingCities(true);
-    supabase.functions.invoke("pathao-get-cities").then(({ data, error }) => {
-      setLoadingCities(false);
-      if (error || !data?.cities) { toast.error("Failed to load cities"); return; }
-      setCities(data.cities);
-      localStorage.setItem(CACHE_KEY, JSON.stringify({ cities: data.cities, ts: Date.now() }));
-    });
+    (async () => {
+      try {
+        const token = await pathaoGetValidToken(supabase);
+        const cities = await pathaoGetCities(token);
+        setCities(cities);
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ cities, ts: Date.now() }));
+      } catch { toast.error("Failed to load cities"); }
+      finally { setLoadingCities(false); }
+    })();
   }, [open]);
 
   useEffect(() => {
     if (!cityId) { setZones([]); setZoneId(""); setAreas([]); setAreaId(""); return; }
     setLoadingZones(true);
     setZones([]); setZoneId(""); setAreas([]); setAreaId("");
-    supabase.functions.invoke("pathao-get-zones", { body: { city_id: parseInt(cityId) } }).then(({ data, error }) => {
-      setLoadingZones(false);
-      if (error || !data?.zones) { toast.error("Failed to load zones"); return; }
-      setZones(data.zones);
-    });
+    (async () => {
+      try {
+        const token = await pathaoGetValidToken(supabase);
+        const zones = await pathaoGetZones(token, parseInt(cityId));
+        setZones(zones);
+      } catch { toast.error("Failed to load zones"); }
+      finally { setLoadingZones(false); }
+    })();
   }, [cityId]);
 
   useEffect(() => {
     if (!zoneId) { setAreas([]); setAreaId(""); return; }
     setLoadingAreas(true);
     setAreas([]); setAreaId("");
-    supabase.functions.invoke("pathao-get-areas", { body: { zone_id: parseInt(zoneId) } }).then(({ data, error }) => {
-      setLoadingAreas(false);
-      if (error || !data?.areas) { toast.error("Failed to load areas"); return; }
-      setAreas(data.areas);
-    });
+    (async () => {
+      try {
+        const token = await pathaoGetValidToken(supabase);
+        const areas = await pathaoGetAreas(token, parseInt(zoneId));
+        setAreas(areas);
+      } catch { toast.error("Failed to load areas"); }
+      finally { setLoadingAreas(false); }
+    })();
   }, [zoneId]);
 
   const handleSubmit = async () => {
@@ -104,13 +114,62 @@ export default function PathaoLocationModal({ open, onClose, order, onSuccess }:
       } as any).eq("id", order.id);
       if (updateErr) throw updateErr;
 
-      // Send to Pathao
-      const { data, error } = await supabase.functions.invoke("pathao-create-order", {
-        body: { order_id: order.id },
-      });
-      if (error || data?.error) throw new Error(data?.error || "Failed to send to Pathao");
+      // Get store settings and send to Pathao
+      const token = await pathaoGetValidToken(supabase);
+      const { data: storeSettings } = await supabase
+        .from("admin_settings")
+        .select("key, value")
+        .in("key", ["pathao_store_id", "pathao_sender_phone"]);
+      const store: Record<string, string> = {};
+      storeSettings?.forEach((r: any) => { store[r.key] = r.value || ""; });
 
-      toast.success(`Order sent to Pathao ✓ Consignment: ${data.consignment_id}`);
+      // Get full order data for payload
+      const { data: fullOrder } = await supabase
+        .from("orders")
+        .select("*, order_items(*)")
+        .eq("id", order.id)
+        .single();
+      if (!fullOrder) throw new Error("Order not found");
+
+      const totalItems = (fullOrder.order_items || []).reduce((sum: number, i: any) => sum + i.quantity, 0);
+      const itemDesc = fullOrder.item_description ||
+        (fullOrder.order_items || []).map((i: any) => `${i.product_name} (${i.size}) x${i.quantity}`).join(", ");
+
+      const result = await pathaoCreateOrder(token, {
+        store_id: parseInt(store.pathao_store_id || "372992"),
+        merchant_order_id: fullOrder.order_number || "",
+        sender_name: "Brown House",
+        sender_phone: store.pathao_sender_phone || "",
+        recipient_name: fullOrder.customer_name,
+        recipient_phone: fullOrder.customer_phone,
+        recipient_address: fullOrder.customer_address,
+        recipient_city: parseInt(cityId),
+        recipient_zone: parseInt(zoneId),
+        recipient_area: areaId ? parseInt(areaId) : 0,
+        delivery_type: parseInt(deliveryType),
+        item_type: 2,
+        special_instruction: fullOrder.notes || "",
+        item_quantity: totalItems || 1,
+        item_weight: parseFloat(weight) || 0.5,
+        amount_to_collect: parseFloat(amountToCollect) || fullOrder.total,
+        item_description: itemDesc,
+      });
+
+      const consignmentId = result.consignment_id;
+      await supabase.from("orders").update({
+        pathao_consignment_id: String(consignmentId),
+        pathao_status: result.order_status || "Pending",
+        pathao_sent_at: new Date().toISOString(),
+        status: "sent_to_courier",
+      }).eq("id", order.id);
+
+      await supabase.from("order_notes").insert({
+        order_id: order.id,
+        note: `Sent to Pathao Courier. Consignment: ${consignmentId}`,
+        created_by: "system",
+      });
+
+      toast.success(`Order sent to Pathao ✓ Consignment: ${consignmentId}`);
       onSuccess();
       onClose();
     } catch (err: any) {

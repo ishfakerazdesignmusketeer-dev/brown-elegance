@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { pathaoGetValidToken, pathaoTrackOrder, pathaoCreateOrder, PATHAO_STATUS_MAP } from "@/lib/pathaoApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatPrice } from "@/lib/format";
@@ -195,15 +196,21 @@ const AdminOrders = () => {
     let cancelled = false;
     const poll = async () => {
       setIsSyncing(true);
-      for (const order of toTrack) {
-        if (cancelled) break;
-        try {
-          await supabase.functions.invoke("pathao-track-order", {
-            body: { order_id: order.id, consignment_id: order.pathao_consignment_id },
-          });
-        } catch {}
-        await new Promise((r) => setTimeout(r, 1000));
-      }
+      try {
+        const token = await pathaoGetValidToken(supabase);
+        for (const order of toTrack) {
+          if (cancelled) break;
+          try {
+            const trackData = await pathaoTrackOrder(token, order.pathao_consignment_id!);
+            const pathaoStatus = trackData.order_status || "";
+            const brownStatus = PATHAO_STATUS_MAP[pathaoStatus] || null;
+            const updateData: any = { pathao_status: pathaoStatus };
+            if (brownStatus) updateData.status = brownStatus;
+            await supabase.from("orders").update(updateData).eq("id", order.id);
+          } catch {}
+          await new Promise((r) => setTimeout(r, 1000));
+        }
+      } catch {}
       if (!cancelled) {
         setIsSyncing(false);
         queryClient.invalidateQueries({ queryKey: ["admin-orders-list"] });
@@ -211,7 +218,7 @@ const AdminOrders = () => {
     };
     poll();
     return () => { cancelled = true; };
-  }, [orders.length]); // only run once when orders load
+  }, [orders.length]);
 
   // Status update mutation
   const statusMutation = useMutation({
@@ -275,11 +282,60 @@ const AdminOrders = () => {
     }
     setSendingPathao(order.id);
     try {
-      const { data, error } = await supabase.functions.invoke("pathao-create-order", {
-        body: { order_id: order.id },
+      const token = await pathaoGetValidToken(supabase);
+      const { data: storeSettings } = await supabase
+        .from("admin_settings")
+        .select("key, value")
+        .in("key", ["pathao_store_id", "pathao_sender_phone"]);
+      const store: Record<string, string> = {};
+      storeSettings?.forEach((r: any) => { store[r.key] = r.value || ""; });
+
+      const { data: fullOrder } = await supabase
+        .from("orders")
+        .select("*, order_items(*)")
+        .eq("id", order.id)
+        .single();
+      if (!fullOrder) throw new Error("Order not found");
+
+      const totalItems = (fullOrder.order_items || []).reduce((sum: number, i: any) => sum + i.quantity, 0);
+      const itemDesc = fullOrder.item_description ||
+        (fullOrder.order_items || []).map((i: any) => `${i.product_name} (${i.size}) x${i.quantity}`).join(", ");
+
+      const result = await pathaoCreateOrder(token, {
+        store_id: parseInt(store.pathao_store_id || "372992"),
+        merchant_order_id: fullOrder.order_number || "",
+        sender_name: "Brown House",
+        sender_phone: store.pathao_sender_phone || "",
+        recipient_name: fullOrder.customer_name,
+        recipient_phone: fullOrder.customer_phone,
+        recipient_address: fullOrder.customer_address,
+        recipient_city: fullOrder.recipient_city_id!,
+        recipient_zone: fullOrder.recipient_zone_id!,
+        recipient_area: fullOrder.recipient_area_id || 0,
+        delivery_type: fullOrder.delivery_type || 48,
+        item_type: 2,
+        special_instruction: fullOrder.notes || "",
+        item_quantity: totalItems || 1,
+        item_weight: fullOrder.item_weight || 0.5,
+        amount_to_collect: fullOrder.amount_to_collect ?? fullOrder.total,
+        item_description: itemDesc,
       });
-      if (error || data?.error) throw new Error(data?.error || "Failed");
-      toast.success(`Order sent to Pathao ✓ Consignment: ${data.consignment_id}`);
+
+      const consignmentId = result.consignment_id;
+      await supabase.from("orders").update({
+        pathao_consignment_id: String(consignmentId),
+        pathao_status: result.order_status || "Pending",
+        pathao_sent_at: new Date().toISOString(),
+        status: "sent_to_courier",
+      }).eq("id", order.id);
+
+      await supabase.from("order_notes").insert({
+        order_id: order.id,
+        note: `Sent to Pathao Courier. Consignment: ${consignmentId}`,
+        created_by: "system",
+      });
+
+      toast.success(`Order sent to Pathao ✓ Consignment: ${consignmentId}`);
       queryClient.invalidateQueries({ queryKey: ["admin-orders-list"] });
       queryClient.invalidateQueries({ queryKey: ["admin-order-counts"] });
     } catch (err: any) {
@@ -307,16 +363,69 @@ const AdminOrders = () => {
     setBulkPathaoModal(false);
     let sent = 0, failed = 0;
 
-    for (let i = 0; i < eligible.length; i++) {
-      setBulkPathaoProgress({ current: i + 1, total: eligible.length, sending: true });
-      try {
-        const { data, error } = await supabase.functions.invoke("pathao-create-order", {
-          body: { order_id: eligible[i].id },
-        });
-        if (error || data?.error) throw new Error(data?.error || "Failed");
-        sent++;
-      } catch { failed++; }
-      await new Promise((r) => setTimeout(r, 500));
+    try {
+      const token = await pathaoGetValidToken(supabase);
+      const { data: storeSettings } = await supabase
+        .from("admin_settings")
+        .select("key, value")
+        .in("key", ["pathao_store_id", "pathao_sender_phone"]);
+      const store: Record<string, string> = {};
+      storeSettings?.forEach((r: any) => { store[r.key] = r.value || ""; });
+
+      for (let i = 0; i < eligible.length; i++) {
+        setBulkPathaoProgress({ current: i + 1, total: eligible.length, sending: true });
+        try {
+          const { data: fullOrder } = await supabase
+            .from("orders")
+            .select("*, order_items(*)")
+            .eq("id", eligible[i].id)
+            .single();
+          if (!fullOrder) throw new Error("Order not found");
+
+          const totalItems = (fullOrder.order_items || []).reduce((sum: number, it: any) => sum + it.quantity, 0);
+          const itemDesc = fullOrder.item_description ||
+            (fullOrder.order_items || []).map((it: any) => `${it.product_name} (${it.size}) x${it.quantity}`).join(", ");
+
+          const result = await pathaoCreateOrder(token, {
+            store_id: parseInt(store.pathao_store_id || "372992"),
+            merchant_order_id: fullOrder.order_number || "",
+            sender_name: "Brown House",
+            sender_phone: store.pathao_sender_phone || "",
+            recipient_name: fullOrder.customer_name,
+            recipient_phone: fullOrder.customer_phone,
+            recipient_address: fullOrder.customer_address,
+            recipient_city: fullOrder.recipient_city_id!,
+            recipient_zone: fullOrder.recipient_zone_id!,
+            recipient_area: fullOrder.recipient_area_id || 0,
+            delivery_type: fullOrder.delivery_type || 48,
+            item_type: 2,
+            special_instruction: fullOrder.notes || "",
+            item_quantity: totalItems || 1,
+            item_weight: fullOrder.item_weight || 0.5,
+            amount_to_collect: fullOrder.amount_to_collect ?? fullOrder.total,
+            item_description: itemDesc,
+          });
+
+          const consignmentId = result.consignment_id;
+          await supabase.from("orders").update({
+            pathao_consignment_id: String(consignmentId),
+            pathao_status: result.order_status || "Pending",
+            pathao_sent_at: new Date().toISOString(),
+            status: "sent_to_courier",
+          }).eq("id", eligible[i].id);
+
+          await supabase.from("order_notes").insert({
+            order_id: eligible[i].id,
+            note: `Sent to Pathao Courier. Consignment: ${consignmentId}`,
+            created_by: "system",
+          });
+
+          sent++;
+        } catch { failed++; }
+        await new Promise((r) => setTimeout(r, 500));
+      }
+    } catch (err: any) {
+      toast.error("Bulk send failed: " + err.message);
     }
 
     setBulkPathaoProgress({ current: 0, total: 0, sending: false });
