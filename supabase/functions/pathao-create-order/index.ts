@@ -25,7 +25,7 @@ async function getValidToken(supabase: any): Promise<string> {
 
   // Try refresh
   if (s.pathao_refresh_token) {
-    const res = await fetch("https://hermes-api.pathao.com/aladdin/api/v1/issue-token", {
+    const res = await fetch("https://api-hermes.pathao.com/aladdin/api/v1/issue-token", {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify({
@@ -106,7 +106,7 @@ Deno.serve(async (req) => {
       item_description: itemDesc,
     };
 
-    const response = await fetch("https://hermes-api.pathao.com/aladdin/api/v1/orders", {
+    const response = await fetch("https://api-hermes.pathao.com/aladdin/api/v1/orders", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

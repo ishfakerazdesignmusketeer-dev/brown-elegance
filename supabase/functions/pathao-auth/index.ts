@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const response = await fetch("https://hermes-api.pathao.com/aladdin/api/v1/issue-token", {
+    const response = await fetch("https://api-hermes.pathao.com/aladdin/api/v1/issue-token", {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify({

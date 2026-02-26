@@ -31,7 +31,7 @@ async function getValidToken(supabase: any): Promise<string> {
   if (s.pathao_access_token && expiresAt - Date.now() > 3600000) return s.pathao_access_token;
 
   if (s.pathao_refresh_token) {
-    const res = await fetch("https://hermes-api.pathao.com/aladdin/api/v1/issue-token", {
+    const res = await fetch("https://api-hermes.pathao.com/aladdin/api/v1/issue-token", {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify({
@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
 
     const token = await getValidToken(supabase);
 
-    const response = await fetch(`https://hermes-api.pathao.com/aladdin/api/v1/orders/${cid}`, {
+    const response = await fetch(`https://api-hermes.pathao.com/aladdin/api/v1/orders/${cid}`, {
       headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
     });
 
