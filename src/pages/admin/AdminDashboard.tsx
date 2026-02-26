@@ -21,20 +21,32 @@ import { toast } from "sonner";
 const STATUS_COLORS_HEX: Record<string, string> = {
   pending: "#FCD34D",
   processing: "#A78BFA",
+  confirmed: "#22D3EE",
+  sent_to_courier: "#38BDF8",
+  picked_up: "#818CF8",
+  in_transit: "#A78BFA",
   completed: "#34D399",
+  delivered: "#10B981",
   cancelled: "#F87171",
+  returned: "#FB923C",
   refunded: "#C084FC",
 };
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-amber-100 text-amber-800",
   processing: "bg-purple-100 text-purple-800",
+  confirmed: "bg-cyan-100 text-cyan-800",
+  sent_to_courier: "bg-sky-100 text-sky-800",
+  picked_up: "bg-indigo-100 text-indigo-800",
+  in_transit: "bg-purple-100 text-purple-800",
   completed: "bg-green-100 text-green-800",
+  delivered: "bg-emerald-100 text-emerald-800",
   cancelled: "bg-red-100 text-red-800",
+  returned: "bg-orange-100 text-orange-800",
   refunded: "bg-purple-100 text-purple-800",
 };
 
-const STATUS_OPTIONS = ["pending", "processing", "completed", "cancelled", "refunded"] as const;
+const STATUS_OPTIONS = ["pending", "processing", "confirmed", "sent_to_courier", "picked_up", "in_transit", "completed", "delivered", "cancelled", "returned", "refunded"] as const;
 
 interface Order {
   id: string;
@@ -45,6 +57,9 @@ interface Order {
   subtotal: number;
   created_at: string;
   order_items: { id: string }[];
+  pathao_consignment_id: string | null;
+  pathao_status: string | null;
+  pathao_sent_at: string | null;
 }
 
 interface OrderItem {
@@ -147,6 +162,16 @@ const AdminDashboard = () => {
   const avgOrderValue = completedOrders.length > 0 ? Math.round(totalRevenue / completedOrders.length) : 0;
   const pendingCount = orders.filter((o) => o.status === "pending").length;
 
+  // Courier stats
+  const pendingDispatch = orders.filter(
+    (o) => ["confirmed", "processing"].includes(o.status) && !o.pathao_consignment_id
+  ).length;
+  const inTransitCount = orders.filter((o) => o.pathao_status === "In_Transit").length;
+  const deliveredToday = orders.filter(
+    (o) => o.pathao_status === "Delivered" && o.pathao_sent_at && new Date(o.pathao_sent_at).toDateString() === today
+  ).length;
+  const returnedCount = orders.filter((o) => o.pathao_status === "Returned").length;
+
   // Revenue chart data — last 30 days
   const revenueChartData = Array.from({ length: 30 }, (_, i) => {
     const date = subDays(new Date(), 29 - i);
@@ -228,6 +253,27 @@ const AdminDashboard = () => {
             {outOfStockCount > 0 && <p className="text-xs text-red-400 mt-1">variants at 0 units</p>}
           </div>
         </Link>
+      </div>
+
+      {/* Courier Overview */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="bg-white border border-sky-200 rounded-lg p-5">
+          <p className="text-xs text-gray-500 mb-1 uppercase tracking-wide">Pending Dispatch</p>
+          <p className="text-2xl font-semibold text-sky-600">{isLoading ? "—" : pendingDispatch}</p>
+          <p className="text-xs text-gray-400 mt-1">confirmed, not sent</p>
+        </div>
+        <div className="bg-white border border-purple-200 rounded-lg p-5">
+          <p className="text-xs text-gray-500 mb-1 uppercase tracking-wide">In Transit</p>
+          <p className="text-2xl font-semibold text-purple-600">{isLoading ? "—" : inTransitCount}</p>
+        </div>
+        <div className="bg-white border border-green-200 rounded-lg p-5">
+          <p className="text-xs text-gray-500 mb-1 uppercase tracking-wide">Delivered Today</p>
+          <p className="text-2xl font-semibold text-green-600">{isLoading ? "—" : deliveredToday}</p>
+        </div>
+        <div className="bg-white border border-orange-200 rounded-lg p-5">
+          <p className="text-xs text-gray-500 mb-1 uppercase tracking-wide">Returned</p>
+          <p className="text-2xl font-semibold text-orange-600">{isLoading ? "—" : returnedCount}</p>
+        </div>
       </div>
 
       {/* Charts row */}

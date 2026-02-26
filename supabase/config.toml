@@ -5,3 +5,21 @@ verify_jwt = false
 
 [functions.get-orders]
 verify_jwt = false
+
+[functions.pathao-auth]
+verify_jwt = false
+
+[functions.pathao-create-order]
+verify_jwt = false
+
+[functions.pathao-track-order]
+verify_jwt = false
+
+[functions.pathao-get-cities]
+verify_jwt = false
+
+[functions.pathao-get-zones]
+verify_jwt = false
+
+[functions.pathao-get-areas]
+verify_jwt = false

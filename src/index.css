@@ -161,3 +161,12 @@ html {
   -webkit-backface-visibility: hidden;
 }
 
+/* Print styles for shipping labels */
+@media print {
+  body > *:not(#shipping-label) {
+    display: none !important;
+  }
+  #shipping-label {
+    display: block !important;
+  }
+}
