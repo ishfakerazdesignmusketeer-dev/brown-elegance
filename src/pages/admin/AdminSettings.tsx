@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { pathaoGetToken, pathaoGetValidToken, pathaoGetCities } from "@/lib/pathaoApi";
 import { toast } from "sonner";
 import { Eye, EyeOff, Save, Loader2, CheckCircle, XCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -103,21 +104,26 @@ const AdminSettings = () => {
     setPathaoConnecting(true);
     setPathaoStatus("idle");
     try {
-      // Save credentials first
       await handleSave();
-      const { data, error } = await supabase.functions.invoke("pathao-auth");
-      
-      // supabase.functions.invoke may return error in data for non-2xx
-      if (error) {
-        throw new Error(typeof error === "object" ? JSON.stringify(error) : String(error));
+      const clientId = values["pathao_client_id"] || "";
+      const clientSecret = values["pathao_client_secret"] || "";
+      const username = values["pathao_username"] || "";
+      const password = values["pathao_password"] || "";
+      if (!clientId || !clientSecret || !username || !password) {
+        throw new Error("Please fill in all Pathao credentials");
       }
-      if (data?.error) {
-        const detail = typeof data.error === "string" ? data.error : JSON.stringify(data.error);
-        throw new Error(`Pathao error: ${detail}`);
+      const result = await pathaoGetToken(clientId, clientSecret, username, password);
+      const expiresAt = new Date(Date.now() + (result.expires_in || 3600) * 1000).toISOString();
+      const tokenUpdates = [
+        { key: "pathao_access_token", value: result.access_token },
+        { key: "pathao_refresh_token", value: result.refresh_token || "" },
+        { key: "pathao_token_expires_at", value: expiresAt },
+      ];
+      for (const u of tokenUpdates) {
+        await supabase.from("admin_settings").update({ value: u.value }).eq("key", u.key);
       }
-      
       setPathaoStatus("connected");
-      setPathaoExpiry(data.expires_at);
+      setPathaoExpiry(expiresAt);
       toast.success("Connected to Pathao ✓");
     } catch (err: any) {
       setPathaoStatus("error");
@@ -131,11 +137,11 @@ const AdminSettings = () => {
     setPathaoTesting(true);
     setPathaoTestResult("idle");
     try {
-      const { data, error } = await supabase.functions.invoke("pathao-get-cities");
-      if (error || data?.error) throw new Error(data?.error || "Test failed");
-      if (data?.cities?.length > 0) {
+      const token = await pathaoGetValidToken(supabase);
+      const cities = await pathaoGetCities(token);
+      if (cities.length > 0) {
         setPathaoTestResult("ok");
-        toast.success(`Connection working ✓ (${data.cities.length} cities loaded)`);
+        toast.success(`Connection working ✓ (${cities.length} cities loaded)`);
       } else {
         throw new Error("No cities returned");
       }
