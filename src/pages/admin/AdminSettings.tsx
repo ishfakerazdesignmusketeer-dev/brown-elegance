@@ -106,7 +106,16 @@ const AdminSettings = () => {
       // Save credentials first
       await handleSave();
       const { data, error } = await supabase.functions.invoke("pathao-auth");
-      if (error || data?.error) throw new Error(data?.error || "Connection failed");
+      
+      // supabase.functions.invoke may return error in data for non-2xx
+      if (error) {
+        throw new Error(typeof error === "object" ? JSON.stringify(error) : String(error));
+      }
+      if (data?.error) {
+        const detail = typeof data.error === "string" ? data.error : JSON.stringify(data.error);
+        throw new Error(`Pathao error: ${detail}`);
+      }
+      
       setPathaoStatus("connected");
       setPathaoExpiry(data.expires_at);
       toast.success("Connected to Pathao ✓");
