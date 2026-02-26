@@ -115,7 +115,7 @@ const ProductGrid = () => {
                       <img
                         src={getImageUrl(originalUrl, 600)}
                         alt={isComingSoon ? "Coming Soon" : product.name}
-                        className={`w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105 ${isComingSoon ? "blur-[8px]" : ""}`}
+                        className={`w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105 ${isComingSoon ? "blur-xl scale-105" : ""}`}
                         loading="eager"
                         fetchPriority="low"
                         decoding="async"
