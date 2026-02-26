@@ -1,58 +1,89 @@
 
 
-# Fix Pathao Authentication Flow
+# Move Pathao API Calls from Edge Functions to Frontend
 
 ## Problem
-The "Connect to Pathao" button shows a generic "Connection failed" error without revealing what Pathao actually returns, making debugging impossible. Additionally, the API URL may be incorrect, there's no timeout handling, and error details are swallowed.
+Pathao edge functions fail with DNS errors because the backend environment blocks outbound network calls. The fix is to call the Pathao API directly from the browser, which has no such restriction.
 
-## Changes
+## Approach
 
-### 1. Edge Function: `supabase/functions/pathao-auth/index.ts`
+### 1. Create `src/lib/pathaoApi.ts`
+A single utility file with all Pathao API functions that call `https://hermes-api.pathao.com/aladdin/api/v1` directly via browser `fetch()`:
 
-**URL Fix:** Change `https://api-hermes.pathao.com` to `https://hermes-api.pathao.com` as specified.
+- `pathaoGetToken(client_id, client_secret, username, password)` -- authenticates and returns tokens
+- `pathaoRefreshToken(client_id, client_secret, refresh_token)` -- refreshes expired token
+- `pathaoGetValidToken(supabase)` -- reads credentials/tokens from `admin_settings`, auto-refreshes if expiring within 1 hour, saves new tokens back to DB, returns a valid access token
+- `pathaoGetCities(token)` -- fetches city list
+- `pathaoGetZones(token, city_id)` -- fetches zones for a city
+- `pathaoGetAreas(token, zone_id)` -- fetches areas for a zone
+- `pathaoCreateOrder(token, orderData)` -- creates a Pathao consignment
+- `pathaoTrackOrder(token, consignment_id)` -- gets order tracking status
 
-**Add timeout:** Wrap the fetch in an AbortController with a 10-second timeout to prevent hanging.
+All functions handle errors by throwing with the actual Pathao error message.
 
-**Add logging:** Log the outgoing request URL/body and the raw response text to backend function logs for debugging.
+### 2. Update `src/pages/admin/AdminSettings.tsx`
+Replace `supabase.functions.invoke("pathao-auth")` with:
+- Read credential values from state
+- Call `pathaoGetToken(client_id, client_secret, username, password)` directly
+- Save returned tokens to `admin_settings` via supabase client
+- Show actual Pathao error on failure
 
-**Return actual errors:** Instead of a generic "Authentication failed", return Pathao's raw response text so the frontend can display the real error.
+Replace `supabase.functions.invoke("pathao-get-cities")` test with:
+- Call `pathaoGetValidToken(supabase)` then `pathaoGetCities(token)`
 
-**Parse safely:** Read response as `.text()` first, log it, then parse as JSON. This prevents crashes if Pathao returns non-JSON (e.g., HTML error pages).
+### 3. Update `src/components/admin/PathaoLocationModal.tsx`
+Replace 3 edge function calls (cities, zones, areas) with:
+- Call `pathaoGetValidToken(supabase)` to get token
+- Call `pathaoGetCities`, `pathaoGetZones`, `pathaoGetAreas` directly
+- On submit: instead of calling `pathao-create-order` edge function, build the order payload from the form data, call `pathaoCreateOrder(token, payload)`, then update the order in DB via supabase client
 
+### 4. Update `src/pages/admin/AdminOrders.tsx`
+Replace all `supabase.functions.invoke` calls:
+- **Auto-poll**: Use `pathaoGetValidToken` + `pathaoTrackOrder` for each order, then update order status in DB directly
+- **Send to Pathao**: Use `pathaoGetValidToken` + build payload from order data + `pathaoCreateOrder`, then update order in DB
+- **Bulk send**: Same pattern for each eligible order
+
+### 5. Update `src/pages/admin/AdminOrderDetail.tsx`
+Replace 2 edge function calls:
+- **handleSendToPathao**: Get token, build payload from order data, call `pathaoCreateOrder`, update order in DB, add order note
+- **handleRefreshPathaoStatus**: Get token, call `pathaoTrackOrder`, map Pathao status to internal status, update order in DB
+
+### 6. Delete Edge Functions
+Remove these 6 files/directories:
+- `supabase/functions/pathao-auth/index.ts`
+- `supabase/functions/pathao-create-order/index.ts`
+- `supabase/functions/pathao-track-order/index.ts`
+- `supabase/functions/pathao-get-cities/index.ts`
+- `supabase/functions/pathao-get-zones/index.ts`
+- `supabase/functions/pathao-get-areas/index.ts`
+
+## Key Detail: Order Creation Logic
+The edge function `pathao-create-order` currently reads order data from DB, builds the payload, sends to Pathao, and updates the order. In the frontend version, the caller already has the order data, so:
+1. Build the Pathao payload from the order object in memory
+2. Call `pathaoCreateOrder(token, payload)`
+3. Update `pathao_consignment_id`, `pathao_status`, `pathao_sent_at`, `status` in DB via supabase client
+4. Insert order note via supabase client
+
+Similarly for tracking: call `pathaoTrackOrder`, then update `pathao_status` and `status` columns directly.
+
+## Status Mapping (kept from edge function logic)
 ```text
-Key changes:
-- const tokenUrl = "https://hermes-api.pathao.com/aladdin/api/v1/issue-token"
-- AbortController with 10s timeout
-- console.log() for request and raw response
-- response.text() -> JSON.parse() instead of response.json()
-- Return rawText in error responses
+Pathao Status       -> Internal Status
+Pending             -> sent_to_courier
+Pickup_Requested    -> sent_to_courier
+Picked              -> picked_up
+In_Transit          -> in_transit
+Delivered           -> completed
+Returned            -> returned
+Cancelled           -> cancelled
 ```
 
-### 2. Frontend: `src/pages/admin/AdminSettings.tsx` (handlePathaoConnect)
-
-**Show actual error details:** When `supabase.functions.invoke` returns an error, extract and display the real message from `data.error` or `data.details` instead of just "Connection failed".
-
-**Handle invoke errors properly:** `supabase.functions.invoke` may return the error in `data` (for non-2xx responses) rather than in the `error` parameter. Update the handler to check both and surface Pathao's actual message.
-
-```text
-Key changes in handlePathaoConnect:
-- Parse data.error and data.details for real error messages
-- Show detailed toast: "Pathao error: {actual message}"
-- Handle case where invoke itself throws (network error)
-```
-
-### 3. Update remaining edge functions with same URL fix
-
-Update all 5 other pathao functions (`pathao-create-order`, `pathao-track-order`, `pathao-get-cities`, `pathao-get-zones`, `pathao-get-areas`) to use `https://hermes-api.pathao.com` instead of `https://api-hermes.pathao.com`.
-
-## Files Modified
-| File | Change |
+## Files Summary
+| File | Action |
 |------|--------|
-| `supabase/functions/pathao-auth/index.ts` | URL fix, timeout, logging, raw error return |
-| `src/pages/admin/AdminSettings.tsx` | Show actual Pathao error in toast |
-| `supabase/functions/pathao-create-order/index.ts` | URL fix |
-| `supabase/functions/pathao-track-order/index.ts` | URL fix |
-| `supabase/functions/pathao-get-cities/index.ts` | URL fix |
-| `supabase/functions/pathao-get-zones/index.ts` | URL fix |
-| `supabase/functions/pathao-get-areas/index.ts` | URL fix |
-
+| `src/lib/pathaoApi.ts` | Create -- all Pathao API functions |
+| `src/pages/admin/AdminSettings.tsx` | Update -- use pathaoApi directly |
+| `src/components/admin/PathaoLocationModal.tsx` | Update -- use pathaoApi directly |
+| `src/pages/admin/AdminOrders.tsx` | Update -- use pathaoApi directly |
+| `src/pages/admin/AdminOrderDetail.tsx` | Update -- use pathaoApi directly |
+| `supabase/functions/pathao-*/index.ts` (6 files) | Delete |
