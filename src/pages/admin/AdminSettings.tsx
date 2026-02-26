@@ -53,22 +53,28 @@ const AdminSettings = () => {
   const [pathaoExpiry, setPathaoExpiry] = useState<string | null>(null);
   const [pathaoTestResult, setPathaoTestResult] = useState<"idle" | "ok" | "error">("idle");
 
+  const [initialized, setInitialized] = useState(false);
+
   const { data: settings = [], isLoading } = useQuery({
     queryKey: ["admin-settings"],
     queryFn: async (): Promise<Setting[]> => {
       const { data, error } = await supabase.from("admin_settings").select("*");
       if (error) throw error;
-      const initial: Record<string, string> = {};
-      (data as Setting[]).forEach((s) => { initial[s.key] = s.value ?? ""; });
-      setValues(initial);
-      // Check if Pathao is connected
-      const expiry = initial["pathao_token_expires_at"];
-      if (expiry && new Date(expiry).getTime() > Date.now()) {
-        setPathaoStatus("connected");
-        setPathaoExpiry(expiry);
+      if (!initialized) {
+        const initial: Record<string, string> = {};
+        (data as Setting[]).forEach((s) => { initial[s.key] = s.value ?? ""; });
+        setValues(initial);
+        setInitialized(true);
+        // Check if Pathao is connected
+        const expiry = initial["pathao_token_expires_at"];
+        if (expiry && new Date(expiry).getTime() > Date.now()) {
+          setPathaoStatus("connected");
+          setPathaoExpiry(expiry);
+        }
       }
       return data as Setting[];
     },
+    refetchOnWindowFocus: false,
   });
 
   const handleSave = async () => {
