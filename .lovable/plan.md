@@ -1,190 +1,282 @@
 
-# Multi-Feature Update: Product Detail, Checkout, and Coming Soon
+# Pathao Courier API Integration
 
 ## Overview
-This plan covers 5 interconnected features: shipping time display, size chart typography, inside/outside Dhaka delivery pricing, return policy, and a "Coming Soon" product type.
+Full integration of Pathao Courier API into the Brown House admin system, using backend functions as a proxy to handle authentication, order creation, tracking, and location lookups.
 
 ---
 
-## Phase 1: Database Migration
+## Phase 1: Database Schema Changes
 
-Add new columns and settings rows in a single migration:
+Add Pathao-related columns to the `orders` table:
 
 ```sql
-ALTER TABLE products ADD COLUMN IF NOT EXISTS is_coming_soon boolean DEFAULT false;
-ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_zone text DEFAULT 'inside_dhaka';
+ALTER TABLE orders 
+  ADD COLUMN IF NOT EXISTS pathao_consignment_id text,
+  ADD COLUMN IF NOT EXISTS pathao_status text,
+  ADD COLUMN IF NOT EXISTS pathao_sent_at timestamptz,
+  ADD COLUMN IF NOT EXISTS item_weight numeric DEFAULT 0.5,
+  ADD COLUMN IF NOT EXISTS item_description text,
+  ADD COLUMN IF NOT EXISTS recipient_city_id integer,
+  ADD COLUMN IF NOT EXISTS recipient_zone_id integer,
+  ADD COLUMN IF NOT EXISTS recipient_area_id integer,
+  ADD COLUMN IF NOT EXISTS delivery_type integer DEFAULT 48,
+  ADD COLUMN IF NOT EXISTS amount_to_collect numeric;
+```
 
+Seed Pathao credential keys into `admin_settings`:
+
+```sql
 INSERT INTO admin_settings (key, value) VALUES
-  ('return_policy_content', ''),
-  ('instagram_url', ''),
-  ('delivery_inside_dhaka', '100'),
-  ('delivery_outside_dhaka', '130')
+  ('pathao_client_id', ''),
+  ('pathao_client_secret', ''),
+  ('pathao_username', ''),
+  ('pathao_password', ''),
+  ('pathao_store_id', '372992'),
+  ('pathao_access_token', ''),
+  ('pathao_refresh_token', ''),
+  ('pathao_token_expires_at', ''),
+  ('pathao_sender_phone', '')
 ON CONFLICT (key) DO NOTHING;
 ```
 
-Update `src/integrations/supabase/types.ts` will auto-regenerate after migration.
+---
+
+## Phase 2: Backend Functions (6 functions)
+
+All functions use CORS headers and `verify_jwt = false` in config.toml. Each reads Pathao credentials from `admin_settings` and handles token refresh automatically.
+
+### Function 1: `pathao-auth`
+- POST endpoint
+- Reads `pathao_client_id`, `pathao_client_secret`, `pathao_username`, `pathao_password` from `admin_settings`
+- Calls `POST https://hermes-api.pathao.com/aladdin/api/v1/issue-token` with `grant_type: 'password'`
+- Saves `access_token`, `refresh_token`, and computed `token_expires_at` back to `admin_settings`
+- Returns success/failure status
+
+### Function 2: `pathao-create-order`
+- POST endpoint, accepts `{ order_id }`
+- Fetches order + order_items from database
+- Auto-refreshes token if expiring within 1 hour
+- Calls `POST https://hermes-api.pathao.com/aladdin/api/v1/orders` with order data
+- On success: updates order with `pathao_consignment_id`, `pathao_status`, `pathao_sent_at`, sets `status = 'sent_to_courier'`
+- Returns consignment details or error
+
+### Function 3: `pathao-track-order`
+- POST endpoint, accepts `{ order_id }` or `{ consignment_id }`
+- Calls `GET https://hermes-api.pathao.com/aladdin/api/v1/orders/{consignment_id}`
+- Maps Pathao statuses to Brown House statuses:
+  - Pending/Pickup_Requested -> sent_to_courier
+  - Picked -> picked_up
+  - In_Transit -> in_transit
+  - Delivered -> completed
+  - Returned -> returned
+  - Cancelled -> cancelled
+- Updates `pathao_status` and optionally `status` in orders table
+- Returns current status
+
+### Function 4: `pathao-get-cities`
+- GET endpoint
+- Calls `GET https://hermes-api.pathao.com/aladdin/api/v1/countries/cities`
+- Returns `{ city_id, city_name }[]`
+
+### Function 5: `pathao-get-zones`
+- POST endpoint, accepts `{ city_id }`
+- Calls `GET https://hermes-api.pathao.com/aladdin/api/v1/cities/{city_id}/zone-list`
+- Returns `{ zone_id, zone_name }[]`
+
+### Function 6: `pathao-get-areas`
+- POST endpoint, accepts `{ zone_id }`
+- Calls `GET https://hermes-api.pathao.com/aladdin/api/v1/zones/{zone_id}/area-list`
+- Returns `{ area_id, area_name }[]`
+
+All location functions include token auto-refresh. City data is cached in localStorage on the frontend for 24 hours.
 
 ---
 
-## Phase 2: Shipping Time Display (Product Detail)
+## Phase 3: New Order Status Values
 
-**File:** `src/pages/ProductDetail.tsx`
+Update `STATUS_LIST` and `STATUS_COLORS` in these files:
+- `src/pages/admin/AdminOrders.tsx`
+- `src/pages/admin/AdminOrderDetail.tsx`
+- `src/pages/admin/AdminDashboard.tsx`
 
-Below the Add to Cart / Pre-Order button area, add conditional shipping notices:
+New statuses added:
+| Status | Badge Color |
+|--------|------------|
+| sent_to_courier | Blue |
+| picked_up | Indigo |
+| in_transit | Purple |
+| delivered | Green |
+| returned | Orange |
 
-- **Regular product**: Light gray bordered box with truck icon: "Standard Delivery: 2-3 Business Days"
-- **Pre-order product**: Already exists (amber bordered box with clock icon and 7-day message) -- no change needed
-- **Studio exclusive / Coming soon**: No shipping info shown
-
----
-
-## Phase 3: Delivery Charges Display (Product Detail)
-
-**File:** `src/pages/ProductDetail.tsx`
-
-Below the shipping time notice, add a small delivery fee info box:
-- "Delivery Charges" heading
-- "Inside Dhaka: TK100" and "Outside Dhaka: TK130"
-- Light border, small font, espresso text
-- Hidden for studio exclusive and coming soon products
-- Fetch delivery prices from admin_settings (keys: `delivery_inside_dhaka`, `delivery_outside_dhaka`)
+Status filter tabs updated to include all new values.
 
 ---
 
-## Phase 4: Size Chart Button Typography
-
-**File:** `src/pages/ProductDetail.tsx`
-
-Update the Size Chart trigger button styling:
-- `font-weight: 700`, `text-[13px]`, `uppercase`, `tracking-widest`, `underline`
-- Full dark foreground color (not muted)
-- Add ruler icon before text (use Lucide `Ruler` icon)
-
-Update Size Chart modal:
-- Header: `font-heading text-2xl font-bold` (Cormorant Garamond)
-- "All measurements are in inches" note: `font-bold` instead of plain gray
-
----
-
-## Phase 5: Return Policy Button and Modal
-
-**File:** `src/pages/ProductDetail.tsx`
-
-- Add "Return Policy" button next to Size Chart button with same bold/underline/uppercase style
-- Uses Lucide `Undo2` icon
-- Clicking opens a modal (same style as size chart modal)
-- Modal header: "Return Policy" in `font-heading text-2xl font-bold`
-- Content loaded from `admin_settings` key `return_policy_content`
-- Fallback text if not set: "Our return policy will be available soon. Please contact us for any queries."
-- Content renders with preserved line breaks (`whitespace-pre-line`)
-- New `useQuery` for return policy content
-
----
-
-## Phase 6: Inside/Outside Dhaka Checkout
-
-**File:** `src/pages/Checkout.tsx`
-
-Major changes:
-1. Remove hardcoded `DELIVERY_CHARGE = 80`
-2. Add `deliveryZone` state: `'inside_dhaka' | 'outside_dhaka'` defaulting to `'inside_dhaka'`
-3. Fetch delivery prices from `admin_settings` keys `delivery_inside_dhaka` and `delivery_outside_dhaka`
-4. Add radio selector in the form between City and Order Notes fields:
-   - "Delivery Zone" label
-   - Two radio options styled as clickable cards: "Inside Dhaka -- TK100" and "Outside Dhaka -- TK130"
-   - Default: Inside Dhaka selected
-5. Compute `deliveryCharge` dynamically based on selected zone
-6. Update `total` calculation to use dynamic delivery charge
-7. Include `delivery_zone` in the order insert payload
-8. Update order summary to show "Delivery (Inside Dhaka)" or "Delivery (Outside Dhaka)" with the correct amount
-9. Update navigation state passed to confirmation page
-
----
-
-## Phase 7: Admin Settings -- Return Policy and Delivery
+## Phase 4: Admin Settings -- Pathao Credentials Section
 
 **File:** `src/pages/admin/AdminSettings.tsx`
 
-Add to `SETTING_META`:
-- `return_policy_content`: label "Return Policy Content", placeholder text
-- `instagram_url`: label "Instagram URL", placeholder "https://instagram.com/..."
-- `delivery_inside_dhaka`: label "Delivery Charge Inside Dhaka (TK)", type "number"
-- `delivery_outside_dhaka`: label "Delivery Charge Outside Dhaka (TK)", type "number"
+Add a new "Pathao Courier Integration" card section with:
+- Client ID (password input)
+- Client Secret (password input)
+- Merchant Email (text input)
+- Merchant Password (password input)
+- Store ID (text, pre-filled with 372992)
+- Sender Phone (text)
+- "Connect to Pathao" button -- calls `pathao-auth` function
+- Success: shows green "Connected" badge with token expiry
+- Failure: shows red error message
+- "Test Connection" button -- calls `pathao-get-cities` to verify token works
 
-Add new sections:
-1. **Delivery Charges** section (small card) with `delivery_inside_dhaka` and `delivery_outside_dhaka` fields
-2. **Return Policy** section with a textarea for `return_policy_content` with character count
-
-Add these keys to the ordered key groups so they render in separate sections.
+Add `SETTING_META` entries for all pathao keys and a dedicated `pathaoKeys` array for rendering.
 
 ---
 
-## Phase 8: Admin Order Detail -- Delivery Zone
+## Phase 5: Orders List -- Courier Column
+
+**File:** `src/pages/admin/AdminOrders.tsx`
+
+Add `pathao_consignment_id`, `pathao_status`, `pathao_sent_at`, `recipient_city_id`, `recipient_zone_id`, `recipient_area_id` to Order interface and query.
+
+Add "Courier" column between Source and Actions:
+- **Not confirmed**: Gray "Confirm first" text
+- **Confirmed, not sent**: Blue "Send to Pathao" button
+- **Sent**: Green check badge + consignment ID (copyable, small text)
+- **Failed**: Red "Retry" button
+
+Clicking "Send to Pathao":
+1. Checks if `recipient_city_id`, `recipient_zone_id`, `recipient_area_id` are set
+2. If missing: opens PathaoLocationModal (new component)
+3. If complete: calls `pathao-create-order` function
+4. Shows loading spinner, then success/error state
+
+---
+
+## Phase 6: Pathao Location Modal
+
+**New file:** `src/components/admin/PathaoLocationModal.tsx`
+
+A dialog modal shown when sending an order to Pathao that lacks location data:
+- Order number displayed at top
+- Warning text about required fields
+- City dropdown (fetched from `pathao-get-cities`, cached in localStorage 24h)
+- Zone dropdown (loads on city select via `pathao-get-zones`)
+- Area dropdown (loads on zone select via `pathao-get-areas`)
+- Item Weight (kg) input, default 0.5
+- Amount to Collect (pre-filled from order total)
+- Delivery Type radio: Normal (48hrs) / Express (12hrs)
+- "Save and Send to Pathao" button
+- On save: updates order with IDs, then calls `pathao-create-order`
+
+---
+
+## Phase 7: Bulk Send to Pathao
+
+**File:** `src/pages/admin/AdminOrders.tsx`
+
+Add "Send to Pathao" option in bulk actions dropdown.
+
+Rules:
+- Only processes orders where `status` includes confirmed/processing AND `pathao_consignment_id` is null AND `recipient_city_id` is not null
+- Shows confirmation modal with count of eligible orders and skipped orders (missing location)
+- Sends orders sequentially with 500ms delay between each
+- Progress indicator: "Sending 3 of 8..."
+- Summary toast on completion
+
+---
+
+## Phase 8: Order Detail -- Pathao Section
 
 **File:** `src/pages/admin/AdminOrderDetail.tsx`
 
-- Display "Delivery Zone: Inside Dhaka" or "Outside Dhaka" in the shipping/order details card
-- Map `inside_dhaka` to "Inside Dhaka" and `outside_dhaka` to "Outside Dhaka"
+Replace/enhance the existing Courier card:
+
+**Before sending:**
+- Keep existing manual tracking form
+- Add "Send to Pathao Courier" button (blue, prominent)
+- Pathao location fields inline (city/zone/area dropdowns)
+
+**After sending (pathao_consignment_id exists):**
+- Courier: Pathao
+- Consignment ID with copy button
+- Sent at timestamp
+- Current Pathao Status badge
+- "Refresh Status" button (calls `pathao-track-order`)
+- "Print Shipping Label" button
+- Track Shipment link (opens Pathao tracking URL)
 
 ---
 
-## Phase 9: Coming Soon Product Type
+## Phase 9: Shipping Label Print
 
-### Admin Product Panel (`src/components/admin/ProductPanel.tsx`)
-- Add `isComingSoon` state, initialized from `product.is_coming_soon`
-- Add toggle section below Studio Exclusive with crystal ball icon
-- Description: "Product image will be blurred. Price and details hidden. Teaser only."
-- Include `is_coming_soon` in save payload
-- Reset on new product
+**File:** `src/pages/admin/AdminOrderDetail.tsx`
 
-### Admin Products Table (`src/pages/admin/AdminProducts.tsx`)
-- Add `is_coming_soon` to Product interface
-- Show a small "CS" dark badge next to product name when `is_coming_soon` is true
-- Add `is_coming_soon` to toggle labels map (no separate column needed)
-
-### Storefront Product Cards (`src/components/home/ProductGrid.tsx` and `src/pages/Collections.tsx`)
-- Add `is_coming_soon` to Product interface and query select
-- Update badge priority: Studio Exclusive > Coming Soon (dark/black) > Pre-Order > Sold Out > SALE
-- When `is_coming_soon`:
-  - Image: apply `filter: blur(8px)` CSS class
-  - Dark semi-transparent overlay with centered "Coming Soon" white text (Cormorant Garamond, bold)
-  - Product name: show "???" instead
-  - Price: completely hidden
-  - Button area: hidden or show disabled "Coming Soon" text
-  - Card link: prevent navigation (use `e.preventDefault()` or remove Link wrapper)
-
-### Storefront Product Detail (`src/pages/ProductDetail.tsx`)
-- Add `is_coming_soon` to Product interface and query select
-- When `is_coming_soon`:
-  - Show full-page coming soon display:
-    - Product image as blurred background
-    - Dark overlay
-    - Centered content: "DROPPING SOON" heading, teaser text, Instagram button
-  - Hide all purchase UI (size, quantity, cart, price, description)
-  - Fetch `instagram_url` from admin_settings
-  - Instagram button links to the URL (opens new tab)
+Add a print-optimized shipping label component (inline, hidden until print):
+- Store name "BROWN HOUSE"
+- Consignment ID
+- Customer name, phone, address, area, zone, city
+- COD amount
+- Weight
+- Order number
+- Date
+- Uses `@media print` CSS to show only the label
 
 ---
 
-## Phase 10: Add to Cart Modal Protection
+## Phase 10: Auto Status Polling
 
-**File:** `src/components/cart/AddToCartModal.tsx`
-- Add `is_coming_soon` to product interface
-- If product is coming soon, show message and disable add button
+**File:** `src/pages/admin/AdminOrders.tsx`
+
+When admin opens the orders page:
+- After orders load, filter orders with `pathao_consignment_id` set and status not in `['completed', 'delivered', 'returned', 'cancelled']`
+- Poll each with `pathao-track-order` sequentially (1s delay between calls)
+- Show "Syncing courier status..." indicator at top of page during polling
+- Update order data after all polls complete (invalidate query)
+- Run once on page load, not on interval (to avoid excessive API calls)
 
 ---
 
-## Files Changed Summary
+## Phase 11: Dashboard Courier Overview
 
-| File | Changes |
-|------|---------|
-| Database migration | Add `is_coming_soon` column, `delivery_zone` column, seed settings |
-| `src/pages/ProductDetail.tsx` | Shipping time, delivery charges, size chart typography, return policy modal, coming soon full-page display |
-| `src/pages/Checkout.tsx` | Delivery zone selector, dynamic pricing, save `delivery_zone` |
-| `src/pages/admin/AdminSettings.tsx` | Return policy textarea, delivery charges, instagram URL fields |
-| `src/pages/admin/AdminOrderDetail.tsx` | Show delivery zone label |
-| `src/components/admin/ProductPanel.tsx` | Coming soon toggle section |
-| `src/pages/admin/AdminProducts.tsx` | Coming soon badge next to product name |
-| `src/components/home/ProductGrid.tsx` | Coming soon badge, blurred image, hidden price/name |
-| `src/pages/Collections.tsx` | Coming soon badge, blurred image, hidden price/name |
-| `src/components/cart/AddToCartModal.tsx` | Block coming soon products |
+**File:** `src/pages/admin/AdminDashboard.tsx`
+
+Add a "Courier Overview" section after the existing stat rows:
+
+4 stat cards:
+- **Pending Dispatch**: Count of orders with `status = 'confirmed'` or `'processing'` and `pathao_consignment_id IS NULL`
+- **In Transit**: Count where `pathao_status = 'In_Transit'`
+- **Delivered Today**: Count where `pathao_status = 'Delivered'` and `pathao_sent_at` is today
+- **Returned**: Count where `pathao_status = 'Returned'`
+
+---
+
+## Phase 12: Token Refresh Handling
+
+Built into all backend functions (shared helper pattern):
+
+Before any Pathao API call:
+1. Read `pathao_access_token` and `pathao_token_expires_at` from `admin_settings`
+2. If token expires within 1 hour, call refresh endpoint with `grant_type: 'refresh_token'`
+3. Save new tokens to `admin_settings`
+4. If refresh fails, return error asking admin to reconnect in settings
+
+---
+
+## Files Summary
+
+| File | Action |
+|------|--------|
+| Database migration | Add 10 columns to orders, seed 9 admin_settings keys |
+| `supabase/config.toml` | Add 6 new function entries with `verify_jwt = false` |
+| `supabase/functions/pathao-auth/index.ts` | New -- authenticate with Pathao |
+| `supabase/functions/pathao-create-order/index.ts` | New -- create Pathao consignment |
+| `supabase/functions/pathao-track-order/index.ts` | New -- track order status |
+| `supabase/functions/pathao-get-cities/index.ts` | New -- fetch city list |
+| `supabase/functions/pathao-get-zones/index.ts` | New -- fetch zones for city |
+| `supabase/functions/pathao-get-areas/index.ts` | New -- fetch areas for zone |
+| `src/components/admin/PathaoLocationModal.tsx` | New -- location picker modal |
+| `src/pages/admin/AdminSettings.tsx` | Add Pathao credentials section |
+| `src/pages/admin/AdminOrders.tsx` | Courier column, bulk send, auto-polling, new statuses |
+| `src/pages/admin/AdminOrderDetail.tsx` | Pathao section, refresh status, shipping label, new statuses |
+| `src/pages/admin/AdminDashboard.tsx` | Courier overview stats, new statuses |
