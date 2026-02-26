@@ -407,6 +407,11 @@ const AdminOrderDetail = () => {
               <p className="text-muted-foreground">{order.customer_phone}</p>
               <p className="text-muted-foreground">{order.customer_address}</p>
               <p className="text-muted-foreground">{order.customer_city}</p>
+              {order.delivery_zone && (
+                <p className="text-muted-foreground mt-1">
+                  📦 Delivery Zone: {order.delivery_zone === "outside_dhaka" ? "Outside Dhaka" : "Inside Dhaka"}
+                </p>
+              )}
             </CardContent>
           </Card>
 

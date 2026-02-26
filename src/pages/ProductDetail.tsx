@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useCart } from "@/contexts/CartContext";
 import { formatPrice } from "@/lib/format";
 import { getImageUrl } from "@/lib/image";
-import { Minus, Plus, Clock, MapPin } from "lucide-react";
+import { Minus, Plus, Clock, MapPin, Truck, Ruler, Undo2, X } from "lucide-react";
 import { toast } from "sonner";
 import Navigation from "@/components/layout/Navigation";
 import AnnouncementBar from "@/components/layout/AnnouncementBar";
@@ -33,6 +33,7 @@ interface Product {
   is_active: boolean;
   is_preorder: boolean | null;
   is_studio_exclusive: boolean | null;
+  is_coming_soon: boolean | null;
   product_variants: Variant[];
 }
 
@@ -50,6 +51,7 @@ const ProductDetail = () => {
   const [quantity, setQuantity] = useState(1);
   const [mainImage, setMainImage] = useState(0);
   const [sizeChartOpen, setSizeChartOpen] = useState(false);
+  const [returnPolicyOpen, setReturnPolicyOpen] = useState(false);
 
   const { data: sizeChartUrl } = useQuery({
     queryKey: ["size-chart"],
@@ -64,14 +66,54 @@ const ProductDetail = () => {
     staleTime: 5 * 60 * 1000,
   });
 
+  const { data: deliveryPrices } = useQuery({
+    queryKey: ["delivery-prices"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("admin_settings")
+        .select("key, value")
+        .in("key", ["delivery_inside_dhaka", "delivery_outside_dhaka"]);
+      const map: Record<string, string> = {};
+      (data ?? []).forEach((r: any) => { if (r.value) map[r.key] = r.value; });
+      return { inside: map["delivery_inside_dhaka"] || "100", outside: map["delivery_outside_dhaka"] || "130" };
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: returnPolicyContent } = useQuery({
+    queryKey: ["return-policy"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("admin_settings")
+        .select("value")
+        .eq("key", "return_policy_content")
+        .single();
+      return data?.value || null;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: instagramUrl } = useQuery({
+    queryKey: ["instagram-url"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("admin_settings")
+        .select("value")
+        .eq("key", "instagram_url")
+        .single();
+      return data?.value || null;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
   useEffect(() => {
-    if (!sizeChartOpen) return;
+    if (!sizeChartOpen && !returnPolicyOpen) return;
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setSizeChartOpen(false);
+      if (e.key === "Escape") { setSizeChartOpen(false); setReturnPolicyOpen(false); }
     };
     window.addEventListener("keydown", handleEsc);
     return () => window.removeEventListener("keydown", handleEsc);
-  }, [sizeChartOpen]);
+  }, [sizeChartOpen, returnPolicyOpen]);
 
   const { data: product, isLoading } = useQuery({
     queryKey: ["product", slug],
@@ -89,6 +131,7 @@ const ProductDetail = () => {
   });
 
   const isStudioExclusive = !!product?.is_studio_exclusive;
+  const isComingSoon = !!product?.is_coming_soon;
 
   const { data: studioSettings } = useQuery({
     queryKey: ["studio-settings"],
@@ -141,6 +184,49 @@ const ProductDetail = () => {
       <div className="min-h-screen bg-cream flex flex-col items-center justify-center gap-4">
         <p className="font-heading text-3xl text-foreground">Product not found</p>
         <Link to="/" className="font-body text-sm text-muted-foreground underline">Return to shop</Link>
+      </div>
+    );
+  }
+
+  // Coming Soon full page display
+  if (isComingSoon) {
+    const images = product.images && product.images.length > 0 ? product.images : ["/placeholder.svg"];
+    return (
+      <div className="min-h-screen bg-cream">
+        <AnnouncementBar />
+        <Navigation />
+        <main className="relative min-h-[80vh] flex items-center justify-center overflow-hidden">
+          {/* Blurred background image */}
+          <div
+            className="absolute inset-0 bg-cover bg-center"
+            style={{
+              backgroundImage: `url(${getImageUrl(images[0], 1200)})`,
+              filter: "blur(20px)",
+              transform: "scale(1.1)",
+            }}
+          />
+          {/* Dark overlay */}
+          <div className="absolute inset-0 bg-black/60" />
+          {/* Content */}
+          <div className="relative z-10 text-center px-6 max-w-lg mx-auto">
+            <p className="text-white/60 font-body text-[11px] uppercase tracking-[3px] mb-4">🔮</p>
+            <h1 className="font-heading text-4xl lg:text-5xl text-white mb-4">DROPPING SOON</h1>
+            <p className="font-body text-sm text-white/70 leading-relaxed mb-8">
+              Something special is on its way. Stay tuned and keep your eyes on our Instagram for the reveal.
+            </p>
+            {instagramUrl && (
+              <a
+                href={instagramUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 bg-white text-black font-body text-[12px] uppercase tracking-[1.5px] font-bold px-8 py-4 hover:bg-white/90 transition-colors"
+              >
+                Follow us on Instagram →
+              </a>
+            )}
+          </div>
+        </main>
+        <Footer />
       </div>
     );
   }
@@ -344,15 +430,19 @@ const ProductDetail = () => {
                     {sizeChartUrl && (
                       <button
                         onClick={() => setSizeChartOpen(true)}
-                        className="flex items-center gap-1 text-xs uppercase tracking-widest text-foreground/60 hover:text-foreground underline underline-offset-4 transition-colors duration-200"
+                        className="flex items-center gap-1.5 text-[13px] uppercase tracking-widest text-foreground font-bold underline underline-offset-4 hover:opacity-70 transition-opacity"
                       >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M21 21H3V3"/>
-                          <path d="M21 3L3 21"/>
-                        </svg>
+                        <Ruler className="w-4 h-4" />
                         Size Chart
                       </button>
                     )}
+                    <button
+                      onClick={() => setReturnPolicyOpen(true)}
+                      className="flex items-center gap-1.5 text-[13px] uppercase tracking-widest text-foreground font-bold underline underline-offset-4 hover:opacity-70 transition-opacity"
+                    >
+                      <Undo2 className="w-4 h-4" />
+                      Return Policy
+                    </button>
                   </div>
                   <div className="flex flex-wrap gap-3">
                     {sortedVariants.map((variant) => {
@@ -443,6 +533,27 @@ const ProductDetail = () => {
                   </div>
                 )}
 
+                {/* Standard delivery notice (non pre-order) */}
+                {!isPreorder && (
+                  <div className="flex items-center gap-2 mt-4 border border-border rounded-md px-4 py-3">
+                    <Truck className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <p className="font-body text-xs text-muted-foreground">Standard Delivery: 2–3 Business Days</p>
+                  </div>
+                )}
+
+                {/* Delivery Charges */}
+                <div className="mt-3 border border-border rounded-md px-4 py-3">
+                  <p className="font-body text-xs font-semibold text-foreground mb-1.5">📦 Delivery Charges</p>
+                  <div className="flex justify-between font-body text-xs text-muted-foreground">
+                    <span>Inside Dhaka</span>
+                    <span>৳{deliveryPrices?.inside || "100"}</span>
+                  </div>
+                  <div className="flex justify-between font-body text-xs text-muted-foreground mt-0.5">
+                    <span>Outside Dhaka</span>
+                    <span>৳{deliveryPrices?.outside || "130"}</span>
+                  </div>
+                </div>
+
                 <p className="font-body text-xs text-muted-foreground text-center mt-4">
                   Cash on Delivery · Free exchange within 7 days
                 </p>
@@ -454,6 +565,7 @@ const ProductDetail = () => {
 
       <YouMayAlsoLike productId={product.id} categoryId={product.category_id} />
 
+      {/* Size Chart Modal */}
       {sizeChartOpen && sizeChartUrl && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
@@ -464,21 +576,46 @@ const ProductDetail = () => {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between p-4 border-b border-border">
-              <h3 className="font-heading text-xl text-foreground">Size Chart</h3>
+              <h3 className="font-heading text-2xl font-bold text-foreground">Size Chart</h3>
               <button
                 onClick={() => setSizeChartOpen(false)}
                 className="text-foreground/40 hover:text-foreground transition-colors p-1"
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18"/>
-                  <line x1="6" y1="6" x2="18" y2="18"/>
-                </svg>
+                <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-4">
               <img src={sizeChartUrl} alt="Size Chart" className="w-full h-auto" />
-              <p className="text-xs text-center text-muted-foreground mt-3 font-body">
+              <p className="text-sm text-center text-foreground font-bold mt-3 font-body">
                 All measurements are in inches
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Return Policy Modal */}
+      {returnPolicyOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onClick={() => setReturnPolicyOpen(false)}
+        >
+          <div
+            className="relative bg-background rounded-lg max-w-lg w-full max-h-[90vh] overflow-auto shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h3 className="font-heading text-2xl font-bold text-foreground">Return Policy</h3>
+              <button
+                onClick={() => setReturnPolicyOpen(false)}
+                className="text-foreground/40 hover:text-foreground transition-colors p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4">
+              <p className="font-body text-sm text-foreground leading-relaxed whitespace-pre-line">
+                {returnPolicyContent || "Our return policy will be available soon. Please contact us for any queries."}
               </p>
             </div>
           </div>
