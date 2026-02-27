@@ -1,62 +1,82 @@
 
+Goal: make Size Chart and Return Policy behave as true on-screen modals that appear immediately in the current viewport (desktop + mobile), with backdrop-click dismissal, without any “scroll down to find modal” behavior.
 
-# Fix Size Chart & Return Policy -- Simple Fixed Modal
+What I found:
+1. In `src/pages/ProductDetail.tsx`, both overlays are currently rendered with `fixed inset-0` and should normally center in viewport.
+2. The page root has `className="... page-transition"` (`ProductDetail.tsx`, line around 273).
+3. In `src/index.css`, `.page-transition` animates with `transform: translateY(...)`.
+4. A transformed ancestor can create a containing block for `position: fixed` descendants, which explains why the modal can appear centered relative to the long page content instead of the visible screen on some devices/browsers.
+5. That matches your symptom exactly: customer clicks near top section but modal appears “in middle of full page,” and on mobile it feels like it goes to footer area.
 
-## Problem
-The current popover approach (desktop) and bottom sheet (mobile) are not working well. On mobile, clicking these links scrolls the user to the footer area. The user wants simple fixed modals that appear centered on the current screen with backdrop click to dismiss.
+Implementation approach:
+Use the existing shared Dialog primitive (already in codebase) for both Size Chart and Return Policy. The Dialog content renders in a portal, so it is no longer affected by transformed ancestors in the product page tree.
 
-## Solution
-Replace ALL the popover/bottom-sheet logic with a simple fixed viewport-centered modal for both desktop and mobile. Click the backdrop to close. This actually **simplifies** the code by removing refs, direction detection, and separate mobile/desktop branches.
+Planned code changes:
 
-### Changes to `src/pages/ProductDetail.tsx`
+1) Update imports in `src/pages/ProductDetail.tsx`
+- Add:
+  - `Dialog`
+  - `DialogContent`
+  - `DialogHeader`
+  - `DialogTitle`
+  from `@/components/ui/dialog`
+- Keep existing state (`sizeChartOpen`, `returnPolicyOpen`).
+- Remove now-unneeded manual close icon import if it becomes unused (`X`).
 
-**1. Remove unnecessary state and refs:**
-- Remove `sizeChartDirection`, `returnPolicyDirection` states
-- Remove `sizeChartTriggerRef`, `sizeChartPopoverRef`, `returnPolicyTriggerRef`, `returnPolicyPopoverRef` refs
-- Remove the smart positioning `useEffect` blocks (lines 144-156)
-- Remove the outside-click `useEffect` (lines 126-142)
-- Keep Escape key handler (lines 116-123)
+2) Replace custom Size Chart modal block
+- Remove current custom structure:
+  - `<div className="fixed inset-0 ...">`
+  - manual backdrop
+  - manual stopPropagation container
+- Replace with:
+  - `<Dialog open={sizeChartOpen} onOpenChange={setSizeChartOpen}>`
+  - `<DialogContent ...>` with max width/height constraints (`max-w-md`, `max-h-[80vh]`, `overflow-auto`)
+  - Header via `DialogHeader` + `DialogTitle`
+  - Existing size chart content/image body preserved
+- Keep trigger behavior as-is (`setSizeChartOpen(!sizeChartOpen); setReturnPolicyOpen(false)`).
 
-**2. Simplify trigger buttons (lines 470-527):**
-- Remove the `relative` wrapper divs and refs from both buttons
-- Remove the inline desktop popover markup that sits inside the button wrappers
-- Keep the buttons as simple toggles
+3) Replace custom Return Policy modal block
+- Same migration to Dialog structure:
+  - `<Dialog open={returnPolicyOpen} onOpenChange={setReturnPolicyOpen}>`
+  - `<DialogContent ...>`
+  - `DialogHeader` + `DialogTitle`
+  - Existing policy text body preserved
+- Keep trigger behavior as-is (`setReturnPolicyOpen(!returnPolicyOpen); setSizeChartOpen(false)`).
 
-**3. Replace mobile bottom sheets (lines 650-686) with fixed centered modals:**
-- Remove the `isMobile` condition -- same modal for all screen sizes
-- Render both modals as fixed viewport-centered overlays:
+4) Remove manual modal event plumbing no longer needed
+- Remove the Escape-key `useEffect` in `ProductDetail.tsx` since Dialog handles Escape + backdrop click automatically and consistently.
+- Ensure no stale handlers remain.
 
-```text
-+----------------------------------+
-|  Fixed backdrop (bg-black/50)    |
-|  click to dismiss                |
-|  +----------------------------+  |
-|  | Modal card (centered)      |  |
-|  | - Header with close button |  |
-|  | - Scrollable content       |  |
-|  +----------------------------+  |
-+----------------------------------+
-```
+5) Optional stabilization if animation still interferes
+- If needed after verification, add a guard class strategy:
+  - Temporarily disable `.page-transition` transform while either dialog is open.
+- This is likely unnecessary once using portalized Dialog, but I’ll keep it as fallback.
 
-- Desktop: `max-w-md` centered card
-- Mobile: `max-w-[95vw]` with `max-h-[80vh]` scrollable content
-- Uses existing `popover-enter` animation class
-- Positioned with `fixed inset-0 z-50 flex items-center justify-center`
+Why this will fix your exact issue:
+- Portalized Dialog is rendered outside the transformed product page container.
+- So modal positioning is tied to the actual viewport, not page document height.
+- On mobile, tapping Size Chart/Return Policy opens modal immediately “in front of user,” not near footer.
+- Backdrop tap closes instantly (your requested behavior).
 
-**4. Place modals right before `<Footer />`** to keep them in the normal flow but visually overlay via fixed positioning.
+Behavior after implementation:
+- Click Size Chart -> modal appears on current screen, centered in viewport.
+- Click Return Policy -> same.
+- Click dark background -> closes.
+- Press Escape (desktop) -> closes.
+- No forced scroll, no “searching” for the modal location.
 
-### No CSS changes needed
-The existing `popover-enter` animation in `src/index.css` will be reused. The `slide-up-enter` class becomes unused but harmless to keep.
+Files to update:
+- `src/pages/ProductDetail.tsx` (main change)
+- `src/index.css` unchanged for this fix unless fallback tweak is required.
 
-### Files Changed
+Verification checklist:
+1. Desktop on `/product/jakti-storm`: open both modals from top section and confirm immediate on-screen display.
+2. Mobile viewport: open both modals while scrolled at various positions; confirm they still appear in current viewport.
+3. Confirm backdrop click closes both.
+4. Confirm no page jump/scroll shift when opening/closing.
+5. Confirm only one modal can be open at a time.
 
-| File | Change |
-|------|--------|
-| `src/pages/ProductDetail.tsx` | Replace popovers + bottom sheets with fixed centered modals, remove refs/direction logic |
-
-### Key Behavior
-- **Both desktop and mobile**: Fixed centered modal appears over current viewport. No scroll change.
-- **Backdrop click**: Dismisses the modal instantly.
-- **Escape key**: Also dismisses.
-- **Content scrolls** inside the modal if it exceeds max height.
-- Much simpler code -- removes ~50 lines of positioning/ref logic.
+Technical notes:
+- This aligns with existing project patterns (`ContactModal` already uses shared Dialog components).
+- It reduces custom modal logic and removes brittle manual event handlers.
+- It preserves current data fetching and content rendering.
