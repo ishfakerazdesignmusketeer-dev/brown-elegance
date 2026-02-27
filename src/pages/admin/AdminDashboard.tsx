@@ -3,13 +3,14 @@ import { formatPrice } from "@/lib/format";
 import { formatDistanceToNow, format, subDays, startOfDay } from "date-fns";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend,
   BarChart, Bar,
 } from "recharts";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 
 const STATUS_COLORS_HEX: Record<string, string> = {
   pending: "#FCD34D",
@@ -197,7 +198,25 @@ const AdminDashboard = () => {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-gray-900 mb-6">Dashboard</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-xl font-semibold text-gray-900">Dashboard</h1>
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-9 w-9"
+          title="Refresh data"
+          onClick={() => {
+            queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+            queryClient.invalidateQueries({ queryKey: ["admin-all-order-items"] });
+            queryClient.invalidateQueries({ queryKey: ["admin-customer-count"] });
+            queryClient.invalidateQueries({ queryKey: ["admin-low-stock"] });
+            queryClient.invalidateQueries({ queryKey: ["admin-out-of-stock"] });
+            queryClient.invalidateQueries({ queryKey: ["admin-abandoned-stats"] });
+          }}
+        >
+          <RefreshCw className={cn("w-4 h-4", isLoading && "animate-spin")} />
+        </Button>
+      </div>
 
       {/* Row 1: Revenue */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">

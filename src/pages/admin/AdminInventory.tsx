@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Search, ChevronDown, ChevronRight, Package, Minus, Plus, Pencil, ChevronsUpDown } from "lucide-react";
+import { Search, ChevronDown, ChevronRight, Package, Minus, Plus, Pencil, ChevronsUpDown, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -249,6 +249,15 @@ const AdminInventory = () => {
           <h1 className="text-xl font-semibold text-gray-900">Inventory Management</h1>
           <p className="text-xs text-gray-500 mt-0.5">Real-time stock across all products and sizes</p>
         </div>
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-9 w-9"
+          title="Refresh data"
+          onClick={() => invalidateAll()}
+        >
+          <RefreshCw className={cn("w-4 h-4", isLoading && "animate-spin")} />
+        </Button>
       </div>
 
       {/* Summary Cards */}
