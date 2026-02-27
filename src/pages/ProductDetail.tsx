@@ -5,7 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
 import { formatPrice } from "@/lib/format";
-import { Minus, Plus, Clock, MapPin, Truck, Ruler, Undo2, X } from "lucide-react";
+import { Minus, Plus, Clock, MapPin, Truck, Ruler, Undo2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import Navigation from "@/components/layout/Navigation";
 import AnnouncementBar from "@/components/layout/AnnouncementBar";
@@ -105,14 +106,6 @@ const ProductDetail = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  useEffect(() => {
-    if (!sizeChartOpen && !returnPolicyOpen) return;
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { setSizeChartOpen(false); setReturnPolicyOpen(false); }
-    };
-    window.addEventListener("keydown", handleEsc);
-    return () => window.removeEventListener("keydown", handleEsc);
-  }, [sizeChartOpen, returnPolicyOpen]);
 
 
   const { data: product, isLoading } = useQuery({
@@ -564,44 +557,30 @@ const ProductDetail = () => {
 
       <YouMayAlsoLike productId={product.id} categoryId={product.category_id} />
 
-      {/* Size Chart Modal */}
-      {sizeChartOpen && sizeChartUrl && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setSizeChartOpen(false)}>
-          <div className="absolute inset-0 bg-black/50" />
-          <div className="relative bg-background rounded-lg shadow-xl w-full max-w-md max-h-[80vh] overflow-auto popover-enter" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-4 border-b border-border sticky top-0 bg-background z-10">
-              <h3 className="font-heading text-lg font-bold text-foreground">Size Chart</h3>
-              <button onClick={() => setSizeChartOpen(false)} className="text-foreground/40 hover:text-foreground transition-colors p-1">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-4">
-              <img src={sizeChartUrl} alt="Size Chart" className="w-full h-auto" />
-              <p className="text-sm text-center text-foreground font-bold mt-3 font-body">All measurements are in inches</p>
-            </div>
+      {/* Size Chart Modal (portalized) */}
+      <Dialog open={sizeChartOpen && !!sizeChartUrl} onOpenChange={setSizeChartOpen}>
+        <DialogContent className="max-w-md max-h-[80vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-lg">Size Chart</DialogTitle>
+          </DialogHeader>
+          <div>
+            <img src={sizeChartUrl!} alt="Size Chart" className="w-full h-auto" />
+            <p className="text-sm text-center text-foreground font-bold mt-3 font-body">All measurements are in inches</p>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
 
-      {/* Return Policy Modal */}
-      {returnPolicyOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setReturnPolicyOpen(false)}>
-          <div className="absolute inset-0 bg-black/50" />
-          <div className="relative bg-background rounded-lg shadow-xl w-full max-w-md max-h-[80vh] overflow-auto popover-enter" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-4 border-b border-border sticky top-0 bg-background z-10">
-              <h3 className="font-heading text-lg font-bold text-foreground">Return Policy</h3>
-              <button onClick={() => setReturnPolicyOpen(false)} className="text-foreground/40 hover:text-foreground transition-colors p-1">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-4">
-              <p className="font-body text-sm text-foreground leading-relaxed whitespace-pre-line">
-                {returnPolicyContent || "Our return policy will be available soon. Please contact us for any queries."}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Return Policy Modal (portalized) */}
+      <Dialog open={returnPolicyOpen} onOpenChange={setReturnPolicyOpen}>
+        <DialogContent className="max-w-md max-h-[80vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-lg">Return Policy</DialogTitle>
+          </DialogHeader>
+          <p className="font-body text-sm text-foreground leading-relaxed whitespace-pre-line">
+            {returnPolicyContent || "Our return policy will be available soon. Please contact us for any queries."}
+          </p>
+        </DialogContent>
+      </Dialog>
 
       <Footer />
     </div>
