@@ -1,75 +1,62 @@
 
-# Fix Size Chart & Return Policy Modal Positioning
+
+# Fix Size Chart & Return Policy -- Simple Fixed Modal
 
 ## Problem
-Both modals use `fixed inset-0` centered overlay which forces users to scroll away from their context on the product page.
+The current popover approach (desktop) and bottom sheet (mobile) are not working well. On mobile, clicking these links scrolls the user to the footer area. The user wants simple fixed modals that appear centered on the current screen with backdrop click to dismiss.
 
 ## Solution
-Replace both full-screen centered modals with inline floating popovers that appear near the trigger buttons, using smart up/down positioning.
+Replace ALL the popover/bottom-sheet logic with a simple fixed viewport-centered modal for both desktop and mobile. Click the backdrop to close. This actually **simplifies** the code by removing refs, direction detection, and separate mobile/desktop branches.
 
 ### Changes to `src/pages/ProductDetail.tsx`
 
-**1. Add refs and direction state**
-- Add `useRef` for both trigger buttons and popover containers
-- Add `openDirection` state for each popover ('up' | 'down')
-- Add `useEffect` for outside-click detection
-- Add `useEffect` for smart positioning (check space above vs below trigger)
+**1. Remove unnecessary state and refs:**
+- Remove `sizeChartDirection`, `returnPolicyDirection` states
+- Remove `sizeChartTriggerRef`, `sizeChartPopoverRef`, `returnPolicyTriggerRef`, `returnPolicyPopoverRef` refs
+- Remove the smart positioning `useEffect` blocks (lines 144-156)
+- Remove the outside-click `useEffect` (lines 126-142)
+- Keep Escape key handler (lines 116-123)
 
-**2. Replace Size Chart trigger button (line 429-436)**
-- Add `ref={sizeChartTriggerRef}` to the button
-- Toggle behavior: `onClick={() => setSizeChartOpen(!sizeChartOpen)}`
-- Wrap button in a `relative` container
+**2. Simplify trigger buttons (lines 470-527):**
+- Remove the `relative` wrapper divs and refs from both buttons
+- Remove the inline desktop popover markup that sits inside the button wrappers
+- Keep the buttons as simple toggles
 
-**3. Replace Size Chart modal (lines 567-593)**
-- Remove the full-screen `fixed inset-0` overlay
-- Instead, render an inline floating card right after the trigger button inside its relative wrapper
-- Styles: `absolute z-50 w-[360px] bg-background rounded-lg shadow-2xl border`
-- Position dynamically: `bottom: 100%` (up) or `top: 100%` (down)
-- Add `popover-enter` animation class
+**3. Replace mobile bottom sheets (lines 650-686) with fixed centered modals:**
+- Remove the `isMobile` condition -- same modal for all screen sizes
+- Render both modals as fixed viewport-centered overlays:
 
-**4. Replace Return Policy trigger button (line 437-443)**
-- Same treatment: add ref, toggle, relative wrapper
-
-**5. Replace Return Policy modal (lines 596-621)**
-- Same floating popover pattern, `w-[360px]`
-- Content: return policy text with close button header
-
-**6. Mobile behavior (screen < 768px)**
-- Use `useIsMobile()` hook (already available)
-- On mobile: render as a fixed bottom sheet instead of inline popover
-- `fixed bottom-0 left-0 right-0 z-50 rounded-t-xl max-h-[80vh] overflow-auto`
-- Slide-up animation
-- Light backdrop overlay on mobile only
-
-### CSS additions to `src/index.css`
-
-Add two new animations:
-```css
-@keyframes popoverIn {
-  from { opacity: 0; transform: translateY(6px) scale(0.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-.popover-enter {
-  animation: popoverIn 0.15s ease-out forwards;
-}
-
-@keyframes slideUp {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
-}
-.slide-up-enter {
-  animation: slideUp 0.25s ease-out forwards;
-}
+```text
++----------------------------------+
+|  Fixed backdrop (bg-black/50)    |
+|  click to dismiss                |
+|  +----------------------------+  |
+|  | Modal card (centered)      |  |
+|  | - Header with close button |  |
+|  | - Scrollable content       |  |
+|  +----------------------------+  |
++----------------------------------+
 ```
+
+- Desktop: `max-w-md` centered card
+- Mobile: `max-w-[95vw]` with `max-h-[80vh]` scrollable content
+- Uses existing `popover-enter` animation class
+- Positioned with `fixed inset-0 z-50 flex items-center justify-center`
+
+**4. Place modals right before `<Footer />`** to keep them in the normal flow but visually overlay via fixed positioning.
+
+### No CSS changes needed
+The existing `popover-enter` animation in `src/index.css` will be reused. The `slide-up-enter` class becomes unused but harmless to keep.
 
 ### Files Changed
 
 | File | Change |
 |------|--------|
-| `src/pages/ProductDetail.tsx` | Replace both modals with inline popovers (desktop) / bottom sheets (mobile) |
-| `src/index.css` | Add `popoverIn` and `slideUp` animations |
+| `src/pages/ProductDetail.tsx` | Replace popovers + bottom sheets with fixed centered modals, remove refs/direction logic |
 
 ### Key Behavior
-- **Desktop**: Floating card appears anchored near the clicked button, positioned above or below based on available space. Closes on outside click or Escape.
-- **Mobile**: Bottom sheet slides up from screen bottom, max 80vh height, scrollable content. Light backdrop, closes on backdrop tap or X button.
-- **No page scroll disruption** in either case.
+- **Both desktop and mobile**: Fixed centered modal appears over current viewport. No scroll change.
+- **Backdrop click**: Dismisses the modal instantly.
+- **Escape key**: Also dismisses.
+- **Content scrolls** inside the modal if it exceeds max height.
+- Much simpler code -- removes ~50 lines of positioning/ref logic.
