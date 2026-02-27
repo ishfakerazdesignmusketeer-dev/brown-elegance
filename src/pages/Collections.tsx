@@ -1,17 +1,16 @@
 import { useParams, Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
 import { formatPrice } from "@/lib/format";
-import { getImageUrl } from "@/lib/image";
 import { useIsMobile } from "@/hooks/use-mobile";
 import Navigation from "@/components/layout/Navigation";
 import AnnouncementBar from "@/components/layout/AnnouncementBar";
 import Footer from "@/components/layout/Footer";
 import AddToCartModal from "@/components/cart/AddToCartModal";
+import LazyImage from "@/components/ui/lazy-image";
 import { ShoppingBag } from "lucide-react";
 
 interface ProductVariant {
@@ -31,10 +30,17 @@ interface Product {
   product_variants: ProductVariant[];
 }
 
+const preloadImage = (src: string) => {
+  if (!src) return;
+  const img = new Image();
+  img.src = src;
+};
+
 const Collections = () => {
   const { slug } = useParams<{ slug: string }>();
   const { addItem } = useCart();
   const isMobile = useIsMobile();
+  const queryClient = useQueryClient();
   const [modalProduct, setModalProduct] = useState<Product | null>(null);
 
   const isAllCollections = !slug;
@@ -85,6 +91,24 @@ const Collections = () => {
     }
   };
 
+  const handleHover = (product: Product) => {
+    if (product.images?.[0]) preloadImage(product.images[0]);
+    queryClient.prefetchQuery({
+      queryKey: ["product", product.slug],
+      queryFn: async () => {
+        const { data, error } = await supabase
+          .from("products")
+          .select("*, product_variants(size, stock, is_available)")
+          .eq("slug", product.slug)
+          .eq("is_active", true)
+          .single();
+        if (error) throw error;
+        return data;
+      },
+      staleTime: 5 * 60 * 1000,
+    });
+  };
+
   const allSoldOut = (p: Product) => p.product_variants.length > 0 && p.product_variants.every(v => v.stock === 0);
   const hasSale = (p: Product) => p.offer_price != null && p.offer_price < p.price;
 
@@ -103,14 +127,14 @@ const Collections = () => {
         <AnnouncementBar />
         <Navigation />
         <div className="px-6 lg:px-12 py-12">
-          <Skeleton className="h-6 w-48 mb-8" />
-          <Skeleton className="h-12 w-64 mb-12" />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            {Array.from({ length: 6 }).map((_, i) => (
+          <div className="h-6 w-48 skeleton-shimmer rounded mb-8" />
+          <div className="h-12 w-64 skeleton-shimmer rounded mb-12" />
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-8">
+            {Array.from({ length: 12 }).map((_, i) => (
               <div key={i}>
-                <Skeleton className="aspect-[3/4] w-full mb-5" />
-                <Skeleton className="h-5 w-3/4 mx-auto mb-2" />
-                <Skeleton className="h-4 w-1/3 mx-auto" />
+                <div className="skeleton-shimmer w-full rounded mb-5" style={{ aspectRatio: "3/4" }} />
+                <div className="h-5 w-3/4 skeleton-shimmer rounded mx-auto mb-2" />
+                <div className="h-4 w-1/3 skeleton-shimmer rounded mx-auto" />
               </div>
             ))}
           </div>
@@ -131,7 +155,7 @@ const Collections = () => {
   const pageTitle = isAllCollections ? "All Collections" : category!.name;
 
   return (
-    <div className="min-h-screen bg-cream">
+    <div className="min-h-screen bg-cream page-transition">
       <AnnouncementBar />
       <Navigation />
 
@@ -155,7 +179,7 @@ const Collections = () => {
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-6 lg:gap-10">
-            {products.map((product) => {
+            {products.map((product, idx) => {
               const originalUrl = product.images?.[0] ?? "/placeholder.svg";
               const isSoldOut = allSoldOut(product);
               const badge = getBadge(product);
@@ -165,29 +189,24 @@ const Collections = () => {
               const cardContent = (
                 <>
                   <div className="block relative aspect-[3/4] overflow-hidden bg-[#F8F5E9] mb-5">
-                    <img
-                      src={getImageUrl(originalUrl, 600)}
+                    <LazyImage
+                      src={originalUrl}
                       alt={isComingSoon ? "Coming Soon" : product.name}
-                      className={`w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 ${isComingSoon ? "blur-xl scale-105" : ""}`}
-                      loading="lazy"
-                      decoding="async"
+                      className={`transition-transform duration-700 group-hover:scale-105 ${isComingSoon ? "blur-xl scale-105" : ""}`}
+                      priority={idx < 4}
                       width={600}
                       height={800}
-                      onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = originalUrl; }}
                     />
-                    {/* Coming Soon overlay */}
                     {isComingSoon && (
                       <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                         <span className="font-heading text-xl lg:text-2xl text-white font-bold">Coming Soon</span>
                       </div>
                     )}
-                    {/* Badge */}
                     {badge && (
                       <span className={`absolute ${badge.position} font-body text-[9px] uppercase tracking-[1px] px-2 py-1 ${badge.className} z-10`}>
                         {badge.text}
                       </span>
                     )}
-                    {/* Desktop overlay */}
                     {!isComingSoon && (
                       <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/20 transition-colors duration-300 hidden lg:flex items-end justify-center pb-6 opacity-0 group-hover:opacity-100">
                         {product.is_studio_exclusive ? (
@@ -209,7 +228,6 @@ const Collections = () => {
                         )}
                       </div>
                     )}
-                    {/* Mobile bottom bar */}
                     {!isComingSoon && (
                       product.is_studio_exclusive ? (
                         <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-3/4 flex items-center justify-center gap-1.5 bg-white/90 backdrop-blur-sm text-black font-bold font-body text-[9px] uppercase tracking-[1px] py-1 rounded-sm lg:hidden">
@@ -252,7 +270,11 @@ const Collections = () => {
               );
 
               return (
-                <div key={product.id} className={`group ${isSoldOut && !product.is_preorder && !product.is_studio_exclusive && !isComingSoon ? "opacity-75" : ""}`}>
+                <div
+                  key={product.id}
+                  className={`group ${isSoldOut && !product.is_preorder && !product.is_studio_exclusive && !isComingSoon ? "opacity-75" : ""}`}
+                  onMouseEnter={() => handleHover(product)}
+                >
                   {isComingSoon ? (
                     <div className="cursor-default">{cardContent}</div>
                   ) : (

@@ -282,7 +282,7 @@ const Checkout = () => {
   const deliveryZoneLabel = deliveryZone === "inside_dhaka" ? "Inside Dhaka" : "Outside Dhaka";
 
   return (
-    <div className="min-h-screen bg-cream">
+    <div className="min-h-screen bg-cream page-transition">
       <AnnouncementBar />
       <Navigation />
 

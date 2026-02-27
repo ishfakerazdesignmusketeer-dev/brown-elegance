@@ -37,7 +37,18 @@ const AdminCategories = lazy(() => import("./pages/admin/AdminCategories"));
 const AdminFooter = lazy(() => import("./pages/admin/AdminFooter"));
 const AdminReels = lazy(() => import("./pages/admin/AdminReels"));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+      refetchOnWindowFocus: false,
+      refetchOnMount: false,
+      refetchOnReconnect: false,
+      retry: 1,
+    },
+  },
+});
 
 const DynamicFavicon = () => {
   useDynamicFavicon();
@@ -46,7 +57,15 @@ const DynamicFavicon = () => {
 
 const AdminFallback = () => (
   <div className="flex items-center justify-center h-screen">
-    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground" />
+    <div className="w-full max-w-4xl px-6 space-y-6">
+      <div className="h-8 w-48 skeleton-shimmer rounded" />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="h-32 skeleton-shimmer rounded" />
+        ))}
+      </div>
+      <div className="h-64 skeleton-shimmer rounded" />
+    </div>
   </div>
 );
 
