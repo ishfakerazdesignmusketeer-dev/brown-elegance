@@ -12,6 +12,7 @@ import Navigation from "@/components/layout/Navigation";
 import AnnouncementBar from "@/components/layout/AnnouncementBar";
 import Footer from "@/components/layout/Footer";
 import YouMayAlsoLike from "@/components/product/YouMayAlsoLike";
+import SizeChartTable from "@/components/product/SizeChartTable";
 import LazyImage from "@/components/ui/lazy-image";
 
 interface Variant {
@@ -53,18 +54,6 @@ const ProductDetail = () => {
   const [sizeChartOpen, setSizeChartOpen] = useState(false);
   const [returnPolicyOpen, setReturnPolicyOpen] = useState(false);
 
-  const { data: sizeChartUrl } = useQuery({
-    queryKey: ["size-chart"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("admin_settings")
-        .select("value")
-        .eq("key", "size_chart_url")
-        .single();
-      return data?.value || null;
-    },
-    staleTime: 5 * 60 * 1000,
-  });
 
   const { data: deliveryPrices } = useQuery({
     queryKey: ["delivery-prices"],
@@ -419,15 +408,13 @@ const ProductDetail = () => {
                 <div className="mb-6">
                   <div className="flex items-center gap-3 mb-3">
                     <span className="font-body text-xs uppercase tracking-[1.5px] text-foreground">Size</span>
-                    {sizeChartUrl && (
-                      <button
-                        onClick={() => { setSizeChartOpen(!sizeChartOpen); setReturnPolicyOpen(false); }}
-                        className="flex items-center gap-1.5 text-[13px] uppercase tracking-widest text-foreground font-bold underline underline-offset-4 hover:opacity-70 transition-opacity"
-                      >
-                        <Ruler className="w-4 h-4" />
-                        Size Chart
-                      </button>
-                    )}
+                    <button
+                      onClick={() => { setSizeChartOpen(!sizeChartOpen); setReturnPolicyOpen(false); }}
+                      className="flex items-center gap-1.5 text-[13px] uppercase tracking-widest text-foreground font-bold underline underline-offset-4 hover:opacity-70 transition-opacity"
+                    >
+                      <Ruler className="w-4 h-4" />
+                      Size Chart
+                    </button>
                     <button
                       onClick={() => { setReturnPolicyOpen(!returnPolicyOpen); setSizeChartOpen(false); }}
                       className="flex items-center gap-1.5 text-[13px] uppercase tracking-widest text-foreground font-bold underline underline-offset-4 hover:opacity-70 transition-opacity"
@@ -558,15 +545,12 @@ const ProductDetail = () => {
       <YouMayAlsoLike productId={product.id} categoryId={product.category_id} />
 
       {/* Size Chart Modal (portalized) */}
-      <Dialog open={sizeChartOpen && !!sizeChartUrl} onOpenChange={setSizeChartOpen}>
+      <Dialog open={sizeChartOpen} onOpenChange={setSizeChartOpen}>
         <DialogContent className="max-w-md max-h-[80vh] overflow-auto">
           <DialogHeader>
-            <DialogTitle className="font-heading text-lg">Size Chart</DialogTitle>
+            <DialogTitle className="font-heading text-lg sr-only">Size Chart</DialogTitle>
           </DialogHeader>
-          <div>
-            <img src={sizeChartUrl!} alt="Size Chart" className="w-full h-auto" />
-            <p className="text-sm text-center text-foreground font-bold mt-3 font-body">All measurements are in inches</p>
-          </div>
+          <SizeChartTable categoryName={category?.name} />
         </DialogContent>
       </Dialog>
 
