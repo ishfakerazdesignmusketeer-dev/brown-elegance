@@ -176,6 +176,10 @@ const AdminOrders = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-orders-list"] });
       queryClient.invalidateQueries({ queryKey: ["admin-order-counts"] });
+      queryClient.invalidateQueries({ queryKey: ["product"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-stock-overview"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-low-stock"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-out-of-stock"] });
       toast.success("Status updated");
       setInlineStatusOpen(null);
     },
@@ -198,6 +202,8 @@ const AdminOrders = () => {
     onSuccess: (_, { ids, action }) => {
       queryClient.invalidateQueries({ queryKey: ["admin-orders-list"] });
       queryClient.invalidateQueries({ queryKey: ["admin-order-counts"] });
+      queryClient.invalidateQueries({ queryKey: ["product"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-stock-overview"] });
       setSelectedIds(new Set());
       toast.success(action === "delete" ? `${ids.length} orders deleted` : `${ids.length} orders → ${action}`);
     },
@@ -374,6 +380,7 @@ const AdminOrders = () => {
               <TableHead className="text-xs font-medium">Status</TableHead>
               <TableHead className="text-xs font-medium hidden md:table-cell min-w-[200px]">Products</TableHead>
               <TableHead className="text-xs font-medium">Total</TableHead>
+              <TableHead className="text-xs font-medium">Payment</TableHead>
               <TableHead className="text-xs font-medium">Source</TableHead>
               <TableHead className="text-xs font-medium">Actions</TableHead>
             </TableRow>
@@ -452,6 +459,14 @@ const AdminOrders = () => {
                     </div>
                   </TableCell>
                   <TableCell className="text-sm font-medium">{formatPrice(order.total)}</TableCell>
+                  <TableCell>
+                    {(() => {
+                      const ps = order.payment_status || "unpaid";
+                      if (ps === "paid") return <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700">Paid</span>;
+                      if (ps === "partial") return <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Partial ৳{formatPrice(order.total - ((order as any).advance_amount || 0))} due</span>;
+                      return <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-red-100 text-red-700">Unpaid ৳{formatPrice(order.total)} due</span>;
+                    })()}
+                  </TableCell>
                   <TableCell>
                     <span className={cn("text-[10px] font-medium px-2 py-0.5 rounded-full", SOURCE_COLORS[order.source ?? "Website"] || "bg-muted text-muted-foreground")}>
                       {order.source ?? "Website"}

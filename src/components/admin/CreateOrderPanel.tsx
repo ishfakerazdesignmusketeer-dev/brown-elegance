@@ -53,6 +53,7 @@ const PAYMENT_METHODS = [
   { label: "💵 COD", value: "COD" },
   { label: "📱 bKash", value: "bKash" },
   { label: "📱 Nagad", value: "Nagad" },
+  { label: "🏪 In-Store", value: "In-Store" },
 ];
 
 const DISTRICTS = [
@@ -73,8 +74,9 @@ const CreateOrderPanel = ({ open, onClose }: CreateOrderPanelProps) => {
   const [district, setDistrict] = useState("");
   const [notes, setNotes] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("COD");
-  const [paymentStatus, setPaymentStatus] = useState("unpaid");
-  const [delivery, setDelivery] = useState(80);
+  const [paymentType, setPaymentType] = useState<"full" | "advance_cod" | "cod">("cod");
+  const [advanceAmount, setAdvanceAmount] = useState(0);
+  const [deliveryZone, setDeliveryZone] = useState<"inside_dhaka" | "outside_dhaka">("inside_dhaka");
   const [discount, setDiscount] = useState(0);
 
   const [productSearch, setProductSearch] = useState("");
@@ -83,6 +85,27 @@ const CreateOrderPanel = ({ open, onClose }: CreateOrderPanelProps) => {
   const [qty, setQty] = useState(1);
   const [items, setItems] = useState<OrderLineItem[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const { data: deliveryPrices } = useQuery({
+    queryKey: ["delivery-prices-admin"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("admin_settings")
+        .select("key, value")
+        .in("key", ["delivery_inside_dhaka", "delivery_outside_dhaka"]);
+      const map: Record<string, string> = {};
+      (data ?? []).forEach((r: any) => { if (r.value) map[r.key] = r.value; });
+      return {
+        inside: parseInt(map["delivery_inside_dhaka"] || "60") || 60,
+        outside: parseInt(map["delivery_outside_dhaka"] || "120") || 120,
+      };
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const insidePrice = deliveryPrices?.inside ?? 60;
+  const outsidePrice = deliveryPrices?.outside ?? 120;
+  const delivery = deliveryZone === "inside_dhaka" ? insidePrice : outsidePrice;
 
   const { data: products = [] } = useQuery({
     queryKey: ["admin-products-for-order"],
@@ -104,6 +127,10 @@ const CreateOrderPanel = ({ open, onClose }: CreateOrderPanelProps) => {
 
   const subtotal = items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
   const total = subtotal + delivery - discount;
+
+  // Payment status derived from payment type
+  const paymentStatus = paymentType === "full" ? "paid" : paymentType === "advance_cod" ? "partial" : "unpaid";
+  const amountToCollect = paymentType === "full" ? 0 : paymentType === "advance_cod" ? Math.max(0, total - advanceAmount) : total;
 
   const selectedVariant = selectedProduct?.product_variants.find((v) => v.size === selectedSize);
   const maxQty = selectedVariant?.stock ?? 0;
@@ -139,9 +166,9 @@ const CreateOrderPanel = ({ open, onClose }: CreateOrderPanelProps) => {
 
   const resetForm = () => {
     setSource("Phone"); setName(""); setPhone(""); setAddress(""); setDistrict("");
-    setNotes(""); setPaymentMethod("COD"); setPaymentStatus("unpaid"); setDelivery(80);
-    setDiscount(0); setItems([]); setSelectedProduct(null); setSelectedSize("");
-    setQty(1); setProductSearch(""); setErrors({});
+    setNotes(""); setPaymentMethod("COD"); setPaymentType("cod"); setAdvanceAmount(0);
+    setDeliveryZone("inside_dhaka"); setDiscount(0); setItems([]);
+    setSelectedProduct(null); setSelectedSize(""); setQty(1); setProductSearch(""); setErrors({});
   };
 
   const validate = (): boolean => {
@@ -168,11 +195,15 @@ const CreateOrderPanel = ({ open, onClose }: CreateOrderPanelProps) => {
           status: "pending",
           payment_method: paymentMethod,
           payment_status: paymentStatus,
+          payment_type: paymentType,
+          advance_amount: paymentType === "advance_cod" ? advanceAmount : paymentType === "full" ? (total > 0 ? total : 0) : 0,
+          amount_to_collect: amountToCollect > 0 ? amountToCollect : 0,
           subtotal,
           delivery_charge: delivery,
+          delivery_zone: deliveryZone,
           discount_amount: discount,
           total: total > 0 ? total : 0,
-        })
+        } as any)
         .select("id, order_number")
         .single();
       if (orderError) throw orderError;
@@ -286,6 +317,35 @@ const CreateOrderPanel = ({ open, onClose }: CreateOrderPanelProps) => {
                 <div>
                   <Label className="text-xs">Order Notes</Label>
                   <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any special instructions..." rows={2} className="mt-1" />
+                </div>
+              </div>
+
+              {/* Delivery Zone */}
+              <div>
+                <Label className="text-xs text-muted-foreground">Delivery Zone</Label>
+                <div className="flex gap-2 mt-1.5">
+                  <button
+                    onClick={() => setDeliveryZone("inside_dhaka")}
+                    className={cn(
+                      "px-4 py-2 rounded-full text-xs font-medium border transition-colors flex items-center gap-1.5",
+                      deliveryZone === "inside_dhaka"
+                        ? "bg-foreground text-background border-foreground"
+                        : "bg-background text-foreground border-border hover:border-foreground/50"
+                    )}
+                  >
+                    📍 Inside Dhaka — ৳{insidePrice}
+                  </button>
+                  <button
+                    onClick={() => setDeliveryZone("outside_dhaka")}
+                    className={cn(
+                      "px-4 py-2 rounded-full text-xs font-medium border transition-colors flex items-center gap-1.5",
+                      deliveryZone === "outside_dhaka"
+                        ? "bg-foreground text-background border-foreground"
+                        : "bg-background text-foreground border-border hover:border-foreground/50"
+                    )}
+                  >
+                    🚚 Outside Dhaka — ৳{outsidePrice}
+                  </button>
                 </div>
               </div>
             </div>
@@ -412,9 +472,9 @@ const CreateOrderPanel = ({ open, onClose }: CreateOrderPanelProps) => {
                       <span className="text-muted-foreground">Subtotal</span>
                       <span>{formatPrice(subtotal)}</span>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Delivery</span>
-                      <Input type="number" value={delivery} onChange={(e) => setDelivery(parseInt(e.target.value) || 0)} className="w-24 h-7 text-right text-xs" />
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Delivery ({deliveryZone === "inside_dhaka" ? "Inside Dhaka" : "Outside Dhaka"})</span>
+                      <span>৳{delivery}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-muted-foreground">Discount</span>
@@ -432,8 +492,10 @@ const CreateOrderPanel = ({ open, onClose }: CreateOrderPanelProps) => {
             <div className="border-t border-border" />
 
             {/* Section 4: Payment */}
-            <div className="space-y-3">
+            <div className="space-y-4">
               <h3 className="text-sm font-semibold text-foreground">Payment</h3>
+
+              {/* Payment Method */}
               <div>
                 <Label className="text-xs text-muted-foreground">Payment Method</Label>
                 <div className="flex flex-wrap gap-2 mt-1.5">
@@ -453,26 +515,69 @@ const CreateOrderPanel = ({ open, onClose }: CreateOrderPanelProps) => {
                   ))}
                 </div>
               </div>
+
+              {/* Payment Type */}
               <div>
-                <Label className="text-xs text-muted-foreground">Payment Status</Label>
-                <div className="flex gap-2 mt-1.5">
-                  {[
-                    { label: "⏳ Unpaid", value: "unpaid" },
-                    { label: "✅ Paid", value: "paid" },
-                  ].map((s) => (
-                    <button
-                      key={s.value}
-                      onClick={() => setPaymentStatus(s.value)}
-                      className={cn(
-                        "px-3 py-1.5 rounded-full text-xs font-medium border transition-colors",
-                        paymentStatus === s.value
-                          ? "bg-foreground text-background border-foreground"
-                          : "bg-background text-foreground border-border hover:border-foreground/50"
+                <Label className="text-xs text-muted-foreground">Payment Type</Label>
+                <div className="space-y-2 mt-1.5">
+                  {/* Full Payment */}
+                  <label className={cn(
+                    "flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors",
+                    paymentType === "full" ? "border-foreground bg-foreground/5" : "border-border hover:border-foreground/30"
+                  )}>
+                    <input type="radio" name="paymentType" checked={paymentType === "full"} onChange={() => setPaymentType("full")} className="mt-0.5" />
+                    <div>
+                      <span className="text-sm font-medium">Full Payment</span>
+                      <p className="text-xs text-muted-foreground">Total {formatPrice(total > 0 ? total : 0)} — Mark as Paid</p>
+                    </div>
+                  </label>
+
+                  {/* Advance + COD */}
+                  <label className={cn(
+                    "flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors",
+                    paymentType === "advance_cod" ? "border-foreground bg-foreground/5" : "border-border hover:border-foreground/30"
+                  )}>
+                    <input type="radio" name="paymentType" checked={paymentType === "advance_cod"} onChange={() => setPaymentType("advance_cod")} className="mt-0.5" />
+                    <div className="flex-1">
+                      <span className="text-sm font-medium">Advance + Collect on Delivery</span>
+                      {paymentType === "advance_cod" && (
+                        <div className="mt-2 space-y-2">
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>Total Order Amount</span>
+                            <span>{formatPrice(total > 0 ? total : 0)}</span>
+                          </div>
+                          <div>
+                            <Label className="text-xs">Advance Received</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              max={total}
+                              value={advanceAmount}
+                              onChange={(e) => setAdvanceAmount(Math.min(total, Math.max(0, parseInt(e.target.value) || 0)))}
+                              className="h-8 text-sm mt-1"
+                              placeholder="৳ Amount"
+                            />
+                          </div>
+                          <div className="flex justify-between text-xs font-medium pt-1 border-t border-border">
+                            <span>Amount to Collect</span>
+                            <span className="text-amber-600">৳{formatPrice(Math.max(0, total - advanceAmount))}</span>
+                          </div>
+                        </div>
                       )}
-                    >
-                      {s.label}
-                    </button>
-                  ))}
+                    </div>
+                  </label>
+
+                  {/* Full COD */}
+                  <label className={cn(
+                    "flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors",
+                    paymentType === "cod" ? "border-foreground bg-foreground/5" : "border-border hover:border-foreground/30"
+                  )}>
+                    <input type="radio" name="paymentType" checked={paymentType === "cod"} onChange={() => setPaymentType("cod")} className="mt-0.5" />
+                    <div>
+                      <span className="text-sm font-medium">No Advance — Full COD</span>
+                      <p className="text-xs text-muted-foreground">Amount to Collect: {formatPrice(total > 0 ? total : 0)}</p>
+                    </div>
+                  </label>
                 </div>
               </div>
             </div>

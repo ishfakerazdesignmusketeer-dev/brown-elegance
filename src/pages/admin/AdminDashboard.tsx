@@ -6,8 +6,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { AlertTriangle } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend,
+  BarChart, Bar,
 } from "recharts";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 const STATUS_COLORS_HEX: Record<string, string> = {
   pending: "#FCD34D",
@@ -37,6 +39,9 @@ interface Order {
   total: number;
   subtotal: number;
   created_at: string;
+  source: string | null;
+  payment_status: string | null;
+  advance_amount: number | null;
   order_items: { id: string }[];
 }
 
@@ -46,13 +51,19 @@ interface OrderItem {
   total_price: number;
 }
 
-const StatCard = ({ label, value, sub }: { label: string; value: string | number; sub?: string }) => (
-  <div className="bg-white border border-gray-200 rounded-lg p-5">
+const StatCard = ({ label, value, sub, className }: { label: string; value: string | number; sub?: string; className?: string }) => (
+  <div className={cn("bg-white border border-gray-200 rounded-lg p-5", className)}>
     <p className="text-xs text-gray-500 mb-1 uppercase tracking-wide">{label}</p>
     <p className="text-2xl font-semibold text-gray-900">{value}</p>
     {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
   </div>
 );
+
+const PAYMENT_STATUS_COLORS: Record<string, string> = {
+  paid: "bg-green-100 text-green-700",
+  partial: "bg-amber-100 text-amber-700",
+  unpaid: "bg-red-100 text-red-700",
+};
 
 const AdminDashboard = () => {
   const queryClient = useQueryClient();
@@ -62,7 +73,7 @@ const AdminDashboard = () => {
     queryFn: async (): Promise<Order[]> => {
       const { data, error } = await supabase
         .from("orders")
-        .select("*, order_items(*)")
+        .select("*, order_items(id)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as Order[];
@@ -105,6 +116,16 @@ const AdminDashboard = () => {
     },
   });
 
+  const { data: abandonedStats } = useQuery({
+    queryKey: ["admin-abandoned-stats"],
+    queryFn: async () => {
+      const { data } = await supabase.from("abandoned_carts").select("subtotal, converted").eq("converted", false);
+      const total = data?.length ?? 0;
+      const value = data?.reduce((s, c) => s + (c.subtotal || 0), 0) ?? 0;
+      return { total, value };
+    },
+  });
+
   const mutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       const { error } = await supabase.from("orders").update({ status }).eq("id", id);
@@ -112,6 +133,8 @@ const AdminDashboard = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["product"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-stock-overview"] });
       toast.success("Status updated");
     },
     onError: () => toast.error("Failed to update status"),
@@ -126,6 +149,30 @@ const AdminDashboard = () => {
   const monthRevenue = orders.filter((o) => o.created_at >= monthStart && o.status === "completed").reduce((s, o) => s + o.total, 0);
   const avgOrderValue = completedOrders.length > 0 ? Math.round(totalRevenue / completedOrders.length) : 0;
   const pendingCount = orders.filter((o) => o.status === "pending").length;
+  const confirmedCount = orders.filter((o) => o.status === "confirmed").length;
+  const completedCount = completedOrders.length;
+
+  // Payment status counts
+  const paidCount = orders.filter((o) => o.payment_status === "paid").length;
+  const partialCount = orders.filter((o) => o.payment_status === "partial").length;
+  const unpaidCount = orders.filter((o) => !o.payment_status || o.payment_status === "unpaid").length;
+  const totalForPayment = paidCount + partialCount + unpaidCount;
+  const paymentData = [
+    { name: "Paid", value: totalForPayment ? Math.round((paidCount / totalForPayment) * 100) : 0, fill: "#34D399" },
+    { name: "Partial", value: totalForPayment ? Math.round((partialCount / totalForPayment) * 100) : 0, fill: "#FCD34D" },
+    { name: "Unpaid", value: totalForPayment ? Math.round((unpaidCount / totalForPayment) * 100) : 0, fill: "#F87171" },
+  ];
+
+  // Source chart
+  const sourceMap: Record<string, number> = {};
+  orders.forEach((o) => {
+    const src = o.source || "Website";
+    sourceMap[src] = (sourceMap[src] || 0) + 1;
+  });
+  const sourceData = ["Messenger", "Instagram", "Phone", "Walk-in", "Website"].map((s) => ({
+    name: s,
+    count: sourceMap[s] || 0,
+  }));
 
   const revenueChartData = Array.from({ length: 30 }, (_, i) => {
     const date = subDays(new Date(), 29 - i);
@@ -148,69 +195,93 @@ const AdminDashboard = () => {
   const topProducts = Object.entries(productMap).sort((a, b) => b[1].units - a[1].units).slice(0, 5);
   const recentOrders = orders.slice(0, 5);
 
-  const stats1 = [
-    { label: "Total Revenue", value: isLoading ? "—" : formatPrice(totalRevenue) },
-    { label: "Today's Revenue", value: isLoading ? "—" : formatPrice(todayRevenue) },
-    { label: "This Month's Revenue", value: isLoading ? "—" : formatPrice(monthRevenue) },
-    { label: "Avg Order Value", value: isLoading ? "—" : formatPrice(avgOrderValue) },
-  ];
-
   return (
     <div>
       <h1 className="text-xl font-semibold text-gray-900 mb-6">Dashboard</h1>
 
+      {/* Row 1: Revenue */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-        {stats1.map((s) => <StatCard key={s.label} label={s.label} value={s.value} />)}
+        <StatCard label="Total Revenue" value={isLoading ? "—" : formatPrice(totalRevenue)} />
+        <StatCard label="Today's Revenue" value={isLoading ? "—" : formatPrice(todayRevenue)} />
+        <StatCard label="This Month" value={isLoading ? "—" : formatPrice(monthRevenue)} />
+        <StatCard label="Avg Order Value" value={isLoading ? "—" : formatPrice(avgOrderValue)} />
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+      {/* Row 2: Order counts */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
         <StatCard label="Total Orders" value={isLoading ? "—" : orders.length} />
         <Link to="/admin/orders?status=pending" className="block">
           <div className="bg-white border border-amber-200 rounded-lg p-5 hover:border-amber-400 transition-colors cursor-pointer">
-            <p className="text-xs text-gray-500 mb-1 uppercase tracking-wide">Pending Orders</p>
+            <p className="text-xs text-gray-500 mb-1 uppercase tracking-wide">Pending</p>
             <p className="text-2xl font-semibold text-amber-600">{isLoading ? "—" : pendingCount}</p>
           </div>
         </Link>
-        <StatCard label="Total Customers" value={isLoading ? "—" : customerCount} />
-        <Link to="/admin/products" className="block">
+        <StatCard label="Confirmed" value={isLoading ? "—" : confirmedCount} className="border-cyan-200" />
+        <StatCard label="Completed" value={isLoading ? "—" : completedCount} className="border-green-200" />
+        <StatCard label="Customers" value={isLoading ? "—" : customerCount} />
+      </div>
+
+      {/* Row 3: Stock + Abandoned */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+        <Link to="/admin/inventory" className="block">
           <div className={`bg-white border rounded-lg p-5 hover:border-amber-400 transition-colors ${lowStockCount > 0 ? "border-amber-200" : "border-gray-200"}`}>
-            <p className="text-xs text-gray-500 mb-1 uppercase tracking-wide">Low Stock Sizes</p>
+            <p className="text-xs text-gray-500 mb-1 uppercase tracking-wide">Low Stock</p>
             <div className="flex items-center gap-2">
               {lowStockCount > 0 && <AlertTriangle className="w-4 h-4 text-amber-500" />}
               <p className={`text-2xl font-semibold ${lowStockCount > 0 ? "text-amber-600" : "text-gray-900"}`}>{isLoading ? "—" : lowStockCount}</p>
             </div>
-            {lowStockCount > 0 && <p className="text-xs text-amber-400 mt-1">variants 1-5 units</p>}
+            <p className="text-xs text-gray-400 mt-1">1-5 units</p>
           </div>
         </Link>
-        <Link to="/admin/products" className="block">
+        <Link to="/admin/inventory" className="block">
           <div className={`bg-white border rounded-lg p-5 hover:border-red-400 transition-colors ${outOfStockCount > 0 ? "border-red-200" : "border-gray-200"}`}>
-            <p className="text-xs text-gray-500 mb-1 uppercase tracking-wide">Out of Stock Sizes</p>
+            <p className="text-xs text-gray-500 mb-1 uppercase tracking-wide">Out of Stock</p>
             <div className="flex items-center gap-2">
               {outOfStockCount > 0 && <AlertTriangle className="w-4 h-4 text-red-500" />}
               <p className={`text-2xl font-semibold ${outOfStockCount > 0 ? "text-red-600" : "text-gray-900"}`}>{isLoading ? "—" : outOfStockCount}</p>
             </div>
-            {outOfStockCount > 0 && <p className="text-xs text-red-400 mt-1">variants at 0 units</p>}
+            <p className="text-xs text-gray-400 mt-1">0 units</p>
+          </div>
+        </Link>
+        <Link to="/admin/abandoned-carts" className="block">
+          <div className="bg-white border border-gray-200 rounded-lg p-5 hover:border-gray-400 transition-colors">
+            <p className="text-xs text-gray-500 mb-1 uppercase tracking-wide">Abandoned Carts</p>
+            <p className="text-2xl font-semibold text-gray-900">{abandonedStats?.total ?? 0}</p>
+            <p className="text-xs text-gray-400 mt-1">৳{formatPrice(abandonedStats?.value ?? 0)} value</p>
           </div>
         </Link>
       </div>
 
-      {/* Charts row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        <div className="lg:col-span-2 bg-white border border-gray-200 rounded-lg p-5">
-          <h2 className="text-sm font-semibold text-gray-900 mb-4">Revenue — Last 30 Days</h2>
+      {/* Revenue Chart - Full Width */}
+      <div className="bg-white border border-gray-200 rounded-lg p-5 mb-6">
+        <h2 className="text-sm font-semibold text-gray-900 mb-4">Revenue — Last 30 Days</h2>
+        <ResponsiveContainer width="100%" height={220}>
+          <AreaChart data={revenueChartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+            <defs>
+              <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#2C1810" stopOpacity={0.2} />
+                <stop offset="95%" stopColor="#2C1810" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#9CA3AF" }} tickLine={false} axisLine={false} interval={4} />
+            <YAxis tick={{ fontSize: 10, fill: "#9CA3AF" }} tickLine={false} axisLine={false} tickFormatter={(v) => `৳${(v / 1000).toFixed(0)}k`} />
+            <Tooltip contentStyle={{ fontSize: 12, border: "1px solid #E5E7EB", borderRadius: 6 }} formatter={(v: number) => [formatPrice(v), "Revenue"]} />
+            <Area type="monotone" dataKey="revenue" stroke="#2C1810" strokeWidth={2} fill="url(#revGrad)" />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Charts row: Source + Status Donut */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div className="bg-white border border-gray-200 rounded-lg p-5">
+          <h2 className="text-sm font-semibold text-gray-900 mb-4">Orders by Source</h2>
           <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={revenueChartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-              <defs>
-                <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#2E2319" stopOpacity={0.2} />
-                  <stop offset="95%" stopColor="#2E2319" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#9CA3AF" }} tickLine={false} axisLine={false} interval={4} />
-              <YAxis tick={{ fontSize: 10, fill: "#9CA3AF" }} tickLine={false} axisLine={false} tickFormatter={(v) => `৳${(v / 1000).toFixed(0)}k`} />
-              <Tooltip contentStyle={{ fontSize: 12, border: "1px solid #E5E7EB", borderRadius: 6 }} formatter={(v: number) => [formatPrice(v), "Revenue"]} />
-              <Area type="monotone" dataKey="revenue" stroke="#2E2319" strokeWidth={2} fill="url(#revGrad)" />
-            </AreaChart>
+            <BarChart data={sourceData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+              <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#9CA3AF" }} tickLine={false} axisLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: "#9CA3AF" }} tickLine={false} axisLine={false} />
+              <Tooltip contentStyle={{ fontSize: 12 }} />
+              <Bar dataKey="count" fill="#2C1810" radius={[4, 4, 0, 0]} />
+            </BarChart>
           </ResponsiveContainer>
         </div>
 
@@ -221,7 +292,7 @@ const AdminDashboard = () => {
           ) : (
             <ResponsiveContainer width="100%" height={200}>
               <PieChart>
-                <Pie data={statusBreakdown} cx="50%" cy="50%" innerRadius={50} outerRadius={75} dataKey="value" paddingAngle={2}>
+                <Pie data={statusBreakdown} cx="50%" cy="50%" innerRadius={45} outerRadius={70} dataKey="value" paddingAngle={2}>
                   {statusBreakdown.map((entry) => <Cell key={entry.name} fill={STATUS_COLORS_HEX[entry.name] ?? "#9CA3AF"} />)}
                 </Pie>
                 <Legend formatter={(v) => <span style={{ fontSize: 10, color: "#6B7280", textTransform: "capitalize" }}>{v}</span>} />
@@ -229,6 +300,25 @@ const AdminDashboard = () => {
               </PieChart>
             </ResponsiveContainer>
           )}
+        </div>
+      </div>
+
+      {/* Payment Status */}
+      <div className="bg-white border border-gray-200 rounded-lg p-5 mb-8">
+        <h2 className="text-sm font-semibold text-gray-900 mb-4">Payment Status Overview</h2>
+        <div className="space-y-3">
+          {paymentData.map((item) => (
+            <div key={item.name} className="flex items-center gap-3">
+              <span className="text-xs text-gray-500 w-16">{item.name}</span>
+              <div className="flex-1 h-5 bg-gray-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{ width: `${item.value}%`, backgroundColor: item.fill }}
+                />
+              </div>
+              <span className="text-xs font-medium text-gray-700 w-10 text-right">{item.value}%</span>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -270,22 +360,27 @@ const AdminDashboard = () => {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100">
-                {["Order #", "Customer", "Total", "Status"].map((h) => (
+                {["Order #", "Customer", "Total", "Payment", "Status"].map((h) => (
                   <th key={h} className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={4} className="px-5 py-8 text-center text-sm text-gray-400">Loading...</td></tr>
+                <tr><td colSpan={5} className="px-5 py-8 text-center text-sm text-gray-400">Loading...</td></tr>
               ) : recentOrders.length === 0 ? (
-                <tr><td colSpan={4} className="px-5 py-8 text-center text-sm text-gray-400">No orders yet</td></tr>
+                <tr><td colSpan={5} className="px-5 py-8 text-center text-sm text-gray-400">No orders yet</td></tr>
               ) : (
                 recentOrders.map((order) => (
                   <tr key={order.id} className="border-b border-gray-50 hover:bg-gray-50">
                     <td className="px-5 py-3 font-mono text-xs text-gray-900">{order.order_number}</td>
                     <td className="px-5 py-3 text-gray-700 truncate max-w-[100px]">{order.customer_name}</td>
                     <td className="px-5 py-3 text-gray-900">{formatPrice(order.total)}</td>
+                    <td className="px-5 py-3">
+                      <span className={cn("text-[10px] font-medium px-2 py-0.5 rounded-full capitalize", PAYMENT_STATUS_COLORS[order.payment_status || "unpaid"] || "bg-gray-100 text-gray-500")}>
+                        {order.payment_status || "unpaid"}
+                      </span>
+                    </td>
                     <td className="px-5 py-3">
                       <select
                         value={order.status}
