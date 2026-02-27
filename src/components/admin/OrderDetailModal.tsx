@@ -26,6 +26,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 const PAYMENT_STATUS_COLORS: Record<string, string> = {
   paid: "bg-green-100 text-green-800",
+  partial: "bg-amber-100 text-amber-800",
   unpaid: "bg-red-100 text-red-800",
   refunded: "bg-purple-100 text-purple-800",
 };
@@ -118,6 +119,8 @@ const OrderDetailModal = ({ orderId, onClose }: OrderDetailModalProps) => {
       queryClient.invalidateQueries({ queryKey: ["order-notes", orderId] });
       queryClient.invalidateQueries({ queryKey: ["admin-orders-list"] });
       queryClient.invalidateQueries({ queryKey: ["admin-order-counts"] });
+      queryClient.invalidateQueries({ queryKey: ["product"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-stock-overview"] });
       toast.success("Status updated");
     },
     onError: (err: any) => toast.error(err.message),
@@ -395,9 +398,61 @@ const OrderDetailModal = ({ orderId, onClose }: OrderDetailModalProps) => {
                     </div>
                   </div>
 
-                  {/* Payment */}
+                  {/* Payment Breakdown */}
                   <div className="bg-background border border-border rounded-lg p-4">
-                    <h3 className="text-sm font-semibold mb-2">Payment</h3>
+                    <h3 className="text-sm font-semibold mb-3">Payment Breakdown</h3>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Order Total</span>
+                        <span className="font-medium">{formatPrice(order.total)}</span>
+                      </div>
+                      {(order.advance_amount > 0 || order.payment_type === 'advance_cod') && (
+                        <>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Advance Paid</span>
+                            <span className="text-green-600 font-medium">✓ {formatPrice(order.advance_amount || 0)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">To Collect</span>
+                            <span className="text-amber-600 font-medium">⚠️ {formatPrice(order.amount_to_collect || (order.total - (order.advance_amount || 0)))}</span>
+                          </div>
+                        </>
+                      )}
+                      <div className="flex justify-between pt-1 border-t border-border">
+                        <span className="text-muted-foreground">Method</span>
+                        <span>{order.payment_method || "COD"}{order.payment_type === 'advance_cod' ? ' + COD' : ''}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Status</span>
+                        <Badge className={cn("text-[10px] capitalize", PAYMENT_STATUS_COLORS[order.payment_status || "unpaid"])}>
+                          {order.payment_status || "unpaid"}
+                        </Badge>
+                      </div>
+                    </div>
+                    {(order.payment_status === 'partial' || order.payment_status === 'unpaid') && (
+                      <Button
+                        size="sm"
+                        className="w-full mt-3 text-xs"
+                        onClick={() => {
+                          paymentMutation.mutate({ status: 'paid' });
+                          supabase.from("orders").update({
+                            payment_status: 'paid',
+                            advance_amount: order.total,
+                            amount_to_collect: 0,
+                          }).eq("id", orderId!).then(() => {
+                            queryClient.invalidateQueries({ queryKey: ["admin-order-detail", orderId] });
+                            queryClient.invalidateQueries({ queryKey: ["admin-orders-list"] });
+                          });
+                        }}
+                      >
+                        Mark as Fully Paid
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Payment Method/Status Edit */}
+                  <div className="bg-background border border-border rounded-lg p-4">
+                    <h3 className="text-sm font-semibold mb-2">Edit Payment</h3>
                     <div className="space-y-3">
                       <div>
                         <label className="text-xs text-muted-foreground block mb-1">Method</label>
@@ -415,6 +470,7 @@ const OrderDetailModal = ({ orderId, onClose }: OrderDetailModalProps) => {
                             <SelectItem value="COD">COD</SelectItem>
                             <SelectItem value="bKash">bKash</SelectItem>
                             <SelectItem value="Nagad">Nagad</SelectItem>
+                            <SelectItem value="In-Store">In-Store</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -432,6 +488,7 @@ const OrderDetailModal = ({ orderId, onClose }: OrderDetailModalProps) => {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="unpaid">Unpaid</SelectItem>
+                            <SelectItem value="partial">Partial</SelectItem>
                             <SelectItem value="paid">Paid</SelectItem>
                             <SelectItem value="refunded">Refunded</SelectItem>
                           </SelectContent>

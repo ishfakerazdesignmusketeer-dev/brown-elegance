@@ -1,25 +1,50 @@
 import { useState } from "react";
 import { useNavigate, Link, useLocation, Outlet } from "react-router-dom";
-import { LayoutDashboard, ShoppingBag, Grid3X3, Settings, LogOut, Menu, Users, Tag, ShoppingCart, CreditCard, Image, Layers, Link as LinkIcon, Film } from "lucide-react";
+import { LayoutDashboard, ShoppingBag, Grid3X3, Settings, LogOut, Menu, Users, Tag, ShoppingCart, CreditCard, Image, Layers, Link as LinkIcon, Film, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
-const navItems = [
-  { label: "Dashboard", icon: LayoutDashboard, href: "/admin/dashboard" },
-  { label: "Hero Slides", icon: Image, href: "/admin/hero-slides" },
-  { label: "Reels", icon: Film, href: "/admin/reels" },
-  { label: "Orders", icon: ShoppingBag, href: "/admin/orders", badge: "pending" },
-  { label: "Abandoned Carts", icon: ShoppingCart, href: "/admin/abandoned-carts", badge: "abandoned" },
-  { label: "Products", icon: Grid3X3, href: "/admin/products" },
-  { label: "Categories", icon: Layers, href: "/admin/categories" },
-  { label: "Customers", icon: Users, href: "/admin/customers" },
-  { label: "Coupons", icon: Tag, href: "/admin/coupons" },
-  { label: "Payments", icon: CreditCard, href: "/admin/payments" },
-  { label: "Footer", icon: LinkIcon, href: "/admin/footer" },
-  { label: "Settings", icon: Settings, href: "/admin/settings" },
+const navGroups = [
+  {
+    items: [
+      { label: "Dashboard", icon: LayoutDashboard, href: "/admin/dashboard" },
+    ],
+  },
+  {
+    items: [
+      { label: "Hero Slides", icon: Image, href: "/admin/hero-slides" },
+      { label: "Reels", icon: Film, href: "/admin/reels" },
+    ],
+  },
+  {
+    items: [
+      { label: "Orders", icon: ShoppingBag, href: "/admin/orders", badge: "pending" },
+      { label: "Abandoned Carts", icon: ShoppingCart, href: "/admin/abandoned-carts", badge: "abandoned" },
+    ],
+  },
+  {
+    items: [
+      { label: "Products", icon: Grid3X3, href: "/admin/products" },
+      { label: "Inventory", icon: Package, href: "/admin/inventory" },
+      { label: "Categories", icon: Layers, href: "/admin/categories" },
+    ],
+  },
+  {
+    items: [
+      { label: "Customers", icon: Users, href: "/admin/customers" },
+      { label: "Coupons", icon: Tag, href: "/admin/coupons" },
+      { label: "Payments", icon: CreditCard, href: "/admin/payments" },
+    ],
+  },
+  {
+    items: [
+      { label: "Footer", icon: LinkIcon, href: "/admin/footer" },
+      { label: "Settings", icon: Settings, href: "/admin/settings" },
+    ],
+  },
 ];
 
 const SidebarContent = ({
@@ -53,7 +78,7 @@ const SidebarContent = ({
         <p className="text-sm font-semibold text-gray-900 uppercase tracking-widest">Brown House Admin</p>
         {adminEmail && (
           <div className="flex items-center gap-2 mt-2">
-            <div className="w-6 h-6 rounded-full bg-gray-900 text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0">
+            <div className="w-6 h-6 rounded-full bg-[#2C1810] text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0">
               {adminEmail[0]?.toUpperCase()}
             </div>
             <p className="text-[11px] text-gray-500 truncate">{adminEmail}</p>
@@ -61,33 +86,38 @@ const SidebarContent = ({
         )}
       </div>
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        {navItems.map((item) => {
-          const isActive = location.pathname === item.href;
-          const count = getBadgeCount(item.badge);
-          return (
-            <Link
-              key={item.href}
-              to={item.href}
-              onClick={onClose}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors ${
-                isActive ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-100"
-              }`}
-            >
-              <item.icon className="w-4 h-4 flex-shrink-0" />
-              <span className="flex-1 truncate">{item.label}</span>
-              {item.badge && count > 0 && (
-                <span className="ml-auto bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center flex-shrink-0">
-                  {count > 99 ? "99+" : count}
-                </span>
-              )}
-            </Link>
-          );
-        })}
+        {navGroups.map((group, gi) => (
+          <div key={gi}>
+            {gi > 0 && <div className="border-t border-gray-100 my-2" />}
+            {group.items.map((item) => {
+              const isActive = location.pathname === item.href;
+              const count = getBadgeCount(item.badge);
+              return (
+                <Link
+                  key={item.href}
+                  to={item.href}
+                  onClick={onClose}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors ${
+                    isActive ? "bg-[#2C1810] text-white" : "text-gray-600 hover:bg-[#F5F0EB]"
+                  }`}
+                >
+                  <item.icon className="w-4 h-4 flex-shrink-0" />
+                  <span className="flex-1 truncate">{item.label}</span>
+                  {item.badge && count > 0 && (
+                    <span className="ml-auto bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center flex-shrink-0">
+                      {count > 99 ? "99+" : count}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </nav>
       <div className="px-3 py-4 border-t border-gray-200">
         <button
           onClick={handleLogout}
-          className="flex items-center gap-3 px-3 py-2.5 w-full rounded-md text-sm text-gray-600 hover:bg-gray-100 transition-colors"
+          className="flex items-center gap-3 px-3 py-2.5 w-full rounded-md text-sm text-gray-600 hover:bg-[#F5F0EB] transition-colors"
         >
           <LogOut className="w-4 h-4" />
           Logout

@@ -391,6 +391,8 @@ export type Database = {
       }
       orders: {
         Row: {
+          advance_amount: number | null
+          amount_to_collect: number | null
           coupon_code: string | null
           courier_booking_id: string | null
           created_at: string | null
@@ -408,8 +410,10 @@ export type Database = {
           order_number: string | null
           payment_method: string | null
           payment_status: string | null
+          payment_type: string | null
           source: string | null
           status: string | null
+          stock_deducted: boolean | null
           subtotal: number
           total: number
           updated_at: string | null
@@ -417,6 +421,8 @@ export type Database = {
           whatsapp_sent: boolean | null
         }
         Insert: {
+          advance_amount?: number | null
+          amount_to_collect?: number | null
           coupon_code?: string | null
           courier_booking_id?: string | null
           created_at?: string | null
@@ -434,8 +440,10 @@ export type Database = {
           order_number?: string | null
           payment_method?: string | null
           payment_status?: string | null
+          payment_type?: string | null
           source?: string | null
           status?: string | null
+          stock_deducted?: boolean | null
           subtotal: number
           total: number
           updated_at?: string | null
@@ -443,6 +451,8 @@ export type Database = {
           whatsapp_sent?: boolean | null
         }
         Update: {
+          advance_amount?: number | null
+          amount_to_collect?: number | null
           coupon_code?: string | null
           courier_booking_id?: string | null
           created_at?: string | null
@@ -460,8 +470,10 @@ export type Database = {
           order_number?: string | null
           payment_method?: string | null
           payment_status?: string | null
+          payment_type?: string | null
           source?: string | null
           status?: string | null
+          stock_deducted?: boolean | null
           subtotal?: number
           total?: number
           updated_at?: string | null
@@ -697,6 +709,57 @@ export type Database = {
           video_url?: string
         }
         Relationships: []
+      }
+      stock_history: {
+        Row: {
+          change_amount: number | null
+          created_at: string | null
+          id: string
+          order_id: string | null
+          product_id: string | null
+          product_name: string | null
+          reason: string | null
+          size: string | null
+          variant_id: string | null
+        }
+        Insert: {
+          change_amount?: number | null
+          created_at?: string | null
+          id?: string
+          order_id?: string | null
+          product_id?: string | null
+          product_name?: string | null
+          reason?: string | null
+          size?: string | null
+          variant_id?: string | null
+        }
+        Update: {
+          change_amount?: number | null
+          created_at?: string | null
+          id?: string
+          order_id?: string | null
+          product_id?: string | null
+          product_name?: string | null
+          reason?: string | null
+          size?: string | null
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_history_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_history_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {

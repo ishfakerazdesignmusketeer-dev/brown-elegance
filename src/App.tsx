@@ -36,6 +36,7 @@ const AdminHeroSlides = lazy(() => import("./pages/admin/AdminHeroSlides"));
 const AdminCategories = lazy(() => import("./pages/admin/AdminCategories"));
 const AdminFooter = lazy(() => import("./pages/admin/AdminFooter"));
 const AdminReels = lazy(() => import("./pages/admin/AdminReels"));
+const AdminInventory = lazy(() => import("./pages/admin/AdminInventory"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -109,6 +110,7 @@ const App = () => (
                 <Route path="categories" element={<Suspense fallback={<AdminFallback />}><AdminCategories /></Suspense>} />
                 <Route path="footer" element={<Suspense fallback={<AdminFallback />}><AdminFooter /></Suspense>} />
                 <Route path="reels" element={<Suspense fallback={<AdminFallback />}><AdminReels /></Suspense>} />
+                <Route path="inventory" element={<Suspense fallback={<AdminFallback />}><AdminInventory /></Suspense>} />
                 </Route>
               </Route>
 
