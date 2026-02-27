@@ -1,7 +1,6 @@
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { useState, useEffect, useRef } from "react";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
@@ -52,13 +51,6 @@ const ProductDetail = () => {
   const [mainImage, setMainImage] = useState(0);
   const [sizeChartOpen, setSizeChartOpen] = useState(false);
   const [returnPolicyOpen, setReturnPolicyOpen] = useState(false);
-  const [sizeChartDirection, setSizeChartDirection] = useState<'up' | 'down'>('down');
-  const [returnPolicyDirection, setReturnPolicyDirection] = useState<'up' | 'down'>('down');
-  const sizeChartTriggerRef = useRef<HTMLButtonElement>(null);
-  const sizeChartPopoverRef = useRef<HTMLDivElement>(null);
-  const returnPolicyTriggerRef = useRef<HTMLButtonElement>(null);
-  const returnPolicyPopoverRef = useRef<HTMLDivElement>(null);
-  const isMobile = useIsMobile();
 
   const { data: sizeChartUrl } = useQuery({
     queryKey: ["size-chart"],
@@ -122,38 +114,6 @@ const ProductDetail = () => {
     return () => window.removeEventListener("keydown", handleEsc);
   }, [sizeChartOpen, returnPolicyOpen]);
 
-  // Outside click detection for popovers
-  useEffect(() => {
-    if (!sizeChartOpen && !returnPolicyOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (sizeChartOpen && sizeChartPopoverRef.current && sizeChartTriggerRef.current &&
-          !sizeChartPopoverRef.current.contains(e.target as Node) &&
-          !sizeChartTriggerRef.current.contains(e.target as Node)) {
-        setSizeChartOpen(false);
-      }
-      if (returnPolicyOpen && returnPolicyPopoverRef.current && returnPolicyTriggerRef.current &&
-          !returnPolicyPopoverRef.current.contains(e.target as Node) &&
-          !returnPolicyTriggerRef.current.contains(e.target as Node)) {
-        setReturnPolicyOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [sizeChartOpen, returnPolicyOpen]);
-
-  // Smart positioning for size chart
-  useEffect(() => {
-    if (!sizeChartOpen || !sizeChartTriggerRef.current) return;
-    const rect = sizeChartTriggerRef.current.getBoundingClientRect();
-    setSizeChartDirection(rect.top >= 400 ? 'up' : 'down');
-  }, [sizeChartOpen]);
-
-  // Smart positioning for return policy
-  useEffect(() => {
-    if (!returnPolicyOpen || !returnPolicyTriggerRef.current) return;
-    const rect = returnPolicyTriggerRef.current.getBoundingClientRect();
-    setReturnPolicyDirection(rect.top >= 400 ? 'up' : 'down');
-  }, [returnPolicyOpen]);
 
   const { data: product, isLoading } = useQuery({
     queryKey: ["product", slug],
@@ -467,64 +427,21 @@ const ProductDetail = () => {
                   <div className="flex items-center gap-3 mb-3">
                     <span className="font-body text-xs uppercase tracking-[1.5px] text-foreground">Size</span>
                     {sizeChartUrl && (
-                      <div className="relative">
-                        <button
-                          ref={sizeChartTriggerRef}
-                          onClick={() => { setSizeChartOpen(!sizeChartOpen); setReturnPolicyOpen(false); }}
-                          className="flex items-center gap-1.5 text-[13px] uppercase tracking-widest text-foreground font-bold underline underline-offset-4 hover:opacity-70 transition-opacity"
-                        >
-                          <Ruler className="w-4 h-4" />
-                          Size Chart
-                        </button>
-                        {sizeChartOpen && sizeChartUrl && !isMobile && (
-                          <div
-                            ref={sizeChartPopoverRef}
-                            className="popover-enter absolute z-50 w-[360px] bg-background rounded-lg shadow-2xl border border-border right-0"
-                            style={sizeChartDirection === 'up' ? { bottom: '100%', marginBottom: 8 } : { top: '100%', marginTop: 8 }}
-                          >
-                            <div className="flex items-center justify-between p-4 border-b border-border">
-                              <h3 className="font-heading text-lg font-bold text-foreground">Size Chart</h3>
-                              <button onClick={() => setSizeChartOpen(false)} className="text-foreground/40 hover:text-foreground transition-colors p-1">
-                                <X className="w-5 h-5" />
-                              </button>
-                            </div>
-                            <div className="p-4 max-h-[60vh] overflow-auto">
-                              <img src={sizeChartUrl} alt="Size Chart" className="w-full h-auto" />
-                              <p className="text-sm text-center text-foreground font-bold mt-3 font-body">All measurements are in inches</p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    <div className="relative">
                       <button
-                        ref={returnPolicyTriggerRef}
-                        onClick={() => { setReturnPolicyOpen(!returnPolicyOpen); setSizeChartOpen(false); }}
+                        onClick={() => { setSizeChartOpen(!sizeChartOpen); setReturnPolicyOpen(false); }}
                         className="flex items-center gap-1.5 text-[13px] uppercase tracking-widest text-foreground font-bold underline underline-offset-4 hover:opacity-70 transition-opacity"
                       >
-                        <Undo2 className="w-4 h-4" />
-                        Return Policy
+                        <Ruler className="w-4 h-4" />
+                        Size Chart
                       </button>
-                      {returnPolicyOpen && !isMobile && (
-                        <div
-                          ref={returnPolicyPopoverRef}
-                          className="popover-enter absolute z-50 w-[360px] bg-background rounded-lg shadow-2xl border border-border right-0"
-                          style={returnPolicyDirection === 'up' ? { bottom: '100%', marginBottom: 8 } : { top: '100%', marginTop: 8 }}
-                        >
-                          <div className="flex items-center justify-between p-4 border-b border-border">
-                            <h3 className="font-heading text-lg font-bold text-foreground">Return Policy</h3>
-                            <button onClick={() => setReturnPolicyOpen(false)} className="text-foreground/40 hover:text-foreground transition-colors p-1">
-                              <X className="w-5 h-5" />
-                            </button>
-                          </div>
-                          <div className="p-4 max-h-[60vh] overflow-auto">
-                            <p className="font-body text-sm text-foreground leading-relaxed whitespace-pre-line">
-                              {returnPolicyContent || "Our return policy will be available soon. Please contact us for any queries."}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                    )}
+                    <button
+                      onClick={() => { setReturnPolicyOpen(!returnPolicyOpen); setSizeChartOpen(false); }}
+                      className="flex items-center gap-1.5 text-[13px] uppercase tracking-widest text-foreground font-bold underline underline-offset-4 hover:opacity-70 transition-opacity"
+                    >
+                      <Undo2 className="w-4 h-4" />
+                      Return Policy
+                    </button>
                   </div>
                   <div className="flex flex-wrap gap-3">
                     {sortedVariants.map((variant) => {
@@ -647,11 +564,11 @@ const ProductDetail = () => {
 
       <YouMayAlsoLike productId={product.id} categoryId={product.category_id} />
 
-      {/* Mobile Bottom Sheets */}
-      {isMobile && sizeChartOpen && sizeChartUrl && (
-        <>
-          <div className="fixed inset-0 z-40 bg-black/30" onClick={() => setSizeChartOpen(false)} />
-          <div ref={sizeChartPopoverRef} className="slide-up-enter fixed bottom-0 left-0 right-0 z-50 bg-background rounded-t-xl max-h-[80vh] overflow-auto shadow-2xl border-t border-border">
+      {/* Size Chart Modal */}
+      {sizeChartOpen && sizeChartUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setSizeChartOpen(false)}>
+          <div className="absolute inset-0 bg-black/50" />
+          <div className="relative bg-background rounded-lg shadow-xl w-full max-w-md max-h-[80vh] overflow-auto popover-enter" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between p-4 border-b border-border sticky top-0 bg-background z-10">
               <h3 className="font-heading text-lg font-bold text-foreground">Size Chart</h3>
               <button onClick={() => setSizeChartOpen(false)} className="text-foreground/40 hover:text-foreground transition-colors p-1">
@@ -663,13 +580,14 @@ const ProductDetail = () => {
               <p className="text-sm text-center text-foreground font-bold mt-3 font-body">All measurements are in inches</p>
             </div>
           </div>
-        </>
+        </div>
       )}
 
-      {isMobile && returnPolicyOpen && (
-        <>
-          <div className="fixed inset-0 z-40 bg-black/30" onClick={() => setReturnPolicyOpen(false)} />
-          <div ref={returnPolicyPopoverRef} className="slide-up-enter fixed bottom-0 left-0 right-0 z-50 bg-background rounded-t-xl max-h-[80vh] overflow-auto shadow-2xl border-t border-border">
+      {/* Return Policy Modal */}
+      {returnPolicyOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setReturnPolicyOpen(false)}>
+          <div className="absolute inset-0 bg-black/50" />
+          <div className="relative bg-background rounded-lg shadow-xl w-full max-w-md max-h-[80vh] overflow-auto popover-enter" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between p-4 border-b border-border sticky top-0 bg-background z-10">
               <h3 className="font-heading text-lg font-bold text-foreground">Return Policy</h3>
               <button onClick={() => setReturnPolicyOpen(false)} className="text-foreground/40 hover:text-foreground transition-colors p-1">
@@ -682,7 +600,7 @@ const ProductDetail = () => {
               </p>
             </div>
           </div>
-        </>
+        </div>
       )}
 
       <Footer />
