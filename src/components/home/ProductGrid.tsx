@@ -1,14 +1,13 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "react-router-dom";
 import { useCart } from "@/contexts/CartContext";
 import { formatPrice } from "@/lib/format";
-import { getImageUrl } from "@/lib/image";
 import { useIsMobile } from "@/hooks/use-mobile";
 import AddToCartModal from "@/components/cart/AddToCartModal";
+import LazyImage from "@/components/ui/lazy-image";
 import { ShoppingBag } from "lucide-react";
 
 interface ProductVariant {
@@ -29,9 +28,16 @@ interface Product {
   product_variants: ProductVariant[];
 }
 
+const preloadImage = (src: string) => {
+  if (!src) return;
+  const img = new Image();
+  img.src = src;
+};
+
 const ProductGrid = () => {
   const { addItem } = useCart();
   const isMobile = useIsMobile();
+  const queryClient = useQueryClient();
   const [modalProduct, setModalProduct] = useState<Product | null>(null);
 
   const { data: products, isLoading } = useQuery({
@@ -45,10 +51,6 @@ const ProductGrid = () => {
       if (error) throw error;
       return data as unknown as Product[];
     },
-    staleTime: 10 * 60 * 1000,
-    gcTime: 30 * 60 * 1000,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
   });
 
   const handleQuickAdd = (product: Product) => {
@@ -65,10 +67,27 @@ const ProductGrid = () => {
     }
   };
 
+  const handleHover = (product: Product) => {
+    if (product.images?.[0]) preloadImage(product.images[0]);
+    queryClient.prefetchQuery({
+      queryKey: ["product", product.slug],
+      queryFn: async () => {
+        const { data, error } = await supabase
+          .from("products")
+          .select("*, product_variants(size, stock, is_available)")
+          .eq("slug", product.slug)
+          .eq("is_active", true)
+          .single();
+        if (error) throw error;
+        return data;
+      },
+      staleTime: 5 * 60 * 1000,
+    });
+  };
+
   const allSoldOut = (p: Product) => p.product_variants.length > 0 && p.product_variants.every(v => v.stock === 0);
   const hasSale = (p: Product) => p.offer_price != null && p.offer_price < p.price;
 
-  // Badge: Studio Exclusive > Coming Soon > Pre-Order > Sold Out > SALE
   const getBadge = (p: Product): { text: string; className: string; position: string } | null => {
     if (p.is_studio_exclusive) return { text: "Studio Exclusive", className: "bg-indigo-600 text-white", position: "top-2 left-2" };
     if (p.is_coming_soon) return { text: "Coming Soon", className: "bg-gray-900 text-white", position: "top-2 left-2" };
@@ -95,14 +114,14 @@ const ProductGrid = () => {
 
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-10">
           {isLoading
-            ? Array.from({ length: 6 }).map((_, i) => (
+            ? Array.from({ length: 8 }).map((_, i) => (
                 <div key={i}>
-                  <div className="w-full bg-[#ede9d9] animate-pulse rounded-md" style={{aspectRatio:'4/5'}} />
-                  <div className="h-4 w-24 bg-[#ede9d9] animate-pulse rounded-md mt-2" />
-                  <div className="h-4 w-16 bg-[#ede9d9] animate-pulse rounded-md mt-1" />
+                  <div className="w-full skeleton-shimmer rounded-md" style={{aspectRatio:'4/5'}} />
+                  <div className="h-4 w-24 skeleton-shimmer rounded-md mt-2" />
+                  <div className="h-4 w-16 skeleton-shimmer rounded-md mt-1" />
                 </div>
               ))
-            : (products ?? []).map((product) => {
+            : (products ?? []).map((product, idx) => {
                 const originalUrl = product.images?.[0] ?? "/placeholder.svg";
                 const isSoldOut = allSoldOut(product);
                 const badge = getBadge(product);
@@ -112,30 +131,24 @@ const ProductGrid = () => {
                 const cardContent = (
                   <>
                     <div className={`block relative overflow-hidden bg-[#F8F5E9] mb-5`} style={{aspectRatio: '4/5', contain: 'layout style'}}>
-                      <img
-                        src={getImageUrl(originalUrl, 600)}
+                      <LazyImage
+                        src={originalUrl}
                         alt={isComingSoon ? "Coming Soon" : product.name}
-                        className={`w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105 ${isComingSoon ? "blur-xl scale-105" : ""}`}
-                        loading="eager"
-                        fetchPriority="low"
-                        decoding="async"
+                        className={`transition-transform duration-700 group-hover:scale-105 ${isComingSoon ? "blur-xl scale-105" : ""}`}
+                        priority={idx < 4}
                         width={600}
                         height={800}
-                        onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = originalUrl; }}
                       />
-                      {/* Coming Soon overlay */}
                       {isComingSoon && (
                         <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                           <span className="font-heading text-xl lg:text-2xl text-white font-bold">Coming Soon</span>
                         </div>
                       )}
-                      {/* Badge */}
                       {badge && (
                         <span className={`absolute ${badge.position} font-body text-[9px] uppercase tracking-[1px] px-2 py-1 ${badge.className} z-10`}>
                           {badge.text}
                         </span>
                       )}
-                      {/* Desktop overlay - not for coming soon */}
                       {!isComingSoon && (
                         <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/20 transition-colors duration-300 hidden lg:flex items-end justify-center pb-6 opacity-0 group-hover:opacity-100">
                           {product.is_studio_exclusive ? (
@@ -160,7 +173,6 @@ const ProductGrid = () => {
                           )}
                         </div>
                       )}
-                      {/* Mobile bottom bar - not for coming soon */}
                       {!isComingSoon && (
                         product.is_studio_exclusive ? (
                           <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-1.5 bg-white/90 backdrop-blur-sm text-black font-bold font-body text-[10px] uppercase tracking-[1px] py-1.5 lg:hidden">
@@ -203,7 +215,11 @@ const ProductGrid = () => {
                 );
 
                 return (
-                  <div key={product.id} className={`group ${isSoldOut && !product.is_preorder && !product.is_studio_exclusive && !isComingSoon ? "opacity-75" : ""}`}>
+                  <div
+                    key={product.id}
+                    className={`group ${isSoldOut && !product.is_preorder && !product.is_studio_exclusive && !isComingSoon ? "opacity-75" : ""}`}
+                    onMouseEnter={() => handleHover(product)}
+                  >
                     {isComingSoon ? (
                       <div className="cursor-default">{cardContent}</div>
                     ) : (

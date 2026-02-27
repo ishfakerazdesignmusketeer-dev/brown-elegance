@@ -4,8 +4,7 @@ import useEmblaCarousel from "embla-carousel-react";
 import Autoplay from "embla-carousel-autoplay";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
-import { Skeleton } from "@/components/ui/skeleton";
-import { getImageUrl } from "@/lib/image";
+import LazyImage from "@/components/ui/lazy-image";
 
 interface HeroSlide {
   id: string;
@@ -31,7 +30,6 @@ const HeroCarousel = () => {
       if (error) throw error;
       return data as HeroSlide[];
     },
-    staleTime: 5 * 60 * 1000,
   });
 
   const autoplayPlugin = Autoplay({
@@ -61,13 +59,12 @@ const HeroCarousel = () => {
   useEffect(() => {
     const firstImage = slides[0]?.image_url;
     if (!firstImage) return;
-    const url = getImageUrl(firstImage, 1920);
-    const existing = document.querySelector(`link[rel="preload"][href="${url}"]`);
+    const existing = document.querySelector(`link[rel="preload"][href="${firstImage}"]`);
     if (existing) return;
     const link = document.createElement("link");
     link.rel = "preload";
     link.as = "image";
-    link.href = url;
+    link.href = firstImage;
     document.head.appendChild(link);
     return () => { link.remove(); };
   }, [slides]);
@@ -91,7 +88,7 @@ const HeroCarousel = () => {
 
   if (isLoading) {
     return (
-      <section className="relative h-screen w-full overflow-hidden bg-[#F8F5E9] animate-pulse" />
+      <section className="relative h-screen w-full overflow-hidden skeleton-shimmer" />
     );
   }
 
@@ -111,16 +108,13 @@ const HeroCarousel = () => {
         <div className="flex h-full">
           {displaySlides.map((slide, index) => (
             <div key={slide.id} className="relative flex-[0_0_100%] min-w-0 h-full bg-[#F8F5E9]" style={{ contain: "layout" }}>
-              <img
-                src={getImageUrl(slide.image_url, 1920)}
+              <LazyImage
+                src={slide.image_url}
                 alt={slide.title || "Hero slide"}
-                className="absolute inset-0 w-full h-full object-cover"
-                loading={index === 0 ? "eager" : "lazy"}
-                fetchPriority={index === 0 ? "high" : undefined}
-                decoding="async"
+                className="absolute inset-0"
+                priority={index === 0}
                 width={1920}
                 height={1080}
-                onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = slide.image_url; }}
               />
               <div className="absolute inset-0 bg-gradient-to-r from-black/40 via-black/20 to-transparent" />
             </div>

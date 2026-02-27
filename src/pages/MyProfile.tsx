@@ -70,7 +70,7 @@ const MyProfile = () => {
   if (authLoading || !user) return null;
 
   return (
-    <div className="min-h-screen bg-cream">
+    <div className="min-h-screen bg-cream page-transition">
       <AnnouncementBar />
       <Navigation />
       <main className="px-6 lg:px-12 py-10 max-w-lg mx-auto">
@@ -79,9 +79,9 @@ const MyProfile = () => {
         {loading ? (
           <div className="space-y-5">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="animate-pulse">
-                <div className="h-3 bg-muted rounded w-1/3 mb-2" />
-                <div className="h-9 bg-muted rounded" />
+              <div key={i}>
+                <div className="h-3 skeleton-shimmer rounded w-1/3 mb-2" />
+                <div className="h-9 skeleton-shimmer rounded" />
               </div>
             ))}
           </div>

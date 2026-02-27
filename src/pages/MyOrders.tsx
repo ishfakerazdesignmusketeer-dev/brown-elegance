@@ -46,7 +46,7 @@ const MyOrders = () => {
   if (authLoading || !user) return null;
 
   return (
-    <div className="min-h-screen bg-cream">
+    <div className="min-h-screen bg-cream page-transition">
       <AnnouncementBar />
       <Navigation />
       <main className="px-6 lg:px-12 py-10 max-w-3xl mx-auto">
@@ -55,7 +55,7 @@ const MyOrders = () => {
         {isLoading ? (
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-24 bg-muted animate-pulse rounded" />
+              <div key={i} className="h-24 skeleton-shimmer rounded" />
             ))}
           </div>
         ) : orders.length === 0 ? (

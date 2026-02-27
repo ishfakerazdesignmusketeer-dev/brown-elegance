@@ -3,16 +3,15 @@ import { useQuery } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useCart } from "@/contexts/CartContext";
 import { formatPrice } from "@/lib/format";
-import { getImageUrl } from "@/lib/image";
 import { Minus, Plus, Clock, MapPin, Truck, Ruler, Undo2, X } from "lucide-react";
 import { toast } from "sonner";
 import Navigation from "@/components/layout/Navigation";
 import AnnouncementBar from "@/components/layout/AnnouncementBar";
 import Footer from "@/components/layout/Footer";
 import YouMayAlsoLike from "@/components/product/YouMayAlsoLike";
+import LazyImage from "@/components/ui/lazy-image";
 
 interface Variant {
   size: string;
@@ -168,11 +167,15 @@ const ProductDetail = () => {
         <AnnouncementBar />
         <Navigation />
         <div className="px-6 lg:px-12 py-12 grid grid-cols-1 lg:grid-cols-2 gap-12">
-          <Skeleton className="aspect-[3/4] w-full" />
+          <div className="aspect-[3/4] w-full skeleton-shimmer" />
           <div className="space-y-4">
-            <Skeleton className="h-8 w-3/4" />
-            <Skeleton className="h-6 w-1/4" />
-            <Skeleton className="h-24 w-full" />
+            <div className="h-8 w-3/4 skeleton-shimmer rounded" />
+            <div className="h-6 w-1/4 skeleton-shimmer rounded" />
+            <div className="flex gap-3">
+              {[1,2,3,4].map(i => <div key={i} className="w-12 h-12 skeleton-shimmer rounded" />)}
+            </div>
+            <div className="h-24 w-full skeleton-shimmer rounded" />
+            <div className="h-12 w-full skeleton-shimmer rounded" />
           </div>
         </div>
       </div>
@@ -200,7 +203,7 @@ const ProductDetail = () => {
           <div
             className="absolute inset-0 bg-cover bg-center"
             style={{
-              backgroundImage: `url(${getImageUrl(images[0], 1200)})`,
+              backgroundImage: `url(${images[0]})`,
               filter: "blur(20px)",
               transform: "scale(1.1)",
             }}
@@ -266,7 +269,7 @@ const ProductDetail = () => {
   const isSizeDisabled = (v: Variant) => v.stock === 0 || !(v.is_available ?? true);
 
   return (
-    <div className="min-h-screen bg-cream">
+    <div className="min-h-screen bg-cream page-transition">
       <AnnouncementBar />
       <Navigation />
 
@@ -289,15 +292,13 @@ const ProductDetail = () => {
           {/* Left: Image Gallery */}
           <div>
             <div className="overflow-hidden bg-[#F8F5E9] mb-3" style={{ contain: 'layout style', willChange: 'auto' }}>
-              <img
-                src={getImageUrl(images[mainImage], 1200)}
+              <LazyImage
+                src={images[mainImage]}
                 alt={product.name}
                 className="w-full h-auto block"
-                loading="eager"
-                decoding="async"
+                priority
                 width={1200}
                 height={1600}
-                onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = images[mainImage]; }}
               />
             </div>
             {images.length > 1 && (
@@ -311,15 +312,12 @@ const ProductDetail = () => {
                     }`}
                     style={{aspectRatio: '4/5'}}
                   >
-                    <img
-                      src={getImageUrl(img, 200)}
+                    <LazyImage
+                      src={img}
                       alt={`View ${i + 1}`}
-                      className="w-full h-full object-cover object-center"
-                      loading="lazy"
-                      decoding="async"
+                      className="object-center"
                       width={200}
                       height={267}
-                      onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = img; }}
                     />
                   </button>
                 ))}

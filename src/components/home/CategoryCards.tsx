@@ -1,8 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "react-router-dom";
-import { getImageUrl } from "@/lib/image";
+import LazyImage from "@/components/ui/lazy-image";
 
 interface Category {
   id: string;
@@ -31,7 +30,6 @@ const CategoryCards = () => {
       if (error) throw error;
       return data as Category[];
     },
-    staleTime: 10 * 60 * 1000,
   });
 
   return (
@@ -49,7 +47,7 @@ const CategoryCards = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
           {isLoading
             ? Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="aspect-[4/3] w-full rounded-none" />
+                <div key={i} className="aspect-[4/3] w-full skeleton-shimmer" />
               ))
             : categories.map((cat, idx) => (
                 <Link
@@ -59,15 +57,12 @@ const CategoryCards = () => {
                   style={{ contain: 'layout style' }}
                 >
                   {cat.image_url ? (
-                    <img
-                      src={getImageUrl(cat.image_url, 800)}
+                    <LazyImage
+                      src={cat.image_url}
                       alt={cat.name}
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                      loading="lazy"
-                      decoding="async"
+                      className="transition-transform duration-700 group-hover:scale-110"
                       width={800}
                       height={600}
-                      onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = cat.image_url!; }}
                     />
                   ) : (
                     <div className={`w-full h-full bg-gradient-to-br ${PLACEHOLDER_GRADIENTS[idx % PLACEHOLDER_GRADIENTS.length]}`} />
