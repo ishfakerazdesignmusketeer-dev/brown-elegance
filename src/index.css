@@ -181,6 +181,24 @@ html {
   animation: pageIn 0.2s ease-out forwards;
 }
 
+/* Popover enter animation */
+@keyframes popoverIn {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.popover-enter {
+  animation: popoverIn 0.15s ease-out forwards;
+}
+
+/* Mobile bottom sheet slide up */
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.slide-up-enter {
+  animation: slideUp 0.25s ease-out forwards;
+}
+
 /* Print styles for shipping labels */
 @media print {
   body > *:not(#shipping-label) {
