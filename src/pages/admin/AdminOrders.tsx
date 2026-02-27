@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatPrice } from "@/lib/format";
 import { formatDistanceToNow, format, startOfMonth, subMonths } from "date-fns";
-import { Search, Eye, Printer, Trash2, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { Search, Eye, Printer, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -256,23 +256,9 @@ const AdminOrders = () => {
 
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-semibold text-foreground">Orders</h1>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-9 w-9"
-            title="Refresh data"
-            onClick={() => {
-              queryClient.invalidateQueries({ queryKey: ["admin-orders-list"] });
-              queryClient.invalidateQueries({ queryKey: ["admin-order-counts"] });
-            }}
-          >
-            <RefreshCw className={cn("w-4 h-4", isLoading && "animate-spin")} />
-          </Button>
-          <Button size="sm" onClick={() => setShowCreatePanel(true)}>
-            <Plus className="w-4 h-4 mr-1" /> Add Order
-          </Button>
-        </div>
+        <Button size="sm" onClick={() => setShowCreatePanel(true)}>
+          <Plus className="w-4 h-4 mr-1" /> Add Order
+        </Button>
       </div>
 
       <CreateOrderPanel open={showCreatePanel} onClose={() => setShowCreatePanel(false)} />

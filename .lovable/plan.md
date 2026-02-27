@@ -1,67 +1,104 @@
 
 
-# Fix Admin Reload Redirect + Add Refresh Buttons
+# Redesign Inventory Page: Grouped Product-First Layout
 
-## Problem 1: Admin page reload redirects to storefront
+## Overview
+Replace the flat row-per-SKU table with a grouped, expandable product-card layout where each product is a collapsible card containing its size variants as nested rows with inline stock editors.
 
-The `AuthContext` has a race condition. `checkAdmin()` is async but is called without `await`. The `setIsLoading(false)` runs immediately after calling `checkAdmin`, before the admin role check completes. So on reload, `AdminRoute` sees `isLoading=false` and `isAdmin=false`, redirecting to `/`.
+## What Changes
 
-**Fix in `src/contexts/AuthContext.tsx`:**
-- In the `onAuthStateChange` callback: await `checkAdmin` before setting `isLoading(false)`
-- In the `getSession().then()` block: await `checkAdmin` before setting `isLoading(false)`
-- Move `setIsLoading(false)` inside `checkAdmin` completion, or restructure so loading stays true until admin check finishes
+### File: `src/pages/admin/AdminInventory.tsx` (full rewrite)
 
+#### 1. Data Grouping
+- Instead of flattening into `InventoryRow[]`, group variants by product into a `GroupedProduct` structure:
+  - `productId`, `productName`, `productImage`, `category`, `sku`
+  - `variants[]` (sorted by size order: S, M, L, XL, XXL, then numeric 28-36)
+  - Computed: `totalStock`, `lowStockCount`, `outOfStockCount`, `healthStatus`
+
+#### 2. Summary Cards (updated counts)
+- **Total SKUs**: still count of all product+size combinations
+- **Low Stock Products**: count of products with at least one size at 1-5 units
+- **Out of Stock Products**: count of products with at least one size at 0 units
+- **Healthy Products**: count of products where ALL sizes are 6+ units
+
+#### 3. Filter Bar (updated)
+- Search: filters which product cards show (by product name)
+- Stock filter options: All Products | Has Low Stock | Has Out of Stock | All Healthy
+- Category filter: unchanged
+- Sort options: A-Z | Z-A | Most Critical First (out-of-stock products first, then low stock, then healthy) | Total Stock Low to High
+- Add **[Expand All]** and **[Collapse All]** buttons on the right
+
+#### 4. Product Cards (new layout)
+Each product renders as a bordered card with:
+
+**Header row:**
+- Product thumbnail (40x40, rounded)
+- Product name (bold)
+- Category badge
+- Total stock count (sum of all sizes)
+- Alert badges: red "X Out of Stock" / amber "X Low Stock" / green "All Good"
+- Collapse/expand chevron
+- Left border color: green (all healthy), amber (has low stock), red (has out of stock)
+
+**Variant rows (nested, indented):**
+- Background: `#FAFAF8`
+- Columns: Size (bold pill) | Stock (color-coded number) | Status badge | Actions
+
+**Actions per variant -- inline stock editor:**
+- `[-]` button: decrement by 1 (min 0)
+- Editable number input showing current stock
+- `[+]` button: increment by 1
+- Changes save on blur or Enter key
+- Small edit icon opens a "Set Stock" dialog for bulk quantity changes
+
+#### 5. Stock Mutation Logic
+- Refactor `addStockMutation` into a `setStockMutation` that accepts an absolute new value (or a delta)
+- Reason logged as `'manual_adjustment'` for +/- buttons, `'manual_restock'` for set-stock dialog
+- Same query invalidations as before
+
+#### 6. Set Stock Dialog
+- Small dialog: "Set Stock for [Product] -- Size [X]"
+- Single number input for new stock value
+- Cancel / Save buttons
+- On save: calculates delta from current stock, updates variant, logs to stock_history
+
+#### 7. Stock History Section
+- Completely unchanged -- stays at bottom as collapsible
+
+### Technical Details
+
+**Size ordering constant:**
 ```text
-Before:
-  checkAdmin(session.user.id);   // fire-and-forget
-  setIsLoading(false);           // runs immediately
-
-After:
-  await checkAdmin(session.user.id);  // wait for result
-  setIsLoading(false);                // now safe
+const SIZE_ORDER = ['S','M','L','XL','XXL','28','29','30','31','32','33','34','35','36'];
 ```
 
-## Problem 2: Add refresh buttons to 4 admin pages
+**Product health classification:**
+```text
+- "critical": any variant has stock = 0
+- "warning": any variant has stock 1-5 (but none at 0)
+- "healthy": all variants stock >= 6
+```
 
-Add a "Refresh" button (using `RefreshCw` icon from lucide-react) to the page header area of each page. On click, it invalidates all relevant queries for that page.
+**Sort "Most Critical First":**
+```text
+critical products first, then warning, then healthy.
+Within same tier: sort by total stock ascending.
+```
 
-### Files to modify:
+**State management:**
+- `expandedIds: Set<string>` -- tracks which product cards are expanded (default: all)
+- `editingVariant: { variantId, productId, productName, size, currentStock } | null` -- for the set-stock dialog
+- Remove: `selectedIds`, `bulkAddValue`, `editingId`, `addStockValue` (replaced by inline editors)
+- Each variant row manages its own local stock value via controlled input
 
-**`src/pages/admin/AdminOrders.tsx`**
-- Add `RefreshCw` to imports
-- Add refresh button next to existing header actions (beside the "Create Order" button)
-- On click: `queryClient.invalidateQueries({ queryKey: ["admin-orders"] })`
-- Show spinning animation while refetching
-
-**`src/pages/admin/AdminInventory.tsx`**
-- Add `RefreshCw` to imports
-- Add refresh button in the page header area
-- On click: invalidate `["admin-inventory"]` and `["admin-stock-history"]` queries
-- Show spinning animation while refetching
-
-**`src/pages/admin/AdminProducts.tsx`**
-- Add `RefreshCw` to imports
-- Add refresh button next to "Add Product" button
-- On click: invalidate `["admin-products"]` query
-- Show spinning animation while refetching
-
-**`src/pages/admin/AdminDashboard.tsx`**
-- Add `RefreshCw` to imports
-- Add refresh button in the dashboard header
-- On click: invalidate all dashboard queries (orders, order-items, customer-count, stock, abandoned carts)
-- Show spinning animation while refetching
-
-### Refresh button style:
-- Small ghost/outline button with `RefreshCw` icon
-- `animate-spin` class applied while queries are refetching
-- Tooltip: "Refresh data"
+**Inline stock input behavior:**
+- Displays current stock as editable number
+- On blur or Enter: if value changed, fire mutation with delta
+- `[-]` and `[+]` buttons fire mutation immediately with delta of -1 / +1
 
 ## Files Changed
-| File | Change |
+| File | Action |
 |------|--------|
-| `src/contexts/AuthContext.tsx` | Fix race condition -- await checkAdmin before clearing isLoading |
-| `src/pages/admin/AdminOrders.tsx` | Add refresh button |
-| `src/pages/admin/AdminInventory.tsx` | Add refresh button |
-| `src/pages/admin/AdminProducts.tsx` | Add refresh button |
-| `src/pages/admin/AdminDashboard.tsx` | Add refresh button |
+| `src/pages/admin/AdminInventory.tsx` | Rewrite with grouped layout |
 
+No database changes needed. No new files needed.
