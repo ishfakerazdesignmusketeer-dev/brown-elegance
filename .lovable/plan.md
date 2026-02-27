@@ -1,164 +1,104 @@
 
-# Major Admin Panel Overhaul
 
-This is a large multi-part implementation covering inventory logic, new pages, payment enhancements, analytics, and admin polish. Due to the scope, this will be implemented in phases.
+# Redesign Inventory Page: Grouped Product-First Layout
 
----
+## Overview
+Replace the flat row-per-SKU table with a grouped, expandable product-card layout where each product is a collapsible card containing its size variants as nested rows with inline stock editors.
 
-## Phase 1: Database Schema Changes
+## What Changes
 
-Create a single migration with all needed schema updates:
+### File: `src/pages/admin/AdminInventory.tsx` (full rewrite)
 
-**Orders table additions:**
-- `stock_deducted` (boolean, default false) -- tracks whether stock was deducted
-- `payment_type` (text, default 'cod') -- 'full', 'advance_cod', 'cod'  
-- `advance_amount` (integer, default 0)
-- `amount_to_collect` (integer, default 0)
+#### 1. Data Grouping
+- Instead of flattening into `InventoryRow[]`, group variants by product into a `GroupedProduct` structure:
+  - `productId`, `productName`, `productImage`, `category`, `sku`
+  - `variants[]` (sorted by size order: S, M, L, XL, XXL, then numeric 28-36)
+  - Computed: `totalStock`, `lowStockCount`, `outOfStockCount`, `healthStatus`
 
-Note: `delivery_zone`, `delivery_charge`, and `payment_status` already exist.
+#### 2. Summary Cards (updated counts)
+- **Total SKUs**: still count of all product+size combinations
+- **Low Stock Products**: count of products with at least one size at 1-5 units
+- **Out of Stock Products**: count of products with at least one size at 0 units
+- **Healthy Products**: count of products where ALL sizes are 6+ units
 
-**New table: `stock_history`**
-- id, product_id (FK products), variant_id (uuid), product_name, size, change_amount (integer), reason (text), order_id (FK orders, nullable), created_at
-- RLS: authenticated users get full access, anon gets SELECT
-- Enable realtime
+#### 3. Filter Bar (updated)
+- Search: filters which product cards show (by product name)
+- Stock filter options: All Products | Has Low Stock | Has Out of Stock | All Healthy
+- Category filter: unchanged
+- Sort options: A-Z | Z-A | Most Critical First (out-of-stock products first, then low stock, then healthy) | Total Stock Low to High
+- Add **[Expand All]** and **[Collapse All]** buttons on the right
 
-**Replace existing stock triggers:**
-- Drop `decrement_stock_on_order` trigger (currently fires on order_items INSERT)
-- Drop `restore_stock_on_cancel` trigger (currently fires on orders UPDATE)
-- Create new `handle_stock_on_status_change` trigger on orders UPDATE that:
-  - When status changes TO 'confirmed' AND stock_deducted = false: deduct stock from variants, log to stock_history, set stock_deducted = true
-  - When status changes TO 'cancelled' AND stock_deducted = true: restore stock, log to stock_history, set stock_deducted = false
+#### 4. Product Cards (new layout)
+Each product renders as a bordered card with:
 
----
+**Header row:**
+- Product thumbnail (40x40, rounded)
+- Product name (bold)
+- Category badge
+- Total stock count (sum of all sizes)
+- Alert badges: red "X Out of Stock" / amber "X Low Stock" / green "All Good"
+- Collapse/expand chevron
+- Left border color: green (all healthy), amber (has low stock), red (has out of stock)
 
-## Phase 2: Stock Deduction Logic (Part 1)
+**Variant rows (nested, indented):**
+- Background: `#FAFAF8`
+- Columns: Size (bold pill) | Stock (color-coded number) | Status badge | Actions
 
-**Status change handlers** in `AdminOrders.tsx`, `OrderDetailModal.tsx`, `AdminDashboard.tsx`:
-- After any status mutation succeeds, invalidate product variant queries so storefront updates
-- Add `queryClient.invalidateQueries({ queryKey: ["product"] })` to all status mutation onSuccess callbacks
+**Actions per variant -- inline stock editor:**
+- `[-]` button: decrement by 1 (min 0)
+- Editable number input showing current stock
+- `[+]` button: increment by 1
+- Changes save on blur or Enter key
+- Small edit icon opens a "Set Stock" dialog for bulk quantity changes
 
-**Storefront sync** in `ProductDetail.tsx`:
-- Size buttons already show "Out of Stock" when stock = 0
-- Add "Only X left" amber warning when stock is 1-5 for the selected size
-- Already implemented partially; enhance with amber text below size buttons
+#### 5. Stock Mutation Logic
+- Refactor `addStockMutation` into a `setStockMutation` that accepts an absolute new value (or a delta)
+- Reason logged as `'manual_adjustment'` for +/- buttons, `'manual_restock'` for set-stock dialog
+- Same query invalidations as before
 
----
+#### 6. Set Stock Dialog
+- Small dialog: "Set Stock for [Product] -- Size [X]"
+- Single number input for new stock value
+- Cancel / Save buttons
+- On save: calculates delta from current stock, updates variant, logs to stock_history
 
-## Phase 3: Delivery Zone Pricing (Part 3)
+#### 7. Stock History Section
+- Completely unchanged -- stays at bottom as collapsible
 
-**Checkout (`Checkout.tsx`):**
-- Already has delivery zone selector with dynamic prices from admin_settings
-- Update delivery prices from current defaults (100/130) to match requested (60/120)
-- This is controlled via admin_settings keys `delivery_inside_dhaka` and `delivery_outside_dhaka` -- update values in database
+### Technical Details
 
-**Create Order Panel (`CreateOrderPanel.tsx`):**
-- Replace the manual delivery charge input with a delivery zone pill selector
-- Add "Inside Dhaka -- 60" and "Outside Dhaka -- 120" pill buttons
-- Fetch delivery prices from admin_settings (same as checkout)
-- Auto-set delivery charge based on selection
-- Save `delivery_zone` to order on creation
-- Update totals section to show zone label
+**Size ordering constant:**
+```text
+const SIZE_ORDER = ['S','M','L','XL','XXL','28','29','30','31','32','33','34','35','36'];
+```
 
----
+**Product health classification:**
+```text
+- "critical": any variant has stock = 0
+- "warning": any variant has stock 1-5 (but none at 0)
+- "healthy": all variants stock >= 6
+```
 
-## Phase 4: Advanced Payment for Manual Orders (Part 4)
+**Sort "Most Critical First":**
+```text
+critical products first, then warning, then healthy.
+Within same tier: sort by total stock ascending.
+```
 
-**Create Order Panel (`CreateOrderPanel.tsx`):**
-- Add "In-Store" to payment methods
-- Add payment type selector: Full Payment | Advance + COD | Full COD
-- When "Advance + COD" selected: show advance amount input, auto-calculate amount_to_collect
-- Auto-set payment_status based on selection (paid/partial/unpaid)
-- Save payment_type, advance_amount, amount_to_collect to order
+**State management:**
+- `expandedIds: Set<string>` -- tracks which product cards are expanded (default: all)
+- `editingVariant: { variantId, productId, productName, size, currentStock } | null` -- for the set-stock dialog
+- Remove: `selectedIds`, `bulkAddValue`, `editingId`, `addStockValue` (replaced by inline editors)
+- Each variant row manages its own local stock value via controlled input
 
-**Order Detail Modal (`OrderDetailModal.tsx`):**
-- Add Payment Breakdown section showing: Order Total, Advance Paid, To Collect, Method, Status
-- Add "Mark as Fully Paid" button when status is partial/unpaid
-- Add "partial" to payment status colors (amber)
+**Inline stock input behavior:**
+- Displays current stock as editable number
+- On blur or Enter: if value changed, fire mutation with delta
+- `[-]` and `[+]` buttons fire mutation immediately with delta of -1 / +1
 
-**Orders List (`AdminOrders.tsx`):**
-- Add payment status column with colored badges
-- "Paid" green, "Partial X due" amber, "Unpaid X due" red
+## Files Changed
+| File | Action |
+|------|--------|
+| `src/pages/admin/AdminInventory.tsx` | Rewrite with grouped layout |
 
----
-
-## Phase 5: Inventory Page (Part 2)
-
-**New file: `src/pages/admin/AdminInventory.tsx`**
-
-Full inventory management page with:
-- 4 summary cards: Total SKUs, Low Stock (amber), Out of Stock (red), Healthy (green)
-- Filter bar: search, stock status filter, category filter, sort options
-- Table: Product Image, Name, Category, Size, SKU, Stock, Status badge, Add Stock action
-- Inline stock adjustment: click "+ Add Stock" to show input, confirm to update variant stock and log to stock_history
-- Bulk select + bulk stock adjustment
-- Collapsible "Recent Stock Changes" section showing last 50 entries from stock_history
-
-**Sidebar (`AdminLayout.tsx`):**
-- Add Inventory item with Package icon between Products and Categories
-- Reorder nav items per spec
-
-**Router (`App.tsx`):**
-- Add route: `inventory` -> `AdminInventory`
-
----
-
-## Phase 6: Dashboard Improvements (Part 6)
-
-**`AdminDashboard.tsx` enhancements:**
-
-- **Row 1** (4 cards): Total Revenue, Today's Revenue, This Month, Avg Order Value -- already exists
-- **Row 2** (5 cards): Total Orders, Pending, Confirmed, Completed, Customers -- partially exists, add Confirmed and Completed counts
-- **Row 3** (3 cards): Low Stock (amber), Out of Stock (red), Abandoned Carts with value -- add abandoned carts card
-- **Revenue chart**: Make full width instead of 2/3
-- **New chart**: Orders by Source bar chart (Messenger, Instagram, Phone, Walk-in, Website)
-- **Order Status donut**: Keep but make smaller, place beside source chart
-- **New chart**: Payment Status horizontal bar (Paid %, Partial %, Unpaid %)
-- **Recent Orders**: Add payment status badge column
-
----
-
-## Phase 7: Abandoned Cart Analytics (Part 5)
-
-**`AdminAbandonedCarts.tsx` enhancements:**
-
-- Update top metrics: Total Abandoned Carts, Abandoned Revenue (sum of subtotals), Recovery Rate %, Avg Cart Value
-- Add recovery line chart (last 30 days): abandoned per day vs recovered per day
-- Add "Expired" status for carts older than 48 hours without conversion
-- Update WhatsApp template to Bangla version provided
-- Add "Copy Message" button alongside existing "Open WhatsApp"
-
----
-
-## Phase 8: Admin Polish (Part 7)
-
-**Sidebar (`AdminLayout.tsx`):**
-- Active item: `#2C1810` background, white text (currently `bg-gray-900`)
-- Hover: `#F5F0EB` background
-- Group nav items with subtle dividers between groups
-- Ensure abandoned carts badge shows count
-
-**Consistent styling across all admin pages:**
-- Badge colors: pending amber, confirmed blue/cyan, completed green, cancelled red, refunded purple -- already mostly consistent
-- Ensure status dropdowns in order list trigger stock deduction via the database trigger (already handled by trigger)
-
----
-
-## Files to Create
-| File | Purpose |
-|------|---------|
-| `src/pages/admin/AdminInventory.tsx` | Inventory management page |
-
-## Files to Modify
-| File | Changes |
-|------|---------|
-| `src/App.tsx` | Add inventory route |
-| `src/components/admin/AdminLayout.tsx` | New sidebar items, grouping, brand colors |
-| `src/components/admin/CreateOrderPanel.tsx` | Delivery zone selector, advanced payment |
-| `src/components/admin/OrderDetailModal.tsx` | Payment breakdown, mark as paid |
-| `src/pages/admin/AdminOrders.tsx` | Payment status column, invalidate product queries on status change |
-| `src/pages/admin/AdminDashboard.tsx` | New charts, improved layout, payment status |
-| `src/pages/admin/AdminAbandonedCarts.tsx` | Analytics, Bangla template, charts |
-| `src/pages/ProductDetail.tsx` | "Only X left" warning for low stock |
-
-## Database Migration
-One migration covering: stock_deducted column, payment columns, stock_history table, replacement triggers, RLS policies.
+No database changes needed. No new files needed.
