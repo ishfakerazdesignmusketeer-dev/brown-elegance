@@ -14,6 +14,7 @@ import Footer from "@/components/layout/Footer";
 import YouMayAlsoLike from "@/components/product/YouMayAlsoLike";
 import SizeChartTable from "@/components/product/SizeChartTable";
 import LazyImage from "@/components/ui/lazy-image";
+import { getSizes, isPant } from "@/lib/sizes";
 
 interface Variant {
   size: string;
@@ -42,8 +43,6 @@ interface Category {
   name: string;
   slug: string;
 }
-
-const SIZES_ORDER = ["S", "M", "L", "XL", "XXL"];
 
 const ProductDetail = () => {
   const { slug } = useParams<{slug: string;}>();
@@ -217,10 +216,12 @@ const ProductDetail = () => {
 
   }
 
+  const productCategory = product.category || category?.name;
+  const SIZES_ORDER = getSizes(productCategory);
   const variants = product.product_variants ?? [];
-  const sortedVariants = SIZES_ORDER.
-  map((s) => variants.find((v) => v.size === s)).
-  filter(Boolean) as Variant[];
+  const sortedVariants = SIZES_ORDER
+  .map((s) => variants.find((v) => v.size === s))
+  .filter(Boolean) as Variant[];
 
   const allOutOfStock = sortedVariants.every((v) => v.stock === 0);
   const isPreorder = !!product.is_preorder;
@@ -407,7 +408,7 @@ const ProductDetail = () => {
                 {/* Size Selector */}
                 <div className="mb-6">
                   <div className="flex items-center gap-3 mb-3">
-                    <span className="font-body text-xs uppercase tracking-[1.5px] text-foreground">Size</span>
+                    <span className="font-body text-xs uppercase tracking-[1.5px] text-foreground">{isPant(productCategory) ? "Waist Size" : "Size"}</span>
                     <button
                     onClick={() => {setSizeChartOpen(!sizeChartOpen);setReturnPolicyOpen(false);}}
                     className="flex items-center gap-1.5 text-[13px] uppercase tracking-widest text-foreground font-bold underline underline-offset-4 hover:opacity-70 transition-opacity">

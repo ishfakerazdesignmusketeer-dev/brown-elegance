@@ -190,6 +190,11 @@ const AdminOrders = () => {
   const bulkMutation = useMutation({
     mutationFn: async ({ ids, action }: { ids: string[]; action: string }) => {
       if (action === "delete") {
+        // Null out FK references in abandoned_carts first
+        await supabase.from("abandoned_carts").update({ converted_order_id: null }).in("converted_order_id", ids);
+        // Delete related order_items and order_notes
+        await supabase.from("order_items").delete().in("order_id", ids);
+        await supabase.from("order_notes").delete().in("order_id", ids);
         const { error } = await supabase.from("orders").delete().in("id", ids);
         if (error) throw error;
       } else {
@@ -213,6 +218,11 @@ const AdminOrders = () => {
   // Delete single
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      // Null out FK references in abandoned_carts first
+      await supabase.from("abandoned_carts").update({ converted_order_id: null }).eq("converted_order_id", id);
+      // Delete related order_items and order_notes
+      await supabase.from("order_items").delete().eq("order_id", id);
+      await supabase.from("order_notes").delete().eq("order_id", id);
       const { error } = await supabase.from("orders").delete().eq("id", id);
       if (error) throw error;
     },

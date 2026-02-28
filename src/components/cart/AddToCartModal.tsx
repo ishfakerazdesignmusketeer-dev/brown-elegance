@@ -7,6 +7,7 @@ import { getImageUrl } from "@/lib/image";
 import { Minus, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { getSizes } from "@/lib/sizes";
 
 interface ProductForModal {
   id: string;
@@ -18,6 +19,7 @@ interface ProductForModal {
   is_studio_exclusive?: boolean | null;
   is_coming_soon?: boolean | null;
   images: string[] | null;
+  category?: string | null;
 }
 
 interface Variant {
@@ -25,8 +27,6 @@ interface Variant {
   stock: number;
   is_available: boolean;
 }
-
-const SIZES_ORDER = ["S", "M", "L", "XL", "XXL"];
 
 interface AddToCartModalProps {
   product: ProductForModal | null;
@@ -52,6 +52,7 @@ const AddToCartModal = ({ product, open, onClose }: AddToCartModalProps) => {
     enabled: !!product?.id && open,
   });
 
+  const SIZES_ORDER = getSizes(product?.category);
   const sortedVariants = SIZES_ORDER
     .map((s) => variants.find((v) => v.size === s))
     .filter(Boolean) as Variant[];

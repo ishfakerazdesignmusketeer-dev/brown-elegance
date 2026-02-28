@@ -25,6 +25,7 @@ interface Product {
   is_coming_soon: boolean | null;
   images: string[] | null;
   is_active: boolean;
+  category: string | null;
   product_variants: ProductVariant[];
 }
 
@@ -45,7 +46,7 @@ const ProductGrid = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("id, name, slug, price, offer_price, is_preorder, is_studio_exclusive, is_coming_soon, images, is_active, product_variants(stock)")
+        .select("id, name, slug, price, offer_price, is_preorder, is_studio_exclusive, is_coming_soon, images, is_active, category, product_variants(stock)")
         .eq("is_active", true)
         .order("created_at");
       if (error) throw error;

@@ -12,7 +12,7 @@ import { Search, ChevronDown, ChevronRight, Package, Minus, Plus, Pencil, Chevro
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-const SIZE_ORDER = ['S', 'M', 'L', 'XL', 'XXL', '28', '29', '30', '31', '32', '33', '34', '35', '36'];
+import { SIZE_ORDER } from "@/lib/sizes";
 
 interface Variant {
   id: string;

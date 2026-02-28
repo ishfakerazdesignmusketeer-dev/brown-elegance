@@ -1,8 +1,11 @@
+import { useState } from "react";
 import { Instagram, Facebook } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import logo from "@/assets/logo.png";
+import ContactModal from "@/components/ContactModal";
 
 interface FooterSetting {
   key: string;
@@ -18,6 +21,9 @@ const parseLinks = (value: string | null | undefined): { label: string; href: st
 };
 
 const Footer = () => {
+  const [contactOpen, setContactOpen] = useState(false);
+  const [returnPolicyOpen, setReturnPolicyOpen] = useState(false);
+
   const { data: settingsMap = {}, isLoading } = useQuery({
     queryKey: ["footer-settings"],
     queryFn: async () => {
@@ -29,6 +35,19 @@ const Footer = () => {
     },
     staleTime: Infinity,
     gcTime: Infinity,
+  });
+
+  const { data: returnPolicyContent } = useQuery({
+    queryKey: ["return-policy"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("admin_settings")
+        .select("value")
+        .eq("key", "return_policy_content")
+        .single();
+      return data?.value || null;
+    },
+    staleTime: 5 * 60 * 1000,
   });
 
   const get = (key: string, fallback: string = "") => settingsMap[key] || fallback;
@@ -50,13 +69,40 @@ const Footer = () => {
         {title}
       </h4>
       <ul className="space-y-3">
-        {links.map((link) => (
-          <li key={link.label}>
-            <a href={link.href} className="font-body text-sm text-cream/80 hover:text-cream transition-colors">
-              {link.label}
-            </a>
-          </li>
-        ))}
+        {links.map((link) => {
+          const labelLower = link.label.toLowerCase();
+          if (labelLower.includes("contact")) {
+            return (
+              <li key={link.label}>
+                <button
+                  onClick={() => setContactOpen(true)}
+                  className="font-body text-sm text-cream/80 hover:text-cream transition-colors"
+                >
+                  {link.label}
+                </button>
+              </li>
+            );
+          }
+          if (labelLower.includes("return")) {
+            return (
+              <li key={link.label}>
+                <button
+                  onClick={() => setReturnPolicyOpen(true)}
+                  className="font-body text-sm text-cream/80 hover:text-cream transition-colors"
+                >
+                  {link.label}
+                </button>
+              </li>
+            );
+          }
+          return (
+            <li key={link.label}>
+              <a href={link.href} className="font-body text-sm text-cream/80 hover:text-cream transition-colors">
+                {link.label}
+              </a>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
@@ -85,56 +131,71 @@ const Footer = () => {
   }
 
   return (
-    <footer className="bg-espresso text-cream">
-      <div className="px-6 lg:px-12 py-16 lg:py-20">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12 lg:gap-8">
-          {/* Brand Column */}
-          <div className="lg:col-span-2">
-            <img src={logo} alt="Brown House" className="h-12 w-auto brightness-0 invert" />
-            <p className="font-body text-sm text-cream/70 mt-6 max-w-sm leading-relaxed">
-              {tagline}
-            </p>
-            <div className="flex items-center gap-4 mt-6">
-              <a
-                href={instagramUrl}
-                className="w-10 h-10 border border-cream/30 flex items-center justify-center hover:bg-cream hover:text-espresso transition-colors"
-                aria-label="Instagram"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Instagram className="w-4 h-4" />
+    <>
+      <footer className="bg-espresso text-cream">
+        <div className="px-6 lg:px-12 py-16 lg:py-20">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12 lg:gap-8">
+            {/* Brand Column */}
+            <div className="lg:col-span-2">
+              <img src={logo} alt="Brown House" className="h-12 w-auto brightness-0 invert" />
+              <p className="font-body text-sm text-cream/70 mt-6 max-w-sm leading-relaxed">
+                {tagline}
+              </p>
+              <div className="flex items-center gap-4 mt-6">
+                <a
+                  href={instagramUrl}
+                  className="w-10 h-10 border border-cream/30 flex items-center justify-center hover:bg-cream hover:text-espresso transition-colors"
+                  aria-label="Instagram"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Instagram className="w-4 h-4" />
+                </a>
+                <a
+                  href={facebookUrl}
+                  className="w-10 h-10 border border-cream/30 flex items-center justify-center hover:bg-cream hover:text-espresso transition-colors"
+                  aria-label="Facebook"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Facebook className="w-4 h-4" />
+                </a>
+              </div>
+            </div>
+
+            {renderLinkCol(col1Title, col1Links)}
+            {renderLinkCol(col2Title, col2Links)}
+            {renderLinkCol(col3Title, col3Links)}
+          </div>
+
+          {/* Bottom Bar */}
+          <div className="border-t border-cream/10 mt-16 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p className="font-body text-[11px] text-cream/50">{copyright}</p>
+            <div className="flex items-center gap-6">
+              <a href="#" className="font-body text-[11px] text-cream/50 hover:text-cream transition-colors">
+                Privacy Policy
               </a>
-              <a
-                href={facebookUrl}
-                className="w-10 h-10 border border-cream/30 flex items-center justify-center hover:bg-cream hover:text-espresso transition-colors"
-                aria-label="Facebook"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Facebook className="w-4 h-4" />
+              <a href="#" className="font-body text-[11px] text-cream/50 hover:text-cream transition-colors">
+                Terms of Service
               </a>
             </div>
           </div>
-
-          {renderLinkCol(col1Title, col1Links)}
-          {renderLinkCol(col2Title, col2Links)}
-          {renderLinkCol(col3Title, col3Links)}
         </div>
+      </footer>
 
-        {/* Bottom Bar */}
-        <div className="border-t border-cream/10 mt-16 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="font-body text-[11px] text-cream/50">{copyright}</p>
-          <div className="flex items-center gap-6">
-            <a href="#" className="font-body text-[11px] text-cream/50 hover:text-cream transition-colors">
-              Privacy Policy
-            </a>
-            <a href="#" className="font-body text-[11px] text-cream/50 hover:text-cream transition-colors">
-              Terms of Service
-            </a>
-          </div>
-        </div>
-      </div>
-    </footer>
+      <ContactModal open={contactOpen} onOpenChange={setContactOpen} />
+
+      <Dialog open={returnPolicyOpen} onOpenChange={setReturnPolicyOpen}>
+        <DialogContent className="max-w-md max-h-[80vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-lg">Return Policy</DialogTitle>
+          </DialogHeader>
+          <p className="font-body text-sm text-foreground leading-relaxed whitespace-pre-line">
+            {returnPolicyContent || "Our return policy will be available soon. Please contact us for any queries."}
+          </p>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 

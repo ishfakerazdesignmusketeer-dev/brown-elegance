@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow, format, subDays, startOfDay, differenceInHours } from "date-fns";
 import { formatPrice } from "@/lib/format";
-import { ChevronDown, ChevronUp, MessageCircle, Copy, Check } from "lucide-react";
+import { ChevronDown, ChevronUp, MessageCircle, Copy, Check, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, Legend } from "recharts";
+import { Checkbox } from "@/components/ui/checkbox";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import type { CartItem } from "@/contexts/CartContext";
 
 interface AbandonedCart {
@@ -39,6 +41,8 @@ const AdminAbandonedCarts = () => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [storeUrl, setStoreUrl] = useState("https://brownbd.com");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleteConfirmIds, setDeleteConfirmIds] = useState<string[] | null>(null);
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -46,6 +50,19 @@ const AdminAbandonedCarts = () => {
       if (data?.value) setStoreUrl(data.value);
     });
   }, []);
+
+  // Realtime subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel('abandoned-carts-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'abandoned_carts' }, () => {
+        queryClient.invalidateQueries({ queryKey: ["admin-abandoned-carts"] });
+        queryClient.invalidateQueries({ queryKey: ["admin-abandoned-count"] });
+        queryClient.invalidateQueries({ queryKey: ["admin-abandoned-stats"] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [queryClient]);
 
   const { data: carts = [], isLoading } = useQuery({
     queryKey: ["admin-abandoned-carts"],
@@ -61,6 +78,22 @@ const AdminAbandonedCarts = () => {
       }));
     },
     refetchInterval: 60000,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase.from("abandoned_carts").delete().in("id", ids);
+      if (error) throw error;
+    },
+    onSuccess: (_, ids) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-abandoned-carts"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-abandoned-count"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-abandoned-stats"] });
+      setSelectedIds(new Set());
+      setDeleteConfirmIds(null);
+      toast.success(`${ids.length} cart${ids.length > 1 ? "s" : ""} deleted`);
+    },
+    onError: () => toast.error("Failed to delete"),
   });
 
   const tabs: { key: FilterTab; label: string }[] = [
@@ -89,7 +122,6 @@ const AdminAbandonedCarts = () => {
   const recoveryRate = carts.length > 0 ? Math.round((converted / carts.length) * 100) : 0;
   const avgCartValue = totalAbandoned > 0 ? Math.round(abandonedRevenue / totalAbandoned) : 0;
 
-  // Recovery chart data (last 30 days)
   const chartData = Array.from({ length: 30 }, (_, i) => {
     const date = subDays(new Date(), 29 - i);
     const dateStr = startOfDay(date).toDateString();
@@ -127,6 +159,19 @@ const AdminAbandonedCarts = () => {
     setCopiedId(cart.id);
     toast.success("Message copied!");
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const allFilteredSelected = filtered.length > 0 && filtered.every((c) => selectedIds.has(c.id));
+  const toggleAll = () => {
+    if (allFilteredSelected) setSelectedIds(new Set());
+    else setSelectedIds(new Set(filtered.map((c) => c.id)));
+  };
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
   };
 
   return (
@@ -183,14 +228,30 @@ const AdminAbandonedCarts = () => {
         ))}
       </div>
 
+      {/* Bulk action bar */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 mb-3 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg">
+          <span className="text-xs font-medium text-gray-700">{selectedIds.size} selected</span>
+          <button
+            onClick={() => setDeleteConfirmIds(Array.from(selectedIds))}
+            className="text-xs px-3 py-1.5 rounded bg-red-600 text-white hover:bg-red-700 transition-colors font-medium"
+          >
+            Delete Selected
+          </button>
+        </div>
+      )}
+
       {/* Table */}
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
-                <th className="w-6 px-4 py-3"></th>
-                {["Time", "Customer", "Phone", "Items", "Value", "Status", "Action"].map((h) => (
+                <th className="w-10 px-4 py-3">
+                  <Checkbox checked={allFilteredSelected} onCheckedChange={toggleAll} />
+                </th>
+                <th className="w-6 px-2 py-3"></th>
+                {["Time", "Customer", "Phone", "Items", "Value", "Status", "Action", ""].map((h) => (
                   <th key={h} className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
@@ -199,23 +260,25 @@ const AdminAbandonedCarts = () => {
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="border-b border-gray-50">
-                    <td colSpan={8} className="px-4 py-3"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td>
+                    <td colSpan={10} className="px-4 py-3"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td>
                   </tr>
                 ))
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={8} className="px-4 py-10 text-center text-sm text-gray-400">No abandoned carts found</td></tr>
+                <tr><td colSpan={10} className="px-4 py-10 text-center text-sm text-gray-400">No abandoned carts found</td></tr>
               ) : (
                 filtered.map((cart) => (
                   <>
                     <tr
                       key={cart.id}
-                      className="border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer"
-                      onClick={() => setExpandedId(expandedId === cart.id ? null : cart.id)}
+                      className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
                     >
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                        <Checkbox checked={selectedIds.has(cart.id)} onCheckedChange={() => toggleSelect(cart.id)} />
+                      </td>
+                      <td className="px-2 py-3 cursor-pointer" onClick={() => setExpandedId(expandedId === cart.id ? null : cart.id)}>
                         {expandedId === cart.id ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
                       </td>
-                      <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
+                      <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap cursor-pointer" onClick={() => setExpandedId(expandedId === cart.id ? null : cart.id)}>
                         {formatDistanceToNow(new Date(cart.updated_at), { addSuffix: true })}
                       </td>
                       <td className="px-4 py-3 text-gray-700">{cart.customer_name || <span className="text-gray-400 italic">Anonymous</span>}</td>
@@ -253,11 +316,20 @@ const AdminAbandonedCarts = () => {
                           <span className="text-xs text-gray-300">No phone</span>
                         )}
                       </td>
+                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => setDeleteConfirmIds([cart.id])}
+                          className="text-gray-400 hover:text-red-600 transition-colors"
+                          title="Delete cart"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
                     </tr>
 
                     {expandedId === cart.id && (
                       <tr key={`${cart.id}-expanded`} className="bg-gray-50/80">
-                        <td colSpan={8} className="px-8 py-5">
+                        <td colSpan={10} className="px-8 py-5">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Cart Items</p>
@@ -319,6 +391,29 @@ const AdminAbandonedCarts = () => {
           </table>
         </div>
       </div>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteConfirmIds} onOpenChange={(open) => !open && setDeleteConfirmIds(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete {deleteConfirmIds?.length === 1 ? "this abandoned cart" : `${deleteConfirmIds?.length} abandoned carts`}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteConfirmIds && deleteMutation.mutate(deleteConfirmIds)}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              Delete{deleteConfirmIds && deleteConfirmIds.length > 1 ? ` ${deleteConfirmIds.length} Carts` : ""}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
