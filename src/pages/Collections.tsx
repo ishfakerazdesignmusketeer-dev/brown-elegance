@@ -27,6 +27,7 @@ interface Product {
   is_studio_exclusive: boolean | null;
   is_coming_soon: boolean | null;
   images: string[] | null;
+  category: string | null;
   product_variants: ProductVariant[];
 }
 
@@ -65,7 +66,7 @@ const Collections = () => {
     queryFn: async () => {
       let query = supabase
         .from("products")
-        .select("id, name, slug, price, offer_price, is_preorder, is_studio_exclusive, is_coming_soon, images, product_variants(stock)")
+        .select("id, name, slug, price, offer_price, is_preorder, is_studio_exclusive, is_coming_soon, images, category, product_variants(stock)")
         .eq("is_active", true)
         .order("created_at");
       if (!isAllCollections && category?.id) {

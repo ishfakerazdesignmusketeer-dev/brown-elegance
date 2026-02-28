@@ -6,8 +6,7 @@ import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
-
-const SIZES = ["S", "M", "L", "XL", "XXL"];
+import { getSizes, isPant } from "@/lib/sizes";
 
 interface Variant {
   id: string;
@@ -89,16 +88,8 @@ const ProductPanel = ({ open, onClose, product }: ProductPanelProps) => {
   const [metaTitle, setMetaTitle] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
   const [seoOpen, setSeoOpen] = useState(false);
-  const [stocks, setStocks] = useState<Record<string, number>>(() => {
-    const s: Record<string, number> = {};
-    SIZES.forEach(sz => s[sz] = 0);
-    return s;
-  });
-  const [availability, setAvailability] = useState<Record<string, boolean>>(() => {
-    const a: Record<string, boolean> = {};
-    SIZES.forEach(sz => a[sz] = true);
-    return a;
-  });
+  const [stocks, setStocks] = useState<Record<string, number>>({});
+  const [availability, setAvailability] = useState<Record<string, boolean>>({});
 
   const { data: categories = [] } = useQuery({
     queryKey: ["panel-categories"],
@@ -133,12 +124,15 @@ const ProductPanel = ({ open, onClose, product }: ProductPanelProps) => {
       setWeight(product.weight ? String(product.weight) : "");
       setMetaTitle(product.meta_title ?? "");
       setMetaDescription(product.meta_description ?? "");
+      const dynamicSizes = getSizes(product.category);
       const s: Record<string, number> = {};
       const a: Record<string, boolean> = {};
-      SIZES.forEach(sz => { s[sz] = 0; a[sz] = true; });
+      dynamicSizes.forEach(sz => { s[sz] = 0; a[sz] = true; });
       product.product_variants.forEach((v) => {
-        s[v.size] = v.stock;
-        a[v.size] = v.is_available ?? true;
+        if (dynamicSizes.includes(v.size)) {
+          s[v.size] = v.stock;
+          a[v.size] = v.is_available ?? true;
+        }
       });
       setStocks(s);
       setAvailability(a);
@@ -147,9 +141,10 @@ const ProductPanel = ({ open, onClose, product }: ProductPanelProps) => {
       setPrice(""); setOfferPrice(""); setDescription(""); setImages([]);
       setIsActive(true); setIsFeatured(false); setIsPreorder(false); setIsStudioExclusive(false); setIsComingSoon(false);
       setSku(""); setWeight(""); setMetaTitle(""); setMetaDescription("");
+      const defaultSizes = getSizes("everyday");
       const s: Record<string, number> = {};
       const a: Record<string, boolean> = {};
-      SIZES.forEach(sz => { s[sz] = 0; a[sz] = true; });
+      defaultSizes.forEach(sz => { s[sz] = 0; a[sz] = true; });
       setStocks(s);
       setAvailability(a);
     }
@@ -163,7 +158,17 @@ const ProductPanel = ({ open, onClose, product }: ProductPanelProps) => {
   const handleCategoryChange = (id: string) => {
     setCategoryId(id);
     const cat = categories.find((c) => c.id === id);
-    if (cat) setCategory(cat.name.toLowerCase());
+    if (cat) {
+      const newCatName = cat.name.toLowerCase();
+      setCategory(newCatName);
+      // Reinitialize sizes for the new category
+      const newSizes = getSizes(cat.name);
+      const s: Record<string, number> = {};
+      const a: Record<string, boolean> = {};
+      newSizes.forEach(sz => { s[sz] = 0; a[sz] = true; });
+      setStocks(s);
+      setAvailability(a);
+    }
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -229,12 +234,12 @@ const ProductPanel = ({ open, onClose, product }: ProductPanelProps) => {
         productId = data.id;
       }
 
-      // Upsert variants
-      for (const size of SIZES) {
+      // Upsert variants using dynamic sizes
+      const dynamicSizes = getSizes(category);
+      for (const size of dynamicSizes) {
         const stock = stocks[size] ?? 0;
         const is_available = availability[size] ?? true;
         if (product) {
-          // Use upsert with ON CONFLICT
           const { error } = await supabase.from("product_variants").upsert(
             { product_id: productId!, size, stock, is_available },
             { onConflict: "product_id,size" }
@@ -380,13 +385,13 @@ const ProductPanel = ({ open, onClose, product }: ProductPanelProps) => {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="py-2 px-3 text-left text-xs font-medium text-gray-500">Size</th>
+                    <th className="py-2 px-3 text-left text-xs font-medium text-gray-500">{isPant(category) ? "Waist Size" : "Size"}</th>
                     <th className="py-2 px-3 text-left text-xs font-medium text-gray-500">Stock Quantity</th>
                     <th className="py-2 px-3 text-center text-xs font-medium text-gray-500">Enable</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {SIZES.map((size) => {
+                  {getSizes(category).map((size) => {
                     const stock = stocks[size] ?? 0;
                     const ind = stockIndicator(stock);
                     return (

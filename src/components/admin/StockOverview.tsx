@@ -2,8 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-
-const SIZES = ["S", "M", "L", "XL", "XXL"];
+import { getSizes } from "@/lib/sizes";
 
 interface Variant {
   id: string;
@@ -15,6 +14,7 @@ interface Variant {
 interface Product {
   id: string;
   name: string;
+  category: string | null;
   product_variants: Variant[];
 }
 
@@ -33,7 +33,7 @@ const StockOverview = () => {
     queryFn: async (): Promise<Product[]> => {
       const { data, error } = await supabase
         .from("products")
-        .select("id, name, product_variants(*)")
+        .select("id, name, category, product_variants(*)")
         .order("name");
       if (error) throw error;
       return data as Product[];
@@ -67,7 +67,8 @@ const StockOverview = () => {
   };
 
   const handleSaveRow = (product: Product) => {
-    SIZES.forEach((size) => {
+    const productSizes = getSizes(product.category);
+    productSizes.forEach((size) => {
       const variant = getVariant(product, size);
       if (!variant) return;
       if (variant.id in editing) {
@@ -76,7 +77,7 @@ const StockOverview = () => {
     });
     setEditing((prev) => {
       const next = { ...prev };
-      SIZES.forEach((size) => {
+      productSizes.forEach((size) => {
         const variant = getVariant(product, size);
         if (variant) delete next[variant.id];
       });
@@ -86,6 +87,23 @@ const StockOverview = () => {
 
   const totalStock = (product: Product) =>
     product.product_variants.reduce((s, v) => s + v.stock, 0);
+
+  // Collect all unique sizes across products for header
+  const allSizeSets = new Map<string, string[]>();
+  products.forEach((p) => {
+    const sizes = getSizes(p.category);
+    allSizeSets.set(p.id, sizes);
+  });
+
+  // Get combined unique sizes for the header
+  const headerSizes = Array.from(new Set(products.flatMap(p => getSizes(p.category))));
+  // Sort: S, M, L, XL first, then numeric
+  const sizeOrder = ['S', 'M', 'L', 'XL', '29', '30', '31', '32', '33', '34', '35', '36'];
+  headerSizes.sort((a, b) => {
+    const ai = sizeOrder.indexOf(a);
+    const bi = sizeOrder.indexOf(b);
+    return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+  });
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg">
@@ -102,7 +120,7 @@ const StockOverview = () => {
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
                 <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Product</th>
-                {SIZES.map((s) => (
+                {headerSizes.map((s) => (
                   <th key={s} className="text-center px-3 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide w-16">{s}</th>
                 ))}
                 <th className="text-center px-3 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Total</th>
@@ -111,14 +129,19 @@ const StockOverview = () => {
             </thead>
             <tbody>
               {products.map((product) => {
-                const hasEdits = SIZES.some((size) => {
+                const productSizes = getSizes(product.category);
+                const hasEdits = productSizes.some((size) => {
                   const v = getVariant(product, size);
                   return v && v.id in editing;
                 });
                 return (
                   <tr key={product.id} className="border-b border-gray-50 hover:bg-gray-50">
                     <td className="px-5 py-3 text-gray-900 font-medium max-w-[200px] truncate">{product.name}</td>
-                    {SIZES.map((size) => {
+                    {headerSizes.map((size) => {
+                      const isRelevant = productSizes.includes(size);
+                      if (!isRelevant) {
+                        return <td key={size} className="px-3 py-3 text-center"><span className="text-gray-200 text-xs">—</span></td>;
+                      }
                       const variant = getVariant(product, size);
                       const stock = getStock(product, size);
                       return (

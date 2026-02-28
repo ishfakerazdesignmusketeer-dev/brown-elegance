@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Search, ShoppingBag, User, Menu, ChevronDown, LogOut, Package, UserCircle, LayoutDashboard } from "lucide-react";
+import { ShoppingBag, User, Menu, ChevronDown, LogOut, Package, UserCircle, LayoutDashboard } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import defaultLogo from "@/assets/logo.png";
 import { useCart } from "@/contexts/CartContext";
@@ -19,8 +19,6 @@ interface Category {
 
 const navLinks = [
   { label: "SHOP", href: "#shop" },
-  { label: "CRAFTSMANSHIP", href: "#craftsmanship" },
-  { label: "ABOUT", href: "#about" },
   { label: "CONTACT", href: "#contact" },
 ];
 
@@ -153,10 +151,6 @@ const Navigation = () => {
 
           {/* Right - Utility Icons */}
           <div className="flex items-center gap-5 [&_button]:flex [&_button]:items-center [&_button]:justify-center">
-            <button className="text-foreground hover:opacity-70 transition-opacity" aria-label="Search">
-              <Search className="w-5 h-5" />
-            </button>
-
             <button
               onClick={() => openCart(true)}
               className="relative text-foreground hover:opacity-70 transition-opacity"
