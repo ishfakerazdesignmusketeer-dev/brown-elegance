@@ -69,8 +69,7 @@ const BrandingSection = () => {
 
       const { error: updateError } = await supabase
         .from("admin_settings")
-        .update({ value: publicUrl })
-        .eq("key", field.key);
+        .upsert({ key: field.key, value: publicUrl }, { onConflict: 'key' });
       if (updateError) throw updateError;
 
       queryClient.invalidateQueries({ queryKey: ["branding-admin"] });
@@ -87,8 +86,7 @@ const BrandingSection = () => {
     try {
       const { error } = await supabase
         .from("admin_settings")
-        .update({ value: null })
-        .eq("key", field.key);
+        .upsert({ key: field.key, value: null }, { onConflict: 'key' });
       if (error) throw error;
 
       queryClient.invalidateQueries({ queryKey: ["branding-admin"] });

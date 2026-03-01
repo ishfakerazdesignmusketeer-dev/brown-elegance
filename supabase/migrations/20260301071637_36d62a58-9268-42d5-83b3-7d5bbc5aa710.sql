@@ -1,0 +1,1 @@
+ALTER TABLE public.admin_settings ADD CONSTRAINT admin_settings_key_unique UNIQUE (key);
