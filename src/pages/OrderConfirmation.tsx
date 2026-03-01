@@ -1,7 +1,8 @@
 import { useLocation, Link } from "react-router-dom";
 import { formatPrice } from "@/lib/format";
 import { Button } from "@/components/ui/button";
-import { CheckCircle } from "lucide-react";
+import { CheckCircle, Download } from "lucide-react";
+import { generateInvoicePDF } from "@/lib/generateInvoicePDF";
 import type { CartItem } from "@/contexts/CartContext";
 
 interface OrderState {
@@ -89,6 +90,30 @@ const OrderConfirmation = () => {
             </div>
           </div>
         </div>
+
+        <Button
+          variant="outline"
+          className="font-body text-[12px] uppercase tracking-[1.5px] px-10 py-6 rounded-none border-foreground text-foreground hover:bg-foreground hover:text-background transition-colors gap-2"
+          onClick={() =>
+            generateInvoicePDF({
+              order_number: state.order_number,
+              customer_name: state.customer_name,
+              created_at: new Date().toISOString(),
+              order_items: state.items.map((i) => ({
+                product_name: i.name,
+                size: i.size,
+                quantity: i.quantity,
+                unit_price: i.unit_price,
+              })),
+              subtotal: state.subtotal,
+              delivery_charge: state.delivery_charge,
+              total: state.total,
+            })
+          }
+        >
+          <Download className="w-4 h-4" />
+          Download Invoice
+        </Button>
 
         <Button
           asChild

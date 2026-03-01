@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatPrice } from "@/lib/format";
 import { format, formatDistanceToNow } from "date-fns";
-import { ArrowLeft, Printer, Trash2, MessageCircle, Copy } from "lucide-react";
+import { ArrowLeft, Printer, Trash2, MessageCircle, Copy, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from "sonner";
 import InvoicePrint from "@/components/admin/InvoicePrint";
 import { cn } from "@/lib/utils";
+import { generateInvoicePDF } from "@/lib/generateInvoicePDF";
 
 const STATUS_LIST = ["pending", "processing", "confirmed", "completed", "cancelled", "refunded"] as const;
 const STATUS_COLORS: Record<string, string> = {
@@ -289,6 +290,9 @@ const AdminOrderDetail = () => {
             <CardContent className="space-y-2">
               <Button variant="outline" size="sm" className="w-full justify-start gap-2" onClick={handlePrint}>
                 <Printer className="w-3.5 h-3.5" /> Print Invoice
+              </Button>
+              <Button variant="outline" size="sm" className="w-full justify-start gap-2" onClick={() => generateInvoicePDF(order)}>
+                <Download className="w-3.5 h-3.5" /> Download Invoice
               </Button>
               <Button variant="outline" size="sm" className="w-full justify-start gap-2" onClick={handleWhatsApp}>
                 <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
