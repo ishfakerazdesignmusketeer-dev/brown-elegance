@@ -15,6 +15,7 @@ export const useDynamicFavicon = () => {
         return el;
       })();
     link.href = data.faviconUrl;
-    link.type = data.faviconUrl.endsWith(".svg") ? "image/svg+xml" : "image/png";
+    const url = data.faviconUrl.toLowerCase();
+    link.type = url.endsWith(".svg") ? "image/svg+xml" : url.endsWith(".jpg") || url.endsWith(".jpeg") ? "image/jpeg" : "image/png";
   }, [data?.faviconUrl]);
 };
