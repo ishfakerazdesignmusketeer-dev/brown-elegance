@@ -1,32 +1,41 @@
 
 
-# Redesign Category Cards Section (Visual Only)
+# Fix Bulk Delete Foreign Key Error in Admin Orders
 
-## Scope
-Replace only the visual presentation of the category cards in `src/components/home/CategoryCards.tsx`. No changes to data fetching, routing, or any other component/page.
+## Problem
+Deleting orders fails with `stock_history_order_id_fkey` error because the delete functions clear `abandoned_carts` references but not `stock_history` references.
 
 ## Changes
 
-### File: `src/components/home/CategoryCards.tsx`
-Replace the entire JSX return and remove unused imports (`LazyImage`, `PLACEHOLDER_GRADIENTS`). Add import for `isPant` from `@/lib/sizes.ts` to dynamically determine size labels per category.
+### 1. Database Migration
+Add `ON DELETE SET NULL` to both foreign keys so the database handles this automatically going forward:
 
-**New design:**
-- Section header: "Curated Collections" subtitle + "Shop by Category" title + decorative diamond separator
-- Two-column grid on desktop (`md:grid-cols-2`), single column on mobile
-- Each card: tall (580px desktop, 420px mobile), warm background (`#F0EAE0` / `#EAE4D8` alternating), no images
-- Card content: watermark roman numeral, top row with index number + tag (Heritage/Contemporary), centered category name in large serif font (72px desktop, 52px mobile), tagline, bottom row with size info + "Shop Now" CTA with animated line
-- Hover effect: background darkens slightly, CTA line extends, text color shifts to gold
-- Navigation preserved: wraps each card in existing `<Link to={/collections/${cat.slug}}>` -- unchanged
-- Uses `isPant(cat.name)` to dynamically show "Waist Sizes: 29-36" vs "Available Sizes: S-M-L-XL"
+```sql
+ALTER TABLE abandoned_carts
+  DROP CONSTRAINT IF EXISTS abandoned_carts_converted_order_id_fkey;
+ALTER TABLE abandoned_carts
+  ADD CONSTRAINT abandoned_carts_converted_order_id_fkey
+  FOREIGN KEY (converted_order_id) REFERENCES orders(id) ON DELETE SET NULL;
 
-### File: `index.html`
-The required fonts (Cormorant Garamond and Montserrat) -- Cormorant Garamond is already loaded. Add Montserrat weight 300/400 to the existing Google Fonts preload URL.
+ALTER TABLE stock_history
+  DROP CONSTRAINT IF EXISTS stock_history_order_id_fkey;
+ALTER TABLE stock_history
+  ADD CONSTRAINT stock_history_order_id_fkey
+  FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE SET NULL;
+```
 
-## What stays the same
-- `useQuery` hook and query key
-- Supabase fetch logic
-- `Link` component with `to={/collections/${cat.slug}}`
-- Category interface
-- Loading skeleton pattern
-- No other files touched
+### 2. File: `src/pages/admin/AdminOrders.tsx`
 
+**Bulk delete (line ~192-199):** Add `stock_history` cleanup before deleting orders:
+```typescript
+// After abandoned_carts cleanup (line 194), add:
+await supabase.from("stock_history").update({ order_id: null }).in("order_id", ids);
+```
+
+**Single delete (line ~220-227):** Add `stock_history` cleanup before deleting orders:
+```typescript
+// After abandoned_carts cleanup (line 222), add:
+await supabase.from("stock_history").update({ order_id: null }).eq("order_id", id);
+```
+
+No other files or functionality changed.
