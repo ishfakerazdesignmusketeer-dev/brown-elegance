@@ -192,6 +192,7 @@ const AdminOrders = () => {
       if (action === "delete") {
         // Null out FK references in abandoned_carts first
         await supabase.from("abandoned_carts").update({ converted_order_id: null }).in("converted_order_id", ids);
+        await supabase.from("stock_history").update({ order_id: null }).in("order_id", ids);
         // Delete related order_items and order_notes
         await supabase.from("order_items").delete().in("order_id", ids);
         await supabase.from("order_notes").delete().in("order_id", ids);
@@ -220,6 +221,7 @@ const AdminOrders = () => {
     mutationFn: async (id: string) => {
       // Null out FK references in abandoned_carts first
       await supabase.from("abandoned_carts").update({ converted_order_id: null }).eq("converted_order_id", id);
+      await supabase.from("stock_history").update({ order_id: null }).eq("order_id", id);
       // Delete related order_items and order_notes
       await supabase.from("order_items").delete().eq("order_id", id);
       await supabase.from("order_notes").delete().eq("order_id", id);
