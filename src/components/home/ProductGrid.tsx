@@ -92,7 +92,7 @@ const ProductGrid = () => {
   const getBadge = (p: Product): { text: string; className: string; position: string } | null => {
     if (p.is_studio_exclusive) return { text: "Studio Exclusive", className: "bg-indigo-600 text-white", position: "top-2 left-2" };
     if (p.is_coming_soon) return { text: "Coming Soon", className: "bg-gray-900 text-white", position: "top-2 left-2" };
-    if (p.is_preorder) return { text: "Pre-Order", className: "bg-amber-500 text-white", position: "top-2 left-2" };
+    
     if (allSoldOut(p)) return { text: "Sold Out", className: "bg-red-600 text-white", position: "top-2 left-2" };
     if (hasSale(p)) return { text: "SALE", className: "bg-red-600 text-white", position: "top-2 right-2" };
     return null;
