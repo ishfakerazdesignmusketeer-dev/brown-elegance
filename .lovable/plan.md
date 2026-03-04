@@ -1,33 +1,23 @@
 
-# Add Google Tag Manager to index.html
 
-## Scope
-Only `index.html` is modified. No other files touched.
+# Unify Invoice PDF Generation
 
-## Current State
-The file has no existing GA4 script (the lines mentioned for removal are not present), so only the GTM addition is needed.
+## Changes (3 files only)
 
-## Changes
+### 1. `src/lib/generateInvoicePDF.ts` — Full rewrite
+Replace the entire function with the user's provided version featuring:
+- Safe field extraction with multiple fallback field names
+- Styled header with dark background bar and gold accents
+- Delivery zone display
+- Advance/amount-to-collect support
+- Dark footer bar
+- Uses `BDT` formatting with `toLocaleString()` instead of `formatPrice`
 
-### 1. Add GTM script as the first thing inside `<head>` (after `<head>` tag, before `<meta charset>`)
+### 2. `src/pages/OrderConfirmation.tsx` — Update download button
+- The existing `onClick` already constructs an order object and calls `generateInvoicePDF` — this works fine with the new robust function since it handles `order_items` with `product_name`/`unit_price`/`size`/`quantity` fields.
+- Update the button `className` to the user's specified styling: white background, `border-[#2C1810]`, rounded-lg, hover fill effect.
+- Remove the `variant="outline"` prop since we're using custom classes.
 
-```html
-<!-- Google Tag Manager -->
-<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-})(window,document,'script','dataLayer','GTM-57S8DH38');</script>
-<!-- End Google Tag Manager -->
-```
+### 3. No admin changes needed
+The admin already imports and calls `generateInvoicePDF` from the same path — verified it uses the shared function. The new function's fallback field handling ensures compatibility with both order object shapes.
 
-### 2. Add GTM noscript as the first thing inside `<body>` (after `<body>` tag, before `<div id="root">`)
-
-```html
-<!-- Google Tag Manager (noscript) -->
-<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-57S8DH38"
-height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-<!-- End Google Tag Manager (noscript) -->
-```
-
-No other changes. No component files touched.
