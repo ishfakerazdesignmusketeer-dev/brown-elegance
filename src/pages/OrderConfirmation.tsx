@@ -92,8 +92,7 @@ const OrderConfirmation = () => {
         </div>
 
         <Button
-          variant="outline"
-          className="font-body text-[12px] uppercase tracking-[1.5px] px-10 py-6 rounded-none border-foreground text-foreground hover:bg-foreground hover:text-background transition-colors gap-2"
+          className="flex items-center gap-2 px-6 py-3 bg-white border-2 border-[#2C1810] text-[#2C1810] rounded-lg font-medium hover:bg-[#2C1810] hover:text-white transition-colors cursor-pointer"
           onClick={() =>
             generateInvoicePDF({
               order_number: state.order_number,
