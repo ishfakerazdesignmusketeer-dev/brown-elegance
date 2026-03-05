@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useBranding } from "@/hooks/use-branding";
 import AuthModal from "@/components/AuthModal";
 import ContactModal from "@/components/ContactModal";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 interface Category {
   id: string;
@@ -34,6 +35,7 @@ const Navigation = () => {
   const { data: branding } = useBranding();
   const logoSrc = branding?.logoUrl || defaultLogo;
   const navigate = useNavigate();
+  const { currency, setCurrency } = useCurrency();
 
   const { data: categories = [] } = useQuery({
     queryKey: ["categories-public"],
@@ -150,7 +152,27 @@ const Navigation = () => {
           </nav>
 
           {/* Right - Utility Icons */}
-          <div className="flex items-center gap-5 [&_button]:flex [&_button]:items-center [&_button]:justify-center">
+          <div className="flex items-center gap-4 [&_button]:flex [&_button]:items-center [&_button]:justify-center">
+            {/* Currency Toggle */}
+            <div className="hidden sm:flex items-center border border-border rounded-full overflow-hidden">
+              <button
+                onClick={() => setCurrency("BDT")}
+                className={`px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                  currency === "BDT" ? "bg-foreground text-background" : "text-foreground hover:bg-muted"
+                }`}
+              >
+                ৳ BDT
+              </button>
+              <button
+                onClick={() => setCurrency("USD")}
+                className={`px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                  currency === "USD" ? "bg-foreground text-background" : "text-foreground hover:bg-muted"
+                }`}
+              >
+                $ USD
+              </button>
+            </div>
+
             <button
               onClick={() => openCart(true)}
               className="relative text-foreground hover:opacity-70 transition-opacity"

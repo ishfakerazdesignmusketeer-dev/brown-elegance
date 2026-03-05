@@ -34,6 +34,7 @@ const SETTING_META: Record<string, { label: string; type?: string; placeholder?:
   delivery_inside_dhaka: { label: "Delivery Charge Inside Dhaka (৳)", type: "number", placeholder: "100" },
   delivery_outside_dhaka: { label: "Delivery Charge Outside Dhaka (৳)", type: "number", placeholder: "130" },
   return_policy_content: { label: "Return Policy Content", placeholder: "Enter your return policy here..." },
+  usd_exchange_rate: { label: "USD Exchange Rate (1 USD = ৳?)", type: "number", placeholder: "110" },
 };
 
 const AdminSettings = () => {
@@ -80,7 +81,7 @@ const AdminSettings = () => {
     }
   };
 
-  const orderedKeys = ["store_name", "store_email", "store_url", "admin_email", "whatsapp_number", "instagram_url", "bkash_number", "nagad_number", "size_chart_url", "delivery_charge", "admin_password"];
+  const orderedKeys = ["store_name", "store_email", "store_url", "admin_email", "whatsapp_number", "instagram_url", "bkash_number", "nagad_number", "size_chart_url", "delivery_charge", "usd_exchange_rate", "admin_password"];
   const studioKeys = ["studio_name", "studio_address", "studio_city", "studio_map_url", "studio_hours"];
   const deliveryKeys = ["delivery_inside_dhaka", "delivery_outside_dhaka"];
 

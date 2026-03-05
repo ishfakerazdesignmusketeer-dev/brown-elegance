@@ -6,7 +6,7 @@ import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { formatPrice } from "@/lib/format";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -40,6 +40,7 @@ interface AppliedCoupon {
 const Checkout = () => {
   const { items, subtotal, clearCart, sessionId } = useCart();
   const { user } = useAuth();
+  const { formatPrice } = useCurrency();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);

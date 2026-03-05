@@ -76,7 +76,7 @@ const CreateOrderPanel = ({ open, onClose }: CreateOrderPanelProps) => {
   const [paymentMethod, setPaymentMethod] = useState("COD");
   const [paymentType, setPaymentType] = useState<"full" | "advance_cod" | "cod">("cod");
   const [advanceAmount, setAdvanceAmount] = useState(0);
-  const [deliveryZone, setDeliveryZone] = useState<"inside_dhaka" | "outside_dhaka">("inside_dhaka");
+  const [deliveryZone, setDeliveryZone] = useState<"inside_dhaka" | "outside_dhaka" | "walk_in">("inside_dhaka");
   const [discount, setDiscount] = useState(0);
 
   const [productSearch, setProductSearch] = useState("");
@@ -86,26 +86,7 @@ const CreateOrderPanel = ({ open, onClose }: CreateOrderPanelProps) => {
   const [items, setItems] = useState<OrderLineItem[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const { data: deliveryPrices } = useQuery({
-    queryKey: ["delivery-prices-admin"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("admin_settings")
-        .select("key, value")
-        .in("key", ["delivery_inside_dhaka", "delivery_outside_dhaka"]);
-      const map: Record<string, string> = {};
-      (data ?? []).forEach((r: any) => { if (r.value) map[r.key] = r.value; });
-      return {
-        inside: parseInt(map["delivery_inside_dhaka"] || "60") || 60,
-        outside: parseInt(map["delivery_outside_dhaka"] || "120") || 120,
-      };
-    },
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const insidePrice = deliveryPrices?.inside ?? 60;
-  const outsidePrice = deliveryPrices?.outside ?? 120;
-  const delivery = deliveryZone === "inside_dhaka" ? insidePrice : outsidePrice;
+  const delivery = deliveryZone === "inside_dhaka" ? 100 : deliveryZone === "outside_dhaka" ? 130 : 0;
 
   const { data: products = [] } = useQuery({
     queryKey: ["admin-products-for-order"],
@@ -323,29 +304,25 @@ const CreateOrderPanel = ({ open, onClose }: CreateOrderPanelProps) => {
               {/* Delivery Zone */}
               <div>
                 <Label className="text-xs text-muted-foreground">Delivery Zone</Label>
-                <div className="flex gap-2 mt-1.5">
-                  <button
-                    onClick={() => setDeliveryZone("inside_dhaka")}
-                    className={cn(
-                      "px-4 py-2 rounded-full text-xs font-medium border transition-colors flex items-center gap-1.5",
-                      deliveryZone === "inside_dhaka"
-                        ? "bg-foreground text-background border-foreground"
-                        : "bg-background text-foreground border-border hover:border-foreground/50"
-                    )}
-                  >
-                    📍 Inside Dhaka — ৳{insidePrice}
-                  </button>
-                  <button
-                    onClick={() => setDeliveryZone("outside_dhaka")}
-                    className={cn(
-                      "px-4 py-2 rounded-full text-xs font-medium border transition-colors flex items-center gap-1.5",
-                      deliveryZone === "outside_dhaka"
-                        ? "bg-foreground text-background border-foreground"
-                        : "bg-background text-foreground border-border hover:border-foreground/50"
-                    )}
-                  >
-                    🚚 Outside Dhaka — ৳{outsidePrice}
-                  </button>
+                <div className="flex flex-wrap gap-2 mt-1.5">
+                  {([
+                    { value: "inside_dhaka" as const, label: "📍 Inside Dhaka — ৳100" },
+                    { value: "outside_dhaka" as const, label: "🚚 Outside Dhaka — ৳130" },
+                    { value: "walk_in" as const, label: "🏪 Walk-in — ৳0" },
+                  ]).map((zone) => (
+                    <button
+                      key={zone.value}
+                      onClick={() => setDeliveryZone(zone.value)}
+                      className={cn(
+                        "px-4 py-2 rounded-full text-xs font-medium border transition-colors flex items-center gap-1.5",
+                        deliveryZone === zone.value
+                          ? "bg-foreground text-background border-foreground"
+                          : "bg-background text-foreground border-border hover:border-foreground/50"
+                      )}
+                    >
+                      {zone.label}
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
@@ -473,7 +450,7 @@ const CreateOrderPanel = ({ open, onClose }: CreateOrderPanelProps) => {
                       <span>{formatPrice(subtotal)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Delivery ({deliveryZone === "inside_dhaka" ? "Inside Dhaka" : "Outside Dhaka"})</span>
+                      <span className="text-muted-foreground">Delivery ({deliveryZone === "inside_dhaka" ? "Inside Dhaka" : deliveryZone === "outside_dhaka" ? "Outside Dhaka" : "Walk-in"})</span>
                       <span>৳{delivery}</span>
                     </div>
                     <div className="flex justify-between items-center">

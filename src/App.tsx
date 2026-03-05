@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { CartProvider } from "@/contexts/CartContext";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import CartDrawer from "@/components/cart/CartDrawer";
 import CartReminder from "@/components/cart/CartReminder";
 import ScrollToTop from "@/components/ScrollToTop";
@@ -74,6 +75,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <AuthProvider>
+        <CurrencyProvider>
         <CartProvider>
           <DynamicFavicon />
           <Toaster />
@@ -118,6 +120,7 @@ const App = () => (
             </Routes>
           </BrowserRouter>
         </CartProvider>
+        </CurrencyProvider>
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
