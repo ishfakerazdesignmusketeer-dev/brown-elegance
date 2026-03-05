@@ -3,12 +3,13 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { X, Minus, Plus, ShoppingBag } from "lucide-react";
 import { Link } from "react-router-dom";
-import { formatPrice } from "@/lib/format";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 const DELIVERY_CHARGE = 80;
 
 const CartDrawer = () => {
   const { items, isOpen, setIsOpen, removeItem, updateQuantity, itemCount, subtotal } = useCart();
+  const { formatPrice } = useCurrency();
 
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>

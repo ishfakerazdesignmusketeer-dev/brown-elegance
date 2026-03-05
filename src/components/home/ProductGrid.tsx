@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { useCart } from "@/contexts/CartContext";
-import { formatPrice } from "@/lib/format";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import AddToCartModal from "@/components/cart/AddToCartModal";
 import LazyImage from "@/components/ui/lazy-image";
@@ -38,6 +38,7 @@ const preloadImage = (src: string) => {
 const ProductGrid = () => {
   const { addItem } = useCart();
   const isMobile = useIsMobile();
+  const { formatPrice } = useCurrency();
   const queryClient = useQueryClient();
   const [modalProduct, setModalProduct] = useState<Product | null>(null);
 

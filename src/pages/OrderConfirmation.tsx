@@ -1,5 +1,5 @@
 import { useLocation, Link } from "react-router-dom";
-import { formatPrice } from "@/lib/format";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Download } from "lucide-react";
 import { generateInvoicePDF } from "@/lib/generateInvoicePDF";
@@ -16,6 +16,7 @@ interface OrderState {
 
 const OrderConfirmation = () => {
   const { state } = useLocation() as { state: OrderState | null };
+  const { formatPrice } = useCurrency();
 
   if (!state) {
     return (

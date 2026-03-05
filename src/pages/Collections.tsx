@@ -4,7 +4,7 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
-import { formatPrice } from "@/lib/format";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import Navigation from "@/components/layout/Navigation";
 import AnnouncementBar from "@/components/layout/AnnouncementBar";
@@ -41,6 +41,7 @@ const Collections = () => {
   const { slug } = useParams<{ slug: string }>();
   const { addItem } = useCart();
   const isMobile = useIsMobile();
+  const { formatPrice } = useCurrency();
   const queryClient = useQueryClient();
   const [modalProduct, setModalProduct] = useState<Product | null>(null);
 

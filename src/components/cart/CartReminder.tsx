@@ -1,9 +1,10 @@
 import { ShoppingBag } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
-import { formatPrice } from "@/lib/format";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 const CartReminder = () => {
   const { itemCount, subtotal, setIsOpen } = useCart();
+  const { formatPrice } = useCurrency();
 
   if (itemCount === 0) return null;
 

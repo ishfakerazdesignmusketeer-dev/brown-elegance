@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { formatPrice } from "@/lib/format";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { format } from "date-fns";
 import Navigation from "@/components/layout/Navigation";
 import AnnouncementBar from "@/components/layout/AnnouncementBar";
@@ -23,6 +23,7 @@ const statusColors: Record<string, string> = {
 const MyOrders = () => {
   const { user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const { formatPrice } = useCurrency();
   const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => {
