@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import InvoicePrint from "@/components/admin/InvoicePrint";
+import { printInvoicePDF } from "@/lib/generateInvoicePDF";
 import { cn } from "@/lib/utils";
 
 const STATUS_LIST = ["pending", "processing", "confirmed", "completed", "cancelled", "refunded"] as const;
@@ -162,8 +163,8 @@ const OrderDetailModal = ({ orderId, onClose }: OrderDetailModalProps) => {
   });
 
   const handlePrint = () => {
-    setPrintOrder(order);
-    setTimeout(() => window.print(), 100);
+    if (!order) return;
+    printInvoicePDF(order);
   };
 
   const handleWhatsApp = () => {

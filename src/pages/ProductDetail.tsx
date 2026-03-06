@@ -338,7 +338,7 @@ const ProductDetail = () => {
               {hasOfferPrice ?
               <div className="flex items-baseline gap-3">
                   <p className="font-body text-2xl font-bold text-foreground">
-                    {formatPrice(product.offer_price!)} <span className="text-sm text-muted-foreground">BDT</span>
+                    {formatPrice(product.offer_price!)}
                   </p>
                   <p className="font-body text-lg text-muted-foreground line-through">
                     {formatPrice(product.price)}
@@ -346,7 +346,7 @@ const ProductDetail = () => {
                 </div> :
 
               <p className="font-body text-2xl text-foreground">
-                  {formatPrice(product.price)} <span className="text-sm text-muted-foreground">BDT</span>
+                  {formatPrice(product.price)}
                 </p>
               }
             </div>
