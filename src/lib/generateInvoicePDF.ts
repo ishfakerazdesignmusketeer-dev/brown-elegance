@@ -460,13 +460,37 @@ export const printInvoicePDF = (order: any) => {
   doc.text('Thank you for shopping with Brown House!', pageW / 2, pageH - 12, { align: 'center' });
   doc.text('brownhouse.global', pageW / 2, pageH - 6, { align: 'center' });
 
-  // Open in new tab for printing
+  // Open PDF in hidden iframe and trigger print
   const pdfBlob = doc.output('blob');
   const blobUrl = URL.createObjectURL(pdfBlob);
-  const printWindow = window.open(blobUrl, '_blank');
-  if (printWindow) {
-    printWindow.onload = () => {
-      printWindow.print();
-    };
-  }
+  
+  // Remove any previous print iframe
+  const existingFrame = document.getElementById('invoice-print-frame');
+  if (existingFrame) existingFrame.remove();
+  
+  const iframe = document.createElement('iframe');
+  iframe.id = 'invoice-print-frame';
+  iframe.style.position = 'fixed';
+  iframe.style.right = '0';
+  iframe.style.bottom = '0';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = 'none';
+  iframe.src = blobUrl;
+  
+  iframe.onload = () => {
+    try {
+      iframe.contentWindow?.print();
+    } catch {
+      // Fallback: open in new tab
+      window.open(blobUrl, '_blank');
+    }
+    // Clean up after a delay
+    setTimeout(() => {
+      iframe.remove();
+      URL.revokeObjectURL(blobUrl);
+    }, 60000);
+  };
+  
+  document.body.appendChild(iframe);
 };
