@@ -130,11 +130,11 @@ const AddToCartModal = ({ product, open, onClose }: AddToCartModalProps) => {
               <h3 className="font-heading text-lg text-foreground leading-tight">{product.name}</h3>
               {hasOfferPrice ? (
                 <div className="mt-1">
-                  <span className="font-body text-sm font-bold text-foreground">{formatPrice(product.offer_price!)} BDT</span>
+                  <span className="font-body text-sm font-bold text-foreground">{formatPrice(product.offer_price!)}</span>
                   <span className="font-body text-xs text-muted-foreground line-through ml-2">{formatPrice(product.price)}</span>
                 </div>
               ) : (
-                <p className="font-body text-sm text-muted-foreground mt-1">{formatPrice(product.price)} BDT</p>
+                <p className="font-body text-sm text-muted-foreground mt-1">{formatPrice(product.price)}</p>
               )}
             </div>
           </div>

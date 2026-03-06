@@ -203,12 +203,12 @@ const ProductGrid = () => {
                       {!isComingSoon && (
                         showOfferPrice ? (
                           <div className="mt-1">
-                            <span className="font-body text-sm font-bold text-foreground">{formatPrice(product.offer_price!)} BDT</span>
+                            <span className="font-body text-sm font-bold text-foreground">{formatPrice(product.offer_price!)}</span>
                             <span className="font-body text-xs text-muted-foreground line-through ml-2">{formatPrice(product.price)}</span>
                           </div>
                         ) : (
                           <p className="font-body text-sm text-muted-foreground mt-1">
-                            {formatPrice(product.price)} BDT
+                            {formatPrice(product.price)}
                           </p>
                         )
                       )}

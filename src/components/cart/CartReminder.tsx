@@ -25,7 +25,7 @@ const CartReminder = () => {
         </span>
       </div>
       <span className="font-body text-sm">
-        {formatPrice(subtotal)} BDT
+        {formatPrice(subtotal)}
       </span>
     </button>
   );
