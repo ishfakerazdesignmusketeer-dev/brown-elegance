@@ -1,90 +1,58 @@
 
 
-# Fix: Full Stock Management — Deduct on Confirmed & Completed
+# Fix: Print Invoice, Stock Double-Deduction, Currency Label
 
-## Current State
+## Issue 1 — Admin Print Shows Blank Page
 
-The function `handle_stock_on_status_change()` exists but **no trigger is attached to the `orders` table** — so stock never deducts at all right now.
+**Root cause**: `handlePrint` in `OrderDetailModal.tsx` (line 164-167) calls `window.print()`, which prints the dark admin UI.
 
-The function also only handles `confirmed`, not `completed`.
+**Fix**: Add `printInvoicePDF` to `generateInvoicePDF.ts` — identical PDF logic but opens in a new browser tab via `doc.output('bloburl')` instead of `doc.save()`. Update `handlePrint` in `OrderDetailModal.tsx` to call `printInvoicePDF(order)`.
 
-## Logic
+### Files
+- `src/lib/generateInvoicePDF.ts` — add `printInvoicePDF` export
+- `src/components/admin/OrderDetailModal.tsx` — import and use `printInvoicePDF`
 
-- **Deduct stock** when status changes to `confirmed` OR `completed` — but only if `stock_deducted = false` (prevents double-deduction when going confirmed → completed)
-- **Restore stock** when status changes to `cancelled` — but only if `stock_deducted = true`
-- The `stock_deducted` flag on the order is the single source of truth
+---
 
-## Fix — One Database Migration, Zero Code Changes
+## Issue 2 — Stock Double Deduction (CRITICAL)
 
-Update the function and create the missing trigger:
+**Root cause**: Migration `20260227102639` tried to drop the old triggers but used wrong names:
+- Drops `decrement_stock_on_order` — but the actual trigger is named `auto_decrement_stock`
+- Drops `restore_stock_on_cancel` — but the actual trigger is named `restore_stock_on_order_cancel`
+
+So the old `auto_decrement_stock` trigger (INSERT on order_items → immediately deduct stock) is **still active**. When an order is placed, stock is deducted immediately. Then when status changes to "confirmed", the new `handle_stock_on_status_change` trigger deducts again. **This is why 1 piece ordered = 2 pieces deducted.**
+
+**Fix**: Run a migration to drop the old triggers by their correct names:
 
 ```sql
-CREATE OR REPLACE FUNCTION public.handle_stock_on_status_change()
-RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'
-AS $$
-BEGIN
-  -- Deduct on confirmed or completed (only if not already deducted)
-  IF NEW.status IN ('confirmed', 'completed')
-     AND OLD.status IS DISTINCT FROM NEW.status
-     AND NEW.stock_deducted = false THEN
-
-    UPDATE product_variants pv SET stock = pv.stock - oi.quantity
-    FROM order_items oi
-    WHERE oi.order_id = NEW.id AND pv.product_id = oi.product_id AND pv.size = oi.size;
-
-    INSERT INTO stock_history (product_id, variant_id, product_name, size, change_amount, reason, order_id)
-    SELECT oi.product_id, pv.id, oi.product_name, oi.size, -oi.quantity,
-           'order_' || NEW.status, NEW.id
-    FROM order_items oi
-    LEFT JOIN product_variants pv ON pv.product_id = oi.product_id AND pv.size = oi.size
-    WHERE oi.order_id = NEW.id;
-
-    NEW.stock_deducted := true;
-  END IF;
-
-  -- Restore on cancelled (only if stock was deducted)
-  IF NEW.status = 'cancelled'
-     AND OLD.status IS DISTINCT FROM 'cancelled'
-     AND NEW.stock_deducted = true THEN
-
-    UPDATE product_variants pv SET stock = pv.stock + oi.quantity
-    FROM order_items oi
-    WHERE oi.order_id = NEW.id AND pv.product_id = oi.product_id AND pv.size = oi.size;
-
-    INSERT INTO stock_history (product_id, variant_id, product_name, size, change_amount, reason, order_id)
-    SELECT oi.product_id, pv.id, oi.product_name, oi.size, oi.quantity,
-           'order_cancelled', NEW.id
-    FROM order_items oi
-    LEFT JOIN product_variants pv ON pv.product_id = oi.product_id AND pv.size = oi.size
-    WHERE oi.order_id = NEW.id;
-
-    NEW.stock_deducted := false;
-  END IF;
-
-  RETURN NEW;
-END;
-$$;
-
-DROP TRIGGER IF EXISTS trigger_stock_on_status_change ON public.orders;
-CREATE TRIGGER trigger_stock_on_status_change
-  BEFORE UPDATE ON public.orders
-  FOR EACH ROW
-  EXECUTE FUNCTION public.handle_stock_on_status_change();
+DROP TRIGGER IF EXISTS auto_decrement_stock ON public.order_items;
+DROP TRIGGER IF EXISTS restore_stock_on_order_cancel ON public.orders;
+DROP FUNCTION IF EXISTS decrement_stock_on_order();
+DROP FUNCTION IF EXISTS restore_stock_on_cancel();
 ```
 
-## Scenario Walkthrough
+This leaves only the correct `handle_stock_on_status_change` trigger, which deducts on "confirmed" and restores on "cancelled".
 
-| Transition | stock_deducted before | Action | stock_deducted after |
-|---|---|---|---|
-| pending → confirmed | false | Deduct | true |
-| confirmed → completed | true | Skip (already deducted) | true |
-| pending → completed | false | Deduct | true |
-| confirmed → cancelled | true | Restore | false |
-| completed → cancelled | true | Restore | false |
-| cancelled → confirmed | false | Deduct | true |
+---
 
-## What Changes
-- **Database only** — one migration updating the function + creating the trigger
-- **Zero application code changes**
-- No other tables, orders, or features are touched
+## Issue 3 — Currency Shows "$45.50 BDT"
+
+**Root cause**: Multiple storefront files append a hardcoded ` BDT` or `<span>BDT</span>` after calling `formatPrice()`. Since `formatPrice` from CurrencyContext already returns the symbol (`৳` or `$`), the suffix causes `$45.50 BDT`.
+
+**Fix**: Remove the hardcoded ` BDT` suffix from:
+- `src/components/home/ProductGrid.tsx` — 3 occurrences
+- `src/pages/ProductDetail.tsx` — 2 `<span>BDT</span>` elements
+- `src/pages/Collections.tsx` — 3 occurrences
+- `src/components/cart/AddToCartModal.tsx` — 2 occurrences
+- `src/components/cart/CartReminder.tsx` — 1 occurrence
+
+---
+
+## Summary of changes
+1. `src/lib/generateInvoicePDF.ts` — add `printInvoicePDF`
+2. `src/components/admin/OrderDetailModal.tsx` — use `printInvoicePDF` in `handlePrint`
+3. DB migration — drop old stock triggers by correct names
+4. 5 storefront files — remove hardcoded ` BDT` suffix
+
+Nothing else changes.
 
