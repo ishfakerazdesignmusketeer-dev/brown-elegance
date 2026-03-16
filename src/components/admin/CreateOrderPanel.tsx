@@ -365,7 +365,11 @@ const CreateOrderPanel = ({ open, onClose }: CreateOrderPanelProps) => {
                         <img src={p.images[0]} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
                       )}
                       <span className="flex-1">{p.name}</span>
-                      <span className="text-muted-foreground">{formatPrice(p.price)}</span>
+                      <span className="text-muted-foreground">
+                        {p.offer_price ? (
+                          <><span className="line-through text-muted-foreground/50 mr-1">{formatPrice(p.price)}</span>{formatPrice(p.offer_price)}</>
+                        ) : formatPrice(p.price)}
+                      </span>
                     </button>
                   ))}
                 </div>
