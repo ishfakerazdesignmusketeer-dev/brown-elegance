@@ -32,6 +32,7 @@ interface Product {
   id: string;
   name: string;
   price: number;
+  offer_price: number | null;
   images: string[] | null;
   product_variants: ProductVariant[];
 }
