@@ -377,7 +377,7 @@ const CreateOrderPanel = ({ open, onClose }: CreateOrderPanelProps) => {
 
               {selectedProduct && (
                 <div className="space-y-2 p-3 bg-muted/50 rounded-md">
-                  <p className="text-xs font-medium">{selectedProduct.name} — {formatPrice(selectedProduct.price)}</p>
+                  <p className="text-xs font-medium">{selectedProduct.name} — {formatPrice(selectedProduct.offer_price ?? selectedProduct.price)}</p>
                   <div className="flex flex-wrap gap-2">
                     {selectedProduct.product_variants.filter(v => v.size !== 'XXL').map((v) => (
                       <button
