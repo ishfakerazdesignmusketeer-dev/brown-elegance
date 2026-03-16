@@ -134,7 +134,7 @@ const CreateOrderPanel = ({ open, onClose }: CreateOrderPanelProps) => {
           productName: selectedProduct.name,
           size: selectedSize,
           quantity: qty,
-          unitPrice: selectedProduct.price,
+          unitPrice: selectedProduct.offer_price ?? selectedProduct.price,
         },
       ]);
     }
