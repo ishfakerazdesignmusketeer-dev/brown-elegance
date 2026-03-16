@@ -32,6 +32,7 @@ interface Product {
   id: string;
   name: string;
   price: number;
+  offer_price: number | null;
   images: string[] | null;
   product_variants: ProductVariant[];
 }
@@ -133,7 +134,7 @@ const CreateOrderPanel = ({ open, onClose }: CreateOrderPanelProps) => {
           productName: selectedProduct.name,
           size: selectedSize,
           quantity: qty,
-          unitPrice: selectedProduct.price,
+          unitPrice: selectedProduct.offer_price ?? selectedProduct.price,
         },
       ]);
     }
@@ -364,7 +365,11 @@ const CreateOrderPanel = ({ open, onClose }: CreateOrderPanelProps) => {
                         <img src={p.images[0]} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
                       )}
                       <span className="flex-1">{p.name}</span>
-                      <span className="text-muted-foreground">{formatPrice(p.price)}</span>
+                      <span className="text-muted-foreground">
+                        {p.offer_price ? (
+                          <><span className="line-through text-muted-foreground/50 mr-1">{formatPrice(p.price)}</span>{formatPrice(p.offer_price)}</>
+                        ) : formatPrice(p.price)}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -372,7 +377,7 @@ const CreateOrderPanel = ({ open, onClose }: CreateOrderPanelProps) => {
 
               {selectedProduct && (
                 <div className="space-y-2 p-3 bg-muted/50 rounded-md">
-                  <p className="text-xs font-medium">{selectedProduct.name} — {formatPrice(selectedProduct.price)}</p>
+                  <p className="text-xs font-medium">{selectedProduct.name} — {formatPrice(selectedProduct.offer_price ?? selectedProduct.price)}</p>
                   <div className="flex flex-wrap gap-2">
                     {selectedProduct.product_variants.filter(v => v.size !== 'XXL').map((v) => (
                       <button
