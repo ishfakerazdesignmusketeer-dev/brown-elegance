@@ -134,6 +134,15 @@ const AdminOrders = () => {
         .range(from, to);
 
       if (statusFilter !== "all") query = query.eq("status", statusFilter);
+      if (sourceFilter !== "all") query = query.eq("source", sourceFilter);
+      if (paymentStatusFilter !== "all") {
+        if (paymentStatusFilter === "unpaid") {
+          query = query.or("payment_status.eq.unpaid,payment_status.is.null");
+        } else {
+          query = query.eq("payment_status", paymentStatusFilter);
+        }
+      }
+      if (paymentMethodFilter !== "all") query = query.eq("payment_method", paymentMethodFilter);
 
       if (debouncedSearch) {
         query = query.or(
