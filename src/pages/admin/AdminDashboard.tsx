@@ -67,7 +67,115 @@ const PAYMENT_STATUS_COLORS: Record<string, string> = {
   unpaid: "bg-red-100 text-red-700",
 };
 
-const AdminDashboard = () => {
+const CALC_DATE_OPTIONS = [
+  { value: "today", label: "Today" },
+  { value: "this_week", label: "This Week" },
+  { value: "this_month", label: "This Month" },
+  { value: "last_month", label: "Last Month" },
+  { value: "all", label: "All Time" },
+] as const;
+
+const SalesCalculator = ({ orders, isLoading }: { orders: Order[]; isLoading: boolean }) => {
+  const [dateRange, setDateRange] = useState<string>("this_month");
+  const [source, setSource] = useState("all");
+  const [paymentStatus, setPaymentStatus] = useState("all");
+
+  const filtered = useMemo(() => {
+    const now = new Date();
+    return orders.filter((o) => {
+      // Date filter
+      const created = new Date(o.created_at);
+      if (dateRange === "today" && created.toDateString() !== now.toDateString()) return false;
+      if (dateRange === "this_week" && created < startOfWeek(now, { weekStartsOn: 1 })) return false;
+      if (dateRange === "this_month" && created < startOfMonth(now)) return false;
+      if (dateRange === "last_month") {
+        const lmStart = startOfMonth(subMonths(now, 1));
+        const lmEnd = startOfMonth(now);
+        if (created < lmStart || created >= lmEnd) return false;
+      }
+      // Source filter
+      if (source !== "all" && (o.source || "Website") !== source) return false;
+      // Payment status filter
+      if (paymentStatus !== "all") {
+        const ps = o.payment_status || "unpaid";
+        if (paymentStatus === "unpaid" && ps !== "unpaid") return false;
+        if (paymentStatus !== "unpaid" && ps !== paymentStatus) return false;
+      }
+      return true;
+    });
+  }, [orders, dateRange, source, paymentStatus]);
+
+  const totalRevenue = filtered.reduce((s, o) => s + o.total, 0);
+  const completedRevenue = filtered.filter(o => o.status === "completed").reduce((s, o) => s + o.total, 0);
+  const paidRevenue = filtered.filter(o => o.payment_status === "paid").reduce((s, o) => s + o.total, 0);
+  const unpaidRevenue = filtered.filter(o => !o.payment_status || o.payment_status === "unpaid").reduce((s, o) => s + o.total, 0);
+  const partialDue = filtered.filter(o => o.payment_status === "partial").reduce((s, o) => s + o.total - (o.advance_amount || 0), 0);
+  const avgValue = filtered.length > 0 ? Math.round(totalRevenue / filtered.length) : 0;
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-5 mb-8">
+      <h2 className="text-sm font-semibold text-gray-900 mb-4">Sales Calculator</h2>
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <Select value={dateRange} onValueChange={setDateRange}>
+          <SelectTrigger className="h-8 w-[140px] text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {CALC_DATE_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={source} onValueChange={setSource}>
+          <SelectTrigger className="h-8 w-[130px] text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Sources</SelectItem>
+            <SelectItem value="Website">Website</SelectItem>
+            <SelectItem value="Instagram">Instagram</SelectItem>
+            <SelectItem value="Messenger">Messenger</SelectItem>
+            <SelectItem value="Phone">Phone</SelectItem>
+            <SelectItem value="Walk-in">Walk-in</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={paymentStatus} onValueChange={setPaymentStatus}>
+          <SelectTrigger className="h-8 w-[130px] text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Payment</SelectItem>
+            <SelectItem value="paid">Paid</SelectItem>
+            <SelectItem value="partial">Partial</SelectItem>
+            <SelectItem value="unpaid">Unpaid</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="border border-gray-100 rounded-lg p-3">
+          <p className="text-[10px] text-gray-500 uppercase tracking-wide">Orders</p>
+          <p className="text-xl font-semibold text-gray-900">{isLoading ? "—" : filtered.length}</p>
+        </div>
+        <div className="border border-gray-100 rounded-lg p-3">
+          <p className="text-[10px] text-gray-500 uppercase tracking-wide">Total Revenue</p>
+          <p className="text-xl font-semibold text-gray-900">{isLoading ? "—" : formatPrice(totalRevenue)}</p>
+        </div>
+        <div className="border border-gray-100 rounded-lg p-3">
+          <p className="text-[10px] text-gray-500 uppercase tracking-wide">Paid Revenue</p>
+          <p className="text-xl font-semibold text-green-600">{isLoading ? "—" : formatPrice(paidRevenue)}</p>
+        </div>
+        <div className="border border-gray-100 rounded-lg p-3">
+          <p className="text-[10px] text-gray-500 uppercase tracking-wide">Unpaid + Due</p>
+          <p className="text-xl font-semibold text-red-600">{isLoading ? "—" : formatPrice(unpaidRevenue + partialDue)}</p>
+        </div>
+        <div className="border border-gray-100 rounded-lg p-3">
+          <p className="text-[10px] text-gray-500 uppercase tracking-wide">Avg Order</p>
+          <p className="text-xl font-semibold text-gray-900">{isLoading ? "—" : formatPrice(avgValue)}</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
   const queryClient = useQueryClient();
 
   const { data: orders = [], isLoading } = useQuery({
