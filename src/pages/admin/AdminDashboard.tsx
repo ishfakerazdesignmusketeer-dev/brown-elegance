@@ -1,7 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatPrice } from "@/lib/format";
-import { formatDistanceToNow, format, subDays, startOfDay } from "date-fns";
+import { formatDistanceToNow, format, subDays, startOfDay, startOfWeek, startOfMonth, subMonths } from "date-fns";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { AlertTriangle } from "lucide-react";
