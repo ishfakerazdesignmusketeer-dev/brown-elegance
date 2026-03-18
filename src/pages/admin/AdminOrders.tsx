@@ -122,7 +122,7 @@ const AdminOrders = () => {
 
   // Orders list
   const { data: ordersResult, isLoading } = useQuery({
-    queryKey: ["admin-orders-list", statusFilter, debouncedSearch, page, dateFilter, customFrom?.toISOString(), customTo?.toISOString()],
+    queryKey: ["admin-orders-list", statusFilter, debouncedSearch, page, dateFilter, customFrom?.toISOString(), customTo?.toISOString(), sourceFilter, paymentStatusFilter, paymentMethodFilter],
     queryFn: async () => {
       const from = (page - 1) * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
