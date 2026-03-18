@@ -93,6 +93,9 @@ const AdminOrders = () => {
   const [inlineStatusOpen, setInlineStatusOpen] = useState<string | null>(null);
   const [showCreatePanel, setShowCreatePanel] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [sourceFilter, setSourceFilter] = useState("all");
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState("all");
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState("all");
 
   useEffect(() => {
     const t = setTimeout(() => { setDebouncedSearch(search); setPage(1); }, 400);
