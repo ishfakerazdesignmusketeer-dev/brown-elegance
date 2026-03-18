@@ -1,48 +1,58 @@
 
 
-# Sales Filters for Orders + Dashboard Sales Calculator
+# Fix: Print Invoice, Stock Double-Deduction, Currency Label
 
-## Changes Overview
+## Issue 1 — Admin Print Shows Blank Page
 
-Two files to modify, no database changes needed.
+**Root cause**: `handlePrint` in `OrderDetailModal.tsx` (line 164-167) calls `window.print()`, which prints the dark admin UI.
 
----
+**Fix**: Add `printInvoicePDF` to `generateInvoicePDF.ts` — identical PDF logic but opens in a new browser tab via `doc.output('bloburl')` instead of `doc.save()`. Update `handlePrint` in `OrderDetailModal.tsx` to call `printInvoicePDF(order)`.
 
-### 1. AdminOrders.tsx — Add Source, Payment Status, and Payment Method Filters
-
-**Current state**: Only has status tabs, date filter, and search. No filters for source, payment status, or payment method.
-
-**Add 3 new filter dropdowns** in the toolbar area (line ~302-378), alongside the existing date filter:
-
-- **Source filter** (`sourceFilter` state): Options — All Sources, Website, Instagram, Messenger, Phone, Walk-in
-- **Payment Status filter** (`paymentStatusFilter` state): Options — All Payment, Paid, Partial, Unpaid
-- **Payment Method filter** (`paymentMethodFilter` state): Options — All Methods, COD, bKash, Nagad
-
-Each filter applies to the Supabase query (lines 127-155):
-- `sourceFilter !== "all"` → `.eq("source", sourceFilter)`
-- `paymentStatusFilter !== "all"` → `.eq("payment_status", paymentStatusFilter)` (handle "unpaid" as `is.null` or `eq`)
-- `paymentMethodFilter !== "all"` → `.eq("payment_method", paymentMethodFilter)`
-
-Add a **filtered sales summary bar** above the table showing: total orders in current filter, total revenue, paid amount, unpaid amount — so admin can quickly see sales for any combination of filters.
+### Files
+- `src/lib/generateInvoicePDF.ts` — add `printInvoicePDF` export
+- `src/components/admin/OrderDetailModal.tsx` — import and use `printInvoicePDF`
 
 ---
 
-### 2. AdminDashboard.tsx — Add Sales Calculator Section
+## Issue 2 — Stock Double Deduction (CRITICAL)
 
-**Add a new "Sales Calculator" card** after the existing stats rows (around line 254), with:
+**Root cause**: Migration `20260227102639` tried to drop the old triggers but used wrong names:
+- Drops `decrement_stock_on_order` — but the actual trigger is named `auto_decrement_stock`
+- Drops `restore_stock_on_cancel` — but the actual trigger is named `restore_stock_on_order_cancel`
 
-- Date range picker (today, this week, this month, last month, custom)
-- Source filter dropdown
-- Payment status filter dropdown
-- Display calculated metrics: Total Orders, Total Revenue, Paid Revenue, Unpaid Revenue, Average Order Value
+So the old `auto_decrement_stock` trigger (INSERT on order_items → immediately deduct stock) is **still active**. When an order is placed, stock is deducted immediately. Then when status changes to "confirmed", the new `handle_stock_on_status_change` trigger deducts again. **This is why 1 piece ordered = 2 pieces deducted.**
 
-This uses the already-fetched `orders` array, filtered client-side by selected criteria.
+**Fix**: Run a migration to drop the old triggers by their correct names:
+
+```sql
+DROP TRIGGER IF EXISTS auto_decrement_stock ON public.order_items;
+DROP TRIGGER IF EXISTS restore_stock_on_order_cancel ON public.orders;
+DROP FUNCTION IF EXISTS decrement_stock_on_order();
+DROP FUNCTION IF EXISTS restore_stock_on_cancel();
+```
+
+This leaves only the correct `handle_stock_on_status_change` trigger, which deducts on "confirmed" and restores on "cancelled".
 
 ---
 
-### Files Changed
-- `src/pages/admin/AdminOrders.tsx` — add 3 filter dropdowns + filtered summary bar
-- `src/pages/admin/AdminDashboard.tsx` — add sales calculator section
+## Issue 3 — Currency Shows "$45.50 BDT"
 
-No database or other file changes.
+**Root cause**: Multiple storefront files append a hardcoded ` BDT` or `<span>BDT</span>` after calling `formatPrice()`. Since `formatPrice` from CurrencyContext already returns the symbol (`৳` or `$`), the suffix causes `$45.50 BDT`.
+
+**Fix**: Remove the hardcoded ` BDT` suffix from:
+- `src/components/home/ProductGrid.tsx` — 3 occurrences
+- `src/pages/ProductDetail.tsx` — 2 `<span>BDT</span>` elements
+- `src/pages/Collections.tsx` — 3 occurrences
+- `src/components/cart/AddToCartModal.tsx` — 2 occurrences
+- `src/components/cart/CartReminder.tsx` — 1 occurrence
+
+---
+
+## Summary of changes
+1. `src/lib/generateInvoicePDF.ts` — add `printInvoicePDF`
+2. `src/components/admin/OrderDetailModal.tsx` — use `printInvoicePDF` in `handlePrint`
+3. DB migration — drop old stock triggers by correct names
+4. 5 storefront files — remove hardcoded ` BDT` suffix
+
+Nothing else changes.
 
