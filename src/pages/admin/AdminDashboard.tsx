@@ -175,6 +175,7 @@ const SalesCalculator = ({ orders, isLoading }: { orders: Order[]; isLoading: bo
   );
 };
 
+const AdminDashboard = () => {
 
   const queryClient = useQueryClient();
 
