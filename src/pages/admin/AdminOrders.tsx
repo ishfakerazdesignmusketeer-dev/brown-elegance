@@ -102,7 +102,7 @@ const AdminOrders = () => {
     return () => clearTimeout(t);
   }, [search]);
 
-  useEffect(() => { setPage(1); }, [statusFilter, dateFilter, customFrom, customTo]);
+  useEffect(() => { setPage(1); }, [statusFilter, dateFilter, customFrom, customTo, sourceFilter, paymentStatusFilter, paymentMethodFilter]);
 
   // Status counts
   const { data: counts = {} } = useQuery({
