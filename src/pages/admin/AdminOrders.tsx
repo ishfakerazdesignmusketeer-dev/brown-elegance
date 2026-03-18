@@ -389,6 +389,75 @@ const AdminOrders = () => {
         </div>
       </div>
 
+      {/* Extra Filters Row */}
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <Select value={sourceFilter} onValueChange={setSourceFilter}>
+          <SelectTrigger className="h-8 w-[140px] text-xs">
+            <SelectValue placeholder="All Sources" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Sources</SelectItem>
+            <SelectItem value="Website">Website</SelectItem>
+            <SelectItem value="Instagram">Instagram</SelectItem>
+            <SelectItem value="Messenger">Messenger</SelectItem>
+            <SelectItem value="Phone">Phone</SelectItem>
+            <SelectItem value="Walk-in">Walk-in</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={paymentStatusFilter} onValueChange={setPaymentStatusFilter}>
+          <SelectTrigger className="h-8 w-[140px] text-xs">
+            <SelectValue placeholder="All Payment" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Payment</SelectItem>
+            <SelectItem value="paid">Paid</SelectItem>
+            <SelectItem value="partial">Partial</SelectItem>
+            <SelectItem value="unpaid">Unpaid</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={paymentMethodFilter} onValueChange={setPaymentMethodFilter}>
+          <SelectTrigger className="h-8 w-[150px] text-xs">
+            <SelectValue placeholder="All Methods" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Methods</SelectItem>
+            <SelectItem value="COD">COD</SelectItem>
+            <SelectItem value="bKash">bKash</SelectItem>
+            <SelectItem value="Nagad">Nagad</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {(sourceFilter !== "all" || paymentStatusFilter !== "all" || paymentMethodFilter !== "all") && (
+          <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground" onClick={() => { setSourceFilter("all"); setPaymentStatusFilter("all"); setPaymentMethodFilter("all"); }}>
+            Clear filters
+          </Button>
+        )}
+      </div>
+
+      {/* Filtered Summary */}
+      {(sourceFilter !== "all" || paymentStatusFilter !== "all" || paymentMethodFilter !== "all" || dateFilter !== "all") && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+          <div className="bg-background border border-border rounded-lg p-3">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Filtered Orders</p>
+            <p className="text-lg font-semibold text-foreground">{totalCount}</p>
+          </div>
+          <div className="bg-background border border-border rounded-lg p-3">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Total Revenue</p>
+            <p className="text-lg font-semibold text-foreground">{formatPrice(orders.reduce((s, o) => s + o.total, 0))}</p>
+          </div>
+          <div className="bg-background border border-border rounded-lg p-3">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Paid</p>
+            <p className="text-lg font-semibold text-green-600">{formatPrice(orders.filter(o => o.payment_status === "paid").reduce((s, o) => s + o.total, 0))}</p>
+          </div>
+          <div className="bg-background border border-border rounded-lg p-3">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Unpaid / Due</p>
+            <p className="text-lg font-semibold text-red-600">{formatPrice(orders.filter(o => !o.payment_status || o.payment_status === "unpaid" || o.payment_status === "partial").reduce((s, o) => s + o.total - ((o as any).advance_amount || 0), 0))}</p>
+          </div>
+        </div>
+      )}
+
       <div className="text-xs text-muted-foreground mb-2">
         {totalCount} items — Page {page} of {totalPages || 1}
       </div>
