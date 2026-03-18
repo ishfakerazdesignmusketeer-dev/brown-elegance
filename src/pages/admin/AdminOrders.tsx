@@ -426,6 +426,7 @@ const AdminOrders = () => {
             <SelectItem value="COD">COD</SelectItem>
             <SelectItem value="bKash">bKash</SelectItem>
             <SelectItem value="Nagad">Nagad</SelectItem>
+            <SelectItem value="In Store">In Store</SelectItem>
           </SelectContent>
         </Select>
 
